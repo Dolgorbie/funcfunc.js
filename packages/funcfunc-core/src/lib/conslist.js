@@ -1,3 +1,7 @@
+// core ================
+
+import { toUInt } from "./asfunc";
+
 export class Pair {
   constructor(car, cdr) {
     this._car = car;
@@ -112,6 +116,55 @@ export function at(list, index) {
     acc = cdr(acc);
   }
   return isPair(acc) ? car(acc) : void 0;
+}
+
+// creation ================
+
+export function listOf(...values) {
+  const { length } = values;
+  let result = null;
+  for (let i = length - 1; i >= 0; --i) {
+    result = cons(values[i], result);
+  }
+  return result;
+}
+
+export function repeat(count, value) {
+  const n = toUInt(count);
+  let result = null;
+  for (let i = 0; i < n; ++i) {
+    result = cons(value, result);
+  }
+  return result;
+}
+
+export function iota(count, start = 0, step = 1) {
+  const n = toUInt(count);
+  const a0 = +start;
+  const d = +step;
+
+  let result = null;
+  for (let i = n - 1; i >= 0; --i) {
+    result = cons(d * i + a0, result);
+  }
+
+  return result;
+}
+
+// splicing ================
+
+export function take(count, list) {
+  const n = toUInt(count);
+  let tmp = list;
+  let result = null;
+  for (let i = 0; i < n; ++i) {
+    if (!isPair(tmp)) {
+      return list;
+    }
+    result = cons(car(tmp), result);
+    tmp = cdr(tmp);
+  }
+  return reverseI(result);
 }
 
 export function concat(list0, ...lists) {

@@ -155,3 +155,7 @@ export function mod(x0, ...xs) {
 export function mod2(x0, x1) {
   return ((x0 % x1) + x1) % x1
 }
+
+export function toUInt(value) {
+  return (value | 0) & ~(value >> 31);
+}

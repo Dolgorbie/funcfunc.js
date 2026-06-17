@@ -1,5 +1,7 @@
 // helpers ================
 
+import { toUInt } from "./asfunc";
+
 function _safeReturn(iter) {
   if (typeof iter.return === "function") {
     iter.return();
@@ -55,7 +57,7 @@ class _RepeatInfIter extends _IterBase {
 class _RepeatIter extends _IterBase {
   constructor(count, value) {
     super();
-    this._count = (count | 0) & ~(count >> 31);
+    this._count = toUInt(count);
     this._value = value;
     this._i = 0;
   }
@@ -98,7 +100,7 @@ class _IotaInfIter extends _IterBase {
 class _IotaIter extends _IterBase {
   constructor(count, start, step) {
     super();
-    this._count = (count | 0) & ~(count >> 31);
+    this._count = toUInt(count);
     this._start = +start;
     this._step = +step;
     this._i = 0;
@@ -116,7 +118,7 @@ class _IotaIter extends _IterBase {
 // splicing ================
 
 export function* take(count, iterable) {
-  const n = (count | 0) & ~(count >> 31);
+  const n = toUInt(count);
   const iter = iterable[Symbol.iterator]();
 
   try {
@@ -134,7 +136,7 @@ export function* take(count, iterable) {
 }
 
 export function* drop(count, iterable) {
-  const n = (count | 0) & ~(count >> 31);
+  const n = toUInt(count);
   const iter = iterable[Symbol.iterator]();
 
   try {

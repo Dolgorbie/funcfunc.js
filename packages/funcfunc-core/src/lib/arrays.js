@@ -1,7 +1,8 @@
 // helpers ================
 
+import { toUInt } from "./asfunc";
+
 const _slice = Array.prototype.slice;
-const _entries = Array.prototype.entries;
 
 function _lengthMin(array0, arrays) {
   let len = array0.length;
@@ -14,10 +15,6 @@ function _lengthMin(array0, arrays) {
   return len;
 }
 
-function _asUInt(value) {
-  return (value | 0) & ~(value >> 31);
-}
-
 // creation ================
 
 export function arrayOf(...values) {
@@ -25,11 +22,11 @@ export function arrayOf(...values) {
 }
 
 export function repeat(count, value) {
-  return new Array(_asUInt(count)).fill(value);
+  return new Array(toUInt(count)).fill(value);
 }
 
 export function iota(count, start = 0, step = 1) {
-  const n = _asUInt(count);
+  const n = toUInt(count);
   const a0 = +start;
   const d = +step;
 
@@ -44,7 +41,7 @@ export function iota(count, start = 0, step = 1) {
 // splicing ================
 
 export function take(count, array) {
-  const n = _asUInt(count);
+  const n = toUInt(count);
   if (n >= array.length) {
     return array;
   }
@@ -52,7 +49,7 @@ export function take(count, array) {
 }
 
 export function drop(count, array) {
-  const n = _asUInt(count);
+  const n = toUInt(count);
   if (n === 0) {
     return array;
   }
@@ -232,6 +229,26 @@ export function map2(proc, array0, array1) {
 }
 
 export function flatMap(proc, array0, ...arrays) {
+  if (arrays.length === 0) {
+    return flatMap1(proc, array0);
+  }
+  return _flatMapN(proc, array0, arrays);
+}
+
+export function flatMap1(proc, array0) {
+  const result = [];
+  const { length } = array0;
+  for (let i = 0; i < length; ++i) {
+    const tmp = proc(array0[i]);
+    const n = tmp.length;
+    for (let j = 0; j < n; ++j) {
+      result.push(tmp[j]);
+    }
+  }
+  return result;
+}
+
+function _flatMapN(proc, array0, arrays) {
   const nArrays = arrays.length;
 
   const length = _lengthMin(array0, arrays);
