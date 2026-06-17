@@ -1,14 +1,21 @@
 // helpers ================
 
-function lengthMin(arr0, arrs) {
-  let len = arr0.length;
+const _slice = Array.prototype.slice;
+const _entries = Array.prototype.entries;
 
-  const n = arrs.length;
+function _lengthMin(array0, arrays) {
+  let len = array0.length;
+  const n = arrays.length;
+
   for (let i = 0; i < n; ++i) {
-    len = Math.min(len, arrs[i].length);
+    len = Math.min(len, arrays[i].length);
   }
 
   return len;
+}
+
+function _asUInt(value) {
+  return (value | 0) & ~(value >> 31);
 }
 
 // creation ================
@@ -18,11 +25,11 @@ export function arrayOf(...values) {
 }
 
 export function repeat(count, value) {
-  return new Array((count | 0) & ~(count >> 31)).fill(value);
+  return new Array(_asUInt(count)).fill(value);
 }
 
 export function iota(count, start = 0, step = 1) {
-  const n = (count | 0) & ~(count >> 31);
+  const n = _asUInt(count);
   const a0 = +start;
   const d = +step;
 
@@ -36,20 +43,20 @@ export function iota(count, start = 0, step = 1) {
 
 // splicing ================
 
-export function take(count, arr) {
-  const n = (count | 0) & ~(count >> 31);
-  if (n >= arr.length) {
-    return arr;
+export function take(count, array) {
+  const n = _asUInt(count);
+  if (n >= array.length) {
+    return array;
   }
-  return arr.slice(0, n);
+  return _slice.call(array, 0, n);
 }
 
-export function drop(count, arr) {
-  const n = (count | 0) & ~(count >> 31);
+export function drop(count, array) {
+  const n = _asUInt(count);
   if (n === 0) {
-    return arr;
+    return array;
   }
-  return arr.slice(n);
+  return _slice.call(array, n);
 }
 
 // composition ================
@@ -64,20 +71,20 @@ export function flat(arraysOfArray) {
     }
     default: {
       let length = 0;
-      const n = arraysOfArray.length;
-      for (let i = 0; i < n; ++i) {
+      const nOuter = arraysOfArray.length;
+      for (let i = 0; i < nOuter; ++i) {
         length += arraysOfArray[i].length;
       }
 
       const result = new Array(length);
       let jOffset = 0;
-      for (let i = 0; i < n; ++i) {
+      for (let i = 0; i < nOuter; ++i) {
         const ai = arraysOfArray[i];
-        const ni = ai.length;
-        for (let j = 0; j < ni; ++j) {
+        const nInner = ai.length;
+        for (let j = 0; j < nInner; ++j) {
           result[j + jOffset] = ai[j];
         }
-        jOffset += ni;
+        jOffset += nInner;
       }
       return result;
     }
@@ -88,16 +95,16 @@ export function concat(...arrays) {
   return flat(arrays);
 }
 
-export function zip(arr0, ...arrs) {
-  const narrs = arrs.length;
-  const length = lengthMin(arr0, arrs);
+export function zip(array0, ...arrays) {
+  const nArrays = arrays.length;
+  const length = _lengthMin(array0, arrays);
 
   const result = new Array(length);
   for (let i = 0; i < length; ++i) {
-    const acc = new Array(narrs + 1);
-    acc[0] = arr0[i];
-    for (let j = 0; j < narrs; ++j) {
-      acc[j + 1] = arrs[j][i];
+    const acc = new Array(nArrays + 1);
+    acc[0] = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      acc[j + 1] = arrays[j][i];
     }
     result[i] = acc;
   }
@@ -105,11 +112,17 @@ export function zip(arr0, ...arrs) {
   return result;
 }
 
+export function entries(array0, ...arrays) {
+  return zip(iota(_lengthMin(array0, arrays)), array0, ...arrays);
+}
+
 // filtering ================
 
 export function filter(pred, array) {
+  const { length } = array;
   const result = [];
-  for (const v of array) {
+  for (let i = 0; i < length; ++i) {
+    const v = array[i];
     if (pred(v)) {
       result.push(v);
     }
@@ -119,12 +132,16 @@ export function filter(pred, array) {
 
 export function findTail(pred, array) {
   const { length } = array;
-  for (let i = 0; i < length; ++i) {
+  let i;
+  for (i = 0; i < length; ++i) {
     if (pred(array[i])) {
-      return array.splice(i);
+      break;
     }
   }
-  return void 0;
+  if (i === 0) {
+    return array;
+  }
+  return _slice.call(array, i);
 }
 
 export function takeWhile(pred, array) {
@@ -138,70 +155,95 @@ export function takeWhile(pred, array) {
   if (i === length) {
     return array;
   }
-  return array.slice(0, i);
+  return _slice.call(array, 0, i);
+}
+
+export function dropWhile(pred, array) {
+  const { length } = array;
+  let i;
+  for (i = 0; i < length; ++i) {
+    if (!pred(array[i])) {
+      break;
+    }
+  }
+  if (i === 0) {
+    return array;
+  }
+  return _slice.call(array, i);
+}
+
+export function unique(array) {
+  const { length } = array;
+  const resultSet = new Set();
+
+  for (let i = 0; i < length; ++i) {
+    resultSet.add(array[i]);
+  }
+
+  return [...resultSet];
 }
 
 // mapping ================
 
-export function map(proc, arr0, ...arrs) {
-  const narrs = arrs.length;
+export function map(proc, array0, ...arrays) {
+  const nArrays = arrays.length;
 
-  switch (arrs.length) {
+  switch (nArrays) {
     case 0: {
-      return map1(proc, arr0);
+      return map1(proc, array0);
     }
     case 1: {
-      return map2(proc, arr0, arrs[0]);
+      return map2(proc, array0, arrays[0]);
     }
     default: {
-      const length = lengthMin(arr0, arrs);
+      const length = _lengthMin(array0, arrays);
 
       const result = new Array(length);
-      const arrsi = new Array(narrs + 1);
+      const arrayI = new Array(nArrays + 1);
       for (let i = 0; i < length; ++i) {
-        arrsi[0] = arr0[i];
-        for (let j = 0; j < narrs; ++j) {
-          arrsi[j + 1] = arrs[j][i];
+        arrayI[0] = array0[i];
+        for (let j = 0; j < nArrays; ++j) {
+          arrayI[j + 1] = arrays[j][i];
         }
 
-        result[i] = proc(...arrsi);
+        result[i] = proc(...arrayI);
       }
       return result;
     }
   }
 }
 
-export function map1(proc, arr0) {
-  const { length } = arr0;
+export function map1(proc, array0) {
+  const { length } = array0;
   const result = new Array(length);
   for (let i = 0; i < length; ++i) {
-    result[i] = proc(arr0[i]);
+    result[i] = proc(array0[i]);
   }
   return result;
 }
 
-export function map2(proc, arr0, arr1) {
-  const length = Math.min(arr0.length, arr1.length);
+export function map2(proc, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
   const result = new Array(length);
   for (let i = 0; i < length; ++i) {
-    result[i] = proc(arr0[i], arr1[i]);
+    result[i] = proc(array0[i], array1[i]);
   }
   return result;
 }
 
-export function flatMap(proc, arr0, ...arrs) {
-  const narrs = arrs.length;
+export function flatMap(proc, array0, ...arrays) {
+  const nArrays = arrays.length;
 
-  const length = lengthMin(arr0, arrs);
+  const length = _lengthMin(array0, arrays);
   const result = [];
-  const arrsi = new Array(narrs + 1);
+  const arrayI = new Array(nArrays + 1);
   for (let i = 0; i < length; ++i) {
-    arrsi[0] = arr0[i];
-    for (let j = 0; j < narrs; ++j) {
-      arrsi[j + 1] = arrs[j][i];
+    arrayI[0] = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      arrayI[j + 1] = arrays[j][i];
     }
 
-    const tmp = proc(...arrsi);
+    const tmp = proc(...arrayI);
     const ntmp = tmp.length;
     for (let j = 0; j < ntmp; ++j) {
       result.push(tmp[j]);
@@ -209,4 +251,21 @@ export function flatMap(proc, arr0, ...arrs) {
   }
 
   return result;
+}
+
+export function reduce(proc, init, array0, ...arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  let acc = init;
+  const arrayI = new Array(nArrays + 2);
+  for (let i = 0; i < length; ++i) {
+    arrayI[0] = acc;
+    arrayI[1] = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      arrayI[j + 2] = arrays[j][i];
+    }
+    acc = proc(...arrayI);
+  }
+  return acc;
 }
