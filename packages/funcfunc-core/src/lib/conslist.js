@@ -158,11 +158,36 @@ export function take(count, list) {
   let tmp = list;
   let result = null;
   for (let i = 0; i < n; ++i) {
-    if (!isPair(tmp)) {
+    if (tmp === null) {
       return list;
+    }
+    if (!isPair(tmp)) {
+      return reverseI(result);
     }
     result = cons(car(tmp), result);
     tmp = cdr(tmp);
+  }
+  return tmp === null ? list : reverseI(result);
+}
+
+export function drop(count, list) {
+  const n = toUInt(count);
+  let result = list;
+  for (let i = 0; i < n; ++i) {
+    if (!isPair(result)) {
+      return result;
+    }
+    result = cdr(result);
+  }
+  return result;
+}
+
+// composition ================
+
+export function flat(listOfList) {
+  let result = null;
+  for (let tmp = listOfList; isPair(tmp); tmp = cdr(tmp)) {
+    result = reverse(car(tmp), result);
   }
   return reverseI(result);
 }
