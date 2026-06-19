@@ -1,6 +1,7 @@
 // core ================
 
 import { toUInt } from "./asfunc";
+import { force, isDlayed } from "./delay";
 
 export class Pair {
   constructor(car, cdr) {
@@ -80,7 +81,13 @@ export function car(pair) {
 }
 
 export function cdr(pair) {
-  return pair._cdr;
+  const { _cdr } = pair;
+  if (isDlayed(_cdr)) {
+    const v = force(_cdr);
+    pair._cdr = v;
+    return v;
+  }
+  return _cdr;
 }
 
 export function setCar(pair, value) {
@@ -192,6 +199,30 @@ export function flat(listOfList) {
   return reverseI(result);
 }
 
+export function flatI(listOfList) {
+  let acc = null;
+  let tmp;
+  for (tmp = listOfList; isPair(tmp); tmp = cdr(tmp)) {
+    const x = car(tmp);
+    if (isPair(x)) {
+      acc = x;
+      break;
+    }
+  }
+
+  if (!isPair(acc)) {
+    return acc;
+  }
+
+  let result = acc;
+  for (; isPair(tmp); tmp = cdr(tmp)) {
+    acc = lastPair(acc);
+    setCdr(acc, car(tmp));
+  }
+
+  return result;
+}
+
 export function concat(list0, ...lists) {
   const nlists = lists.length;
   if (nlists === 0) {
@@ -230,6 +261,61 @@ export function concatI(list0, ...lists) {
 
   return result;
 }
+
+export function zip(list0, ...lists) {
+  const nlists = lists.length;
+  const cars = new Array(nlists + 1);
+  let result = null;
+  Outer: for (let l0 = list0; isPair(l0); l0 = cdr(l0)) {
+    cars[0] = car(l0);
+    for (let i = 0; i < nlists; ++i) {
+      const li = lists[i];
+      if (!isPair(li)) {
+        break Outer;
+      }
+      cars[i + 1] = car(li);
+    }
+    result = cons(listOf(...cars), result);
+  }
+  return reverseI(result);
+}
+
+export function entries(list0, ...lists) {
+  const nlists = lists.length;
+  const cars = new Array(nlists + 2);
+  let index = 0;
+  let result = null;
+  Outer: for (let l0 = list0; isPair(l0); l0 = cdr(l0)) {
+    cars[0] = index;
+    cars[1] = car(l0);
+    for (let i = 0; i < nlists; ++i) {
+      const li = lists[i];
+      if (!isPair(li)) {
+        break Outer;
+      }
+      cars[i + 1] = car(li);
+    }
+    result = cons(listOf(...cars), result);
+    index += 1;
+  }
+  return reverseI(result);
+}
+
+// filtering ================
+
+export function filter(pred, list) {
+  let result = null;
+  for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
+    const x = car(tmp);
+    if (pred(x)) {
+      result = cons(x, result);
+    }
+  }
+  return reverseI(result);
+}
+
+
+// misc ================
 
 export function reverse(list, last = null) {
   let acc = last;

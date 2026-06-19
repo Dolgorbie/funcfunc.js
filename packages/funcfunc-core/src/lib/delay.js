@@ -1,7 +1,9 @@
+import { map as amap } from "./arrays";
+
 const _lazyTag = Symbol("lazy");
 const _eagerTag = Symbol("eager");
 
-export class DPromise {
+export class Delayed {
   constructor(content) {
     this._content = content;
   }
@@ -20,44 +22,44 @@ export class DPromise {
   }
 
   static resolve(value) {
-    return new DPromise({ _type: _eagerTag, _payload: value });
+    return new Delayed({ _type: _eagerTag, _payload: value });
   }
 }
 
-export function isDPromise(x) {
-  return x instanceof DPromise;
+export function isDlayed(x) {
+  return x instanceof Delayed;
 }
 
-export function delayForce(proc) {
-  return _delayForce((...args) => {
-    const result = proc(...args);
-    if (isDPromise(result)) {
+export function delayForce(thunk) {
+  return _delayForce(() => {
+    const result = thunk();
+    if (isDlayed(result)) {
       return result;
     }
-    throw TypeError(`expects dpromise, but got: ${result}`);
+    throw TypeError(`expects delayed, but got: ${result}`);
   });
 }
 
-export function delay(proc) {
-  return _delayForce((...args) => DPromise.resolve(proc(...args)));
+export function delay(thunk) {
+  return _delayForce(() => Delayed.resolve(thunk()));
 }
 
-export function force(dpromise) {
-  return dpromise._force();
+export function force(delayed) {
+  return delayed._force();
 }
 
-export function map(f, ...dpromises) {
-  return delay((...args) => f(...args.map(force)))(...dpromises);
+export function map(f, ...delayeds) {
+  return delay(() => f(...amap(force, delayeds)));
 }
 
-export function forEach(f, ...ks) {
-  f(...ks.map(force));
+export function forEach(f, ...delayeds) {
+  f(...amap(force, delayeds));
 }
 
-export function flatMap(f, ...dpromises) {
-  return delayForce((...args) => f(...args.map(force)))(...dpromises);
+export function flatMap(f, ...delayeds) {
+  return delayForce(() => f(...amap(force, delayeds)));
 }
 
-function _delayForce(proc) {
-  return (...args) => new DPromise({ _type: _lazyTag, _payload: () => proc(...args) });
+function _delayForce(thunk) {
+  return new Delayed({ _type: _lazyTag, _payload: () => thunk() });
 }
