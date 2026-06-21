@@ -56,6 +56,23 @@ export function drop(count, array) {
   return _slice.call(array, n);
 }
 
+export function takeRight(count, array) {
+  const n = toUInt(count);
+  const { length } = array;
+  if (n >= length) {
+    return array;
+  }
+  return _slice.call(array, length - n);
+}
+
+export function dropRight(count, array) {
+  const n = toUInt(count);
+  if (n === 0) {
+    return array;
+  }
+  return _slice.call(array, 0, array.length - n);
+}
+
 // composition ================
 
 export function flat(arraysOfArray) {
@@ -135,6 +152,7 @@ export function findTail(pred, array) {
       break;
     }
   }
+
   if (i === 0) {
     return array;
   }
@@ -196,14 +214,14 @@ export function map(proc, array0, ...arrays) {
       const length = _lengthMin(array0, arrays);
 
       const result = new Array(length);
-      const arrayI = new Array(nArrays + 1);
+      const values = new Array(nArrays + 1);
       for (let i = 0; i < length; ++i) {
-        arrayI[0] = array0[i];
+        values[0] = array0[i];
         for (let j = 0; j < nArrays; ++j) {
-          arrayI[j + 1] = arrays[j][i];
+          values[j + 1] = arrays[j][i];
         }
 
-        result[i] = proc(...arrayI);
+        result[i] = proc(...values);
       }
       return result;
     }
@@ -229,10 +247,17 @@ export function map2(proc, array0, array1) {
 }
 
 export function flatMap(proc, array0, ...arrays) {
-  if (arrays.length === 0) {
-    return flatMap1(proc, array0);
+  switch (arrays.length) {
+    case 0: {
+      return flatMap1(proc, array0);
+    }
+    case 1: {
+      return flatMap2(proc, array0, arrays[0]);
+    }
+    default: {
+      return _flatMapN(proc, array0, arrays);
+    }
   }
-  return _flatMapN(proc, array0, arrays);
 }
 
 export function flatMap1(proc, array0) {
@@ -248,19 +273,32 @@ export function flatMap1(proc, array0) {
   return result;
 }
 
+export function flatMap2(proc, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  const result = [];
+  for (let i = 0; i < length; ++i) {
+    const tmp = proc(array0[i], array1[i]);
+    const n = tmp.length;
+    for (let j = 0; j < n; ++j) {
+      result.push(tmp[j]);
+    }
+  }
+  return result;
+}
+
 function _flatMapN(proc, array0, arrays) {
   const nArrays = arrays.length;
 
   const length = _lengthMin(array0, arrays);
   const result = [];
-  const arrayI = new Array(nArrays + 1);
+  const values = new Array(nArrays + 1);
   for (let i = 0; i < length; ++i) {
-    arrayI[0] = array0[i];
+    values[0] = array0[i];
     for (let j = 0; j < nArrays; ++j) {
-      arrayI[j + 1] = arrays[j][i];
+      values[j + 1] = arrays[j][i];
     }
 
-    const tmp = proc(...arrayI);
+    const tmp = proc(...values);
     const ntmp = tmp.length;
     for (let j = 0; j < ntmp; ++j) {
       result.push(tmp[j]);
@@ -270,19 +308,152 @@ function _flatMapN(proc, array0, arrays) {
   return result;
 }
 
+// reduction ================
+
 export function reduce(proc, init, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return reduce1(proc, init, array0);
+    }
+    case 1: {
+      return reduce2(proc, init, array0, arrays[0]);
+    }
+    default: {
+      return _reduceN(proc, init, array0, arrays);
+    }
+  }
+}
+
+export function reduce1(proc, init, array0) {
+  const { length } = array0;
+  let acc = init;
+
+  for (let i = 0; i < length; ++i) {
+    acc = proc(acc, array0[i]);
+  }
+
+  return acc;
+}
+
+export function reduce2(proc, init, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  let acc = init;
+
+  for (let i = 0; i < length; ++i) {
+    acc = proc(acc, array0[i], array1[i]);
+  }
+
+  return acc;
+}
+
+function _reduceN(proc, init, array0, arrays) {
   const nArrays = arrays.length;
 
   const length = _lengthMin(array0, arrays);
   let acc = init;
-  const arrayI = new Array(nArrays + 2);
+  const values = new Array(nArrays + 2);
   for (let i = 0; i < length; ++i) {
-    arrayI[0] = acc;
-    arrayI[1] = array0[i];
+    values[0] = acc;
+    values[1] = array0[i];
     for (let j = 0; j < nArrays; ++j) {
-      arrayI[j + 2] = arrays[j][i];
+      values[j + 2] = arrays[j][i];
     }
-    acc = proc(...arrayI);
+    acc = proc(...values);
   }
   return acc;
+}
+
+export function reduceRight(proc, init, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return reduceRight1(proc, init, array0);
+    }
+    case 1: {
+      return reduceRight2(proc, init, array0, arrays[0]);
+    }
+    default: {
+      return _reduceRightN(proc, init, array0, arrays);
+    }
+  }
+}
+
+export function reduceRight1(proc, init, array0) {
+  const { length } = array0;
+  let acc = init;
+
+  for (let i = length - 1; i >= 0; --i) {
+    acc = proc(acc, array0[i]);
+  }
+
+  return acc;
+}
+
+export function reduceRight2(proc, init, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  let acc = init;
+
+  for (let i = length; i >= 0; --i) {
+    acc = proc(acc, array0[i], array1[i]);
+  }
+
+  return acc;
+}
+
+function _reduceRightN(proc, init, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  let acc = init;
+  const values = new Array(nArrays + 2);
+  for (let i = length - 1; i >= 0; --i) {
+    values[0] = acc;
+    values[1] = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j + 2] = arrays[j][i];
+    }
+    acc = proc(...values);
+  }
+  return acc;
+}
+
+export function forEach(proc, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return forEach1(proc, array0);
+    }
+    case 1: {
+      return forEach2(proc, array0, arrays[0]);
+    }
+    default: {
+      return _forEachN(proc, array0, arrays);
+    }
+  }
+}
+
+export function forEach1(proc, array0) {
+  const { length } = array0;
+  for (let i = 0; i < length; ++i) {
+    proc(array0[i]);
+  }
+}
+
+export function forEach2(proc, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  for (let i = 0; i < length; ++i) {
+    proc(array0[i], array1[i]);
+  }
+}
+
+function _forEachN(proc, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  const values = new Array(nArrays + 1);
+  for (let i = 0; i < length; ++i) {
+    values[0] = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j + 1] = arrays[j][i];
+    }
+    proc(...values);
+  }
 }

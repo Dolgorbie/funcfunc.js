@@ -277,12 +277,18 @@ export function* unique(iterable) {
 // mapping ================
 
 export function map(proc, iterable0, ...iterables) {
-  if (iterables.length === 0) {
-    return map1(proc, iterable0);
+  switch (iterables.length) {
+    case 0: {
+      return map1(proc, iterable0);
+    }
+    case 1: {
+      return map2(proc, iterable0, iterables[0]);
+    }
+    default: {
+      return _mapN(proc, iterable0, iterables);
+    }
   }
-  return _mapN(proc, iterable0, iterables);
 }
-
 
 export function* map1(proc, iterable0) {
   for (const v0 of iterable0) {
@@ -290,19 +296,35 @@ export function* map1(proc, iterable0) {
   }
 }
 
-function* _mapN(proc, iterable0, iterables) {
-  const niter = iterables.length;
+export function* map2(proc, iterable0, iterable1) {
+  const iter1 = iterable1[Symbol.iterator]();
 
-  const iters = new Array(niter);
-  for (let i = 0; i < niter; ++i) {
+  try {
+    for (const v0 of iterable0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        return;
+      }
+      yield proc(v0, res1.value);
+    }
+  } finally {
+    _safeReturn(iter1);
+  }
+}
+
+function* _mapN(proc, iterable0, iterables) {
+  const nIterables = iterables.length;
+  const iters = new Array(nIterables);
+
+  for (let i = 0; i < nIterables; ++i) {
     iters[i] = iterables[i][Symbol.iterator]();
   }
 
-  const values = new Array(niter + 1);
+  const values = new Array(nIterables + 1);
   try {
     for (const v0 of iterable0) {
       values[0] = v0;
-      for (let i = 0; i < niter; ++i) {
+      for (let i = 0; i < nIterables; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
@@ -312,17 +334,24 @@ function* _mapN(proc, iterable0, iterables) {
       yield proc(...values);
     }
   } finally {
-    for (const it of iters) {
-      _safeReturn(it);
+    for (const iter of iters) {
+      _safeReturn(iter);
     }
   }
 }
 
 export function flatMap(proc, iterable0, ...iterables) {
-  if (iterables.length === 0) {
-    return flatMap1(proc, iterable0);
+  switch (iterables.length) {
+    case 0: {
+      return flatMap1(proc, iterable0);
+    }
+    case 1: {
+      return flatMap2(proc, iterable0, iterables[0]);
+    }
+    default: {
+      return _flatMapN(proc, iterable0, iterables);
+    }
   }
-  return _flatMapN(proc, iterable0, iterables);
 }
 
 export function* flatMap1(proc, iterable0) {
@@ -331,19 +360,35 @@ export function* flatMap1(proc, iterable0) {
   }
 }
 
-function* _flatMapN(proc, iterable0, iterables) {
-  const niter = iterables.length;
+export function* flatMap2(proc, iterable0, iterable1) {
+  const iter1 = iterable1[Symbol.iterator]();
 
-  const iters = new Array(niter);
-  for (let i = 0; i < niter; ++i) {
+  try {
+    for (const v0 of iterable0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        return;
+      }
+      yield* proc(v0, res1.value);
+    }
+  } finally {
+    _safeReturn(iter1);
+  }
+}
+
+function* _flatMapN(proc, iterable0, iterables) {
+  const nIterables = iterables.length;
+
+  const iters = new Array(nIterables);
+  for (let i = 0; i < nIterables; ++i) {
     iters[i] = iterables[i][Symbol.iterator]();
   }
 
-  const values = new Array(niter + 1);
+  const values = new Array(nIterables + 1);
   try {
     for (const v0 of iterable0) {
       values[0] = v0;
-      for (let i = 0; i < niter; ++i) {
+      for (let i = 0; i < nIterables; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
@@ -353,8 +398,8 @@ function* _flatMapN(proc, iterable0, iterables) {
       yield* proc(...values);
     }
   } finally {
-    for (const it of iters) {
-      _safeReturn(it);
+    for (const iter of iters) {
+      _safeReturn(iter);
     }
   }
 }
@@ -362,10 +407,17 @@ function* _flatMapN(proc, iterable0, iterables) {
 // reduction ================
 
 export function reduce(proc, init, iterable0, ...iterables) {
-  if (iterables.length === 0) {
-    return reduce1(proc, init, iterable0);
+  switch (iterables.length) {
+    case 0: {
+      return reduce1(proc, init, iterable0);
+    }
+    case 1: {
+      return reduce2(proc, init, iterable0, iterables[0]);
+    }
+    default: {
+      return _reduceN(proc, init, iterable0, iterables);
+    }
   }
-  return _reduceN(proc, init, iterable0, iterables);
 }
 
 export function reduce1(proc, init, iterable0) {
@@ -374,6 +426,24 @@ export function reduce1(proc, init, iterable0) {
     acc = proc(acc, v0);
   }
   return acc;
+}
+
+export function reduce2(proc, init, iterable0, iterable1) {
+  const iter1 = iterable1[Symbol.iterator]();
+  let acc = init;
+
+  try {
+    for (const v0 of iterable0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        return acc;
+      }
+      acc = proc(acc, v0, res1.value);
+    }
+    return acc;
+  } finally {
+    _safeReturn(iter1);
+  }
 }
 
 function _reduceN(proc, init, iterable0, iterables) {
@@ -407,17 +477,40 @@ function _reduceN(proc, init, iterable0, iterables) {
 }
 
 export function forEach(proc, iterable0, ...iterables) {
-  if (iterables.length === 0) {
-    forEach1(proc, iterable0);
-    return;
+  switch (iterables.length) {
+    case 0: {
+      forEach1(proc, iterable0);
+      break;
+    }
+    case 1: {
+      forEach2(proc, iterable0, iterables[0]);
+      break;
+    }
+    default: {
+      _forEachN(proc, iterable0, iterables);
+    }
   }
-  return _forEachN(proc, iterable0, iterables);
 }
-
 
 export function forEach1(proc, iterable0) {
   for (const v0 of iterable0) {
     proc(v0);
+  }
+}
+
+export function forEach2(proc, iterable0, iterable1) {
+  const iter1 = iterable1[Symbol.iterator]();
+
+  try {
+    for (const v0 of iterable0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        return;
+      }
+      proc(v0, res1.value);
+    }
+  } finally {
+    _safeReturn(iter1);
   }
 }
 
@@ -443,8 +536,8 @@ function _forEachN(proc, iterable0, iterables) {
       proc(...values);
     }
   } finally {
-    for (const it of iters) {
-      _safeReturn(it);
+    for (const iter of iters) {
+      _safeReturn(iter);
     }
   }
 }
