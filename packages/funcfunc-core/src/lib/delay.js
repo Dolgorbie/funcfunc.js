@@ -1,23 +1,9 @@
-
 const _lazyTag = Symbol("lazy");
 const _eagerTag = Symbol("eager");
 
 export class Delayed {
   constructor(content) {
     this._content = content;
-  }
-
-  _force() {
-    while (this._content._type === _lazyTag) {
-      const dIn = this._content._payload();
-      if (this._content._type === _lazyTag) {
-        this._content._type = dIn._content._type;
-        this._content._payload = dIn._content._payload;
-        dIn._content = this._content;
-      }
-    }
-
-    return this._content._payload;
   }
 
   static resolve(value) {
@@ -27,6 +13,19 @@ export class Delayed {
 
 export function isDelayed(x) {
   return x instanceof Delayed;
+}
+
+export function force(delayed) {
+  while (delayed._content._type === _lazyTag) {
+    const dIn = delayed._content._payload();
+    if (delayed._content._type === _lazyTag) {
+      delayed._content._type = dIn._content._type;
+      delayed._content._payload = dIn._content._payload;
+      dIn._content = delayed._content;
+    }
+  }
+
+  return delayed._content._payload;
 }
 
 export function delayForce(thunk) {
@@ -41,10 +40,6 @@ export function delayForce(thunk) {
 
 export function delay(thunk) {
   return _delayForce(() => Delayed.resolve(thunk()));
-}
-
-export function force(delayed) {
-  return delayed._force();
 }
 
 export function map(proc, ...delayeds) {
@@ -79,5 +74,5 @@ export function flatMap(proc, ...delayeds) {
 }
 
 function _delayForce(thunk) {
-  return new Delayed({ _type: _lazyTag, _payload: () => thunk() });
+  return new Delayed({ _type: _lazyTag, _payload: thunk });
 }
