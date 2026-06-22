@@ -10,18 +10,45 @@ export function isFalsy(x) {
   return !x;
 }
 
-export function nullMap(proc, ...xs) {
-  if (xs.some(isNull)) {
-    return null;
+export function nullMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return nullMap1(proc, x0);
+    }
+    case 1: {
+      return nullMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _nullMapN(proc, x0, xs);
+    }
   }
-  return proc(...xs);
 }
 
-export function nullMap1(proc, x) {
-  if (x === null) {
+export function nullMap1(proc, x0) {
+  if (x0 === null) {
     return null;
   }
-  return proc(x);
+  return proc(x0);
+}
+
+export function nullMap2(proc, x0, x1) {
+  if (x0 === null || x1 === null) {
+    return null;
+  }
+  return proc(x0, x1);
+}
+
+function _nullMapN(proc, x0, xs) {
+  if (x0 === null) {
+    return null;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] === null) {
+      return null;
+    }
+  }
+  return proc(x0, ...xs);
 }
 
 export function undefMap(proc, ...xs) {

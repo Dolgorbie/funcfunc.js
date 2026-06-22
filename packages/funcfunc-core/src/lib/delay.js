@@ -1,4 +1,3 @@
-import { map as amap } from "./arrays";
 
 const _lazyTag = Symbol("lazy");
 const _eagerTag = Symbol("eager");
@@ -26,14 +25,14 @@ export class Delayed {
   }
 }
 
-export function isDlayed(x) {
+export function isDelayed(x) {
   return x instanceof Delayed;
 }
 
 export function delayForce(thunk) {
   return _delayForce(() => {
     const result = thunk();
-    if (isDlayed(result)) {
+    if (isDelayed(result)) {
       return result;
     }
     throw TypeError(`expects delayed, but got: ${result}`);
@@ -48,16 +47,35 @@ export function force(delayed) {
   return delayed._force();
 }
 
-export function map(f, ...delayeds) {
-  return delay(() => f(...amap(force, delayeds)));
+export function map(proc, ...delayeds) {
+  return delay(() => {
+    const { length } = delayeds;
+    const values = new Array(length);
+    for (let i = 0; i < length; ++i) {
+      values[i] = force(delayeds[i]);
+    }
+    return proc(...values);
+  });
 }
 
-export function forEach(f, ...delayeds) {
-  f(...amap(force, delayeds));
+export function forEach(proc, ...delayeds) {
+  const { length } = delayeds;
+  const values = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    values[i] = force(delayeds[i]);
+  }
+  proc(...values);
 }
 
-export function flatMap(f, ...delayeds) {
-  return delayForce(() => f(...amap(force, delayeds)));
+export function flatMap(proc, ...delayeds) {
+  return delayForce(() => {
+    const { length } = delayeds;
+    const values = new Array(length);
+    for (let i = 0; i < length; ++i) {
+      values[i] = force(delayeds[i]);
+    }
+    return proc(...values);
+  });
 }
 
 function _delayForce(thunk) {

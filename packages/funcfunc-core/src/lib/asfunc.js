@@ -84,14 +84,6 @@ export function xref(key, obj) {
   return obj[key];
 }
 
-export function arr(...xs) {
-  return xs;
-}
-
-export function obj(...entries) {
-  return objectFromEntries(entries);
-}
-
 export function add(x0, ...xs) {
   return xs.reduce(add2, x0);
 }
@@ -156,6 +148,18 @@ export function mod2(x0, x1) {
   return ((x0 % x1) + x1) % x1
 }
 
+export function toNumber(value) {
+  return +value;
+}
+
+export function toInt(value) {
+  return value | 0;
+}
+
 export function toUInt(value) {
   return (value | 0) & ~(value >> 31);
+}
+
+export function toString(value) {
+  return `${value}`;
 }
