@@ -51,58 +51,166 @@ function _nullMapN(proc, x0, xs) {
   return proc(x0, ...xs);
 }
 
-export function undefMap(proc, ...xs) {
-  if (xs.some(isUndef)) {
+export function undefMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return undefMap1(proc, x0);
+    }
+    case 1: {
+      return undefMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _undefMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function undefMap1(proc, x0) {
+  if (x0 === void 0) {
     return void 0;
   }
-  return proc(...xs);
+  return proc(x0);
 }
 
-export function undefMap1(proc, x) {
-  if (x === void 0) {
+export function undefMap2(proc, x0, x1) {
+  if (x0 === void 0 || x1 === void 0) {
     return void 0;
   }
-  return proc(x);
+  return proc(x0, x1);
 }
 
-export function nullishMap(proc, ...xs) {
-  if (xs.some(isNullish)) {
+function _undefMapN(proc, x0, xs) {
+  if (x0 === void 0) {
     return void 0;
   }
-  return proc(...xs);
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] === void 0) {
+      return void 0;
+    }
+  }
+  return proc(x0, ...xs);
 }
 
-export function nullishMap1(proc, x) {
-  if (x == null) {
+export function nullishMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return nullishMap1(proc, x0);
+    }
+    case 1: {
+      return nullishMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _nullishMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function nullishMap1(proc, x0) {
+  if (x0 == null) {
     return void 0;
   }
-  return proc(x);
+  return proc(x0);
 }
 
-export function falsyMap(proc, ...xs) {
-  if (xs.some(isFalsy)) {
-    return false;
+export function nullishMap2(proc, x0, x1) {
+  if (x0 == null || x1 == null) {
+    return void 0;
   }
-  return proc(...xs);
+  return proc(x0, x1);
 }
 
-export function falsyMap1(proc, x) {
-  if (!x) {
-    return false;
+function _nullishMapN(proc, x0, xs) {
+  if (x0 == null) {
+    return void 0;
   }
-  return proc(x);
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] == null) {
+      return void 0;
+    }
+  }
+  return proc(x0, ...xs);
 }
 
-export function falseMap(proc, ...xs) {
-  if (xs.some((x) => x === false)) {
-    return false;
+export function falsyMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return falsyMap1(proc, x0);
+    }
+    case 1: {
+      return falsyMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _falsyMapN(proc, x0, xs);
+    }
   }
-  return proc(...xs);
 }
 
-export function falseMap1(proc, x) {
-  if (x === false) {
+export function falsyMap1(proc, x0) {
+  if (!x0) {
     return false;
   }
-  return proc(x);
+  return proc(x0);
+}
+
+export function falsyMap2(proc, x0, x1) {
+  if (!x0 || !x1) {
+    return false;
+  }
+  return proc(x0, x1);
+}
+
+function _falsyMapN(proc, x0, xs) {
+  if (!x0) {
+    return false;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (!xs[i]) {
+      return false;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+export function falseMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return falseMap1(proc, x0);
+    }
+    case 1: {
+      return falseMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _falseMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function falseMap1(proc, x0) {
+  if (x0 === false) {
+    return false;
+  }
+  return proc(x0);
+}
+
+export function falseMap2(proc, x0, x1) {
+  if (x0 === false || x1 === false) {
+    return false;
+  }
+  return proc(x0);
+}
+
+function _falseMapN(proc, x0, xs) {
+  if (x0 === false) {
+    return false;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] === false) {
+      return false;
+    }
+  }
+  return proc(x0, ...xs);
 }

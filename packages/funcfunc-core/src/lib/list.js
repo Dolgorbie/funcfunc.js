@@ -3,19 +3,14 @@
 import { toUInt } from "./asfunc";
 
 export class Pair {
-  constructor(car, cdr) {
+  constructor(car, cdr, lazy) {
     this._car = car;
     this._cdr = cdr;
+    this._lazy = lazy;
   }
 
   [Symbol.iterator]() {
     return new _ListIter(this);
-  }
-}
-
-class _Lazy {
-  constructor(thunk) {
-    this._thunk = thunk;
   }
 }
 
@@ -78,11 +73,11 @@ export function isPair(x) {
 }
 
 export function cons(x, y) {
-  return new Pair(x, y);
+  return new Pair(x, y, false);
 }
 
 export function lcons(x, thunk) {
-  return new Pair(x, new _Lazy(thunk));
+  return new Pair(x, thunk, true);
 }
 
 export function car(pair) {
@@ -90,10 +85,11 @@ export function car(pair) {
 }
 
 export function cdr(pair) {
-  const { _cdr } = pair;
-  if (_cdr instanceof _Lazy) {
-    const v = _cdr._thunk();
+  const { _cdr, _lazy } = pair;
+  if (_lazy) {
+    const v = _cdr();
     pair._cdr = v;
+    pair._lazy = false;
     return v;
   }
   return _cdr;
