@@ -1,6 +1,9 @@
 const _call = Function.call;
 const _apply = Function.apply;
 
+export function doNothing() {
+}
+
 export function itself(x) {
   return x;
 }
