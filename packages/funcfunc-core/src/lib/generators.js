@@ -543,10 +543,17 @@ function _forEachN(proc, iterable0, iterables) {
 }
 
 export function every(pred, iterable0, ...iterables) {
-  if (iterables.length === 0) {
-    return every1(pred, iterable0);
+  switch (iterables.length) {
+    case 0: {
+      return every1(pred, iterable0);
+    }
+    case 1: {
+      return every2(pred, iterable0, iterables[0]);
+    }
+    default: {
+      return _everyN(pred, iterable0, iterables);
+    }
   }
-  return _everyN(pred, iterable0, iterables);
 }
 
 export function every1(pred, iterable0) {
@@ -558,6 +565,27 @@ export function every1(pred, iterable0) {
     }
   }
   return result;
+}
+
+export function every2(pred, iterable0, iterable1) {
+  const iter1 = iterable1[Symbol.iterator]();
+  let result = true;
+
+  try {
+    for (const v0 of iterable0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        break;
+      }
+      result = pred(v0, res1.value);
+      if (!result) {
+        break;
+      }
+    }
+    return result;
+  } finally {
+    _safeReturn(iter1);
+  }
 }
 
 function _everyN(pred, iterable0, iterables) {
@@ -595,10 +623,17 @@ function _everyN(pred, iterable0, iterables) {
 }
 
 export function some(pred, iterable0, ...iterables) {
-  if (iterables.length === 0) {
-    return some1(pred, iterable0);
+  switch (iterables.length) {
+    case 0: {
+      return some1(pred, iterable0);
+    }
+    case 1: {
+      return some2(pred, iterable0, iterables[0]);
+    }
+    default: {
+      return _someN(pred, iterable0, iterables);
+    }
   }
-  return _someN(pred, iterable0, iterables);
 }
 
 export function some1(pred, iterable0) {
@@ -610,6 +645,27 @@ export function some1(pred, iterable0) {
     }
   }
   return result;
+}
+
+export function some2(pred, iterable0, iterable1) {
+  const iter1 = iterable1[Symbol.iterator]();
+  let result = false;
+
+  try {
+    for (const v0 of iterable0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        break;
+      }
+      result = pred(v0, res1.value);
+      if (result) {
+        break;
+      }
+    }
+    return result;
+  } finally {
+    _safeReturn(iter1);
+  }
 }
 
 function _someN(pred, iterable0, iterables) {
