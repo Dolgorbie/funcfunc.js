@@ -4,6 +4,8 @@ import { toUInt } from "./asfunc";
 
 const _slice = Array.prototype.slice;
 
+const _join = Array.prototype.join;
+
 function _lengthMin(array0, arrays) {
   let len = array0.length;
   const n = arrays.length;
@@ -211,19 +213,7 @@ export function map(proc, array0, ...arrays) {
       return map2(proc, array0, arrays[0]);
     }
     default: {
-      const length = _lengthMin(array0, arrays);
-
-      const result = new Array(length);
-      const values = new Array(nArrays + 1);
-      for (let i = 0; i < length; ++i) {
-        values[0] = array0[i];
-        for (let j = 0; j < nArrays; ++j) {
-          values[j + 1] = arrays[j][i];
-        }
-
-        result[i] = proc(...values);
-      }
-      return result;
+      return _mapN(proc, array0, arrays);
     }
   }
 }
@@ -242,6 +232,23 @@ export function map2(proc, array0, array1) {
   const result = new Array(length);
   for (let i = 0; i < length; ++i) {
     result[i] = proc(array0[i], array1[i]);
+  }
+  return result;
+}
+
+function _mapN(proc, array0, arrays) {
+  const nArrays = arrays.length;
+  const length = _lengthMin(array0, arrays);
+
+  const result = new Array(length);
+  const values = new Array(nArrays);
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+
+    result[i] = proc(value0, ...values);
   }
   return result;
 }
@@ -291,20 +298,18 @@ function _flatMapN(proc, array0, arrays) {
 
   const length = _lengthMin(array0, arrays);
   const result = [];
-  const values = new Array(nArrays + 1);
+  const values = new Array(nArrays);
   for (let i = 0; i < length; ++i) {
-    values[0] = array0[i];
+    const value0 = array0[i];
     for (let j = 0; j < nArrays; ++j) {
-      values[j + 1] = arrays[j][i];
+      values[j] = arrays[j][i];
     }
-
-    const tmp = proc(...values);
-    const ntmp = tmp.length;
-    for (let j = 0; j < ntmp; ++j) {
+    const tmp = proc(value0, ...values);
+    const n = tmp.length;
+    for (let j = 0; j < n; ++j) {
       result.push(tmp[j]);
     }
   }
-
   return result;
 }
 
@@ -351,14 +356,13 @@ function _reduceN(proc, init, array0, arrays) {
 
   const length = _lengthMin(array0, arrays);
   let acc = init;
-  const values = new Array(nArrays + 2);
+  const values = new Array(nArrays);
   for (let i = 0; i < length; ++i) {
-    values[0] = acc;
-    values[1] = array0[i];
+    const value0 = array0[i];
     for (let j = 0; j < nArrays; ++j) {
-      values[j + 2] = arrays[j][i];
+      values[j] = arrays[j][i];
     }
-    acc = proc(...values);
+    acc = proc(acc, value0, ...values);
   }
   return acc;
 }
@@ -404,14 +408,13 @@ function _reduceRightN(proc, init, array0, arrays) {
 
   const length = _lengthMin(array0, arrays);
   let acc = init;
-  const values = new Array(nArrays + 2);
+  const values = new Array(nArrays);
   for (let i = length - 1; i >= 0; --i) {
-    values[0] = acc;
-    values[1] = array0[i];
+    const value0 = array0[i];
     for (let j = 0; j < nArrays; ++j) {
-      values[j + 2] = arrays[j][i];
+      values[j] = arrays[j][i];
     }
-    acc = proc(...values);
+    acc = proc(acc, value0, ...values);
   }
   return acc;
 }
@@ -448,12 +451,128 @@ function _forEachN(proc, array0, arrays) {
   const nArrays = arrays.length;
 
   const length = _lengthMin(array0, arrays);
-  const values = new Array(nArrays + 1);
+  const values = new Array(nArrays);
   for (let i = 0; i < length; ++i) {
-    values[0] = array0[i];
+    const value0 = array0[i];
     for (let j = 0; j < nArrays; ++j) {
-      values[j + 1] = arrays[j][i];
+      values[j] = arrays[j][i];
     }
-    proc(...values);
+    proc(value0, ...values);
   }
+}
+
+export function every(pred, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return every1(pred, array0);
+    }
+    case 1: {
+      return every2(pred, array0, arrays[0]);
+    }
+    default: {
+      return _everyN(pred, array0, arrays);
+    }
+  }
+}
+
+export function every1(pred, array0) {
+  const { length } = array0;
+  let result = true;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i]);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function every2(pred, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  let result = true;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i], array1[i]);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+function _everyN(pred, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const nArrays = arrays.length;
+  const values = new Array(nArrays);
+  let result = true;
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    result = pred(value0, ...values);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function some(pred, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return some1(pred, array0);
+    }
+    case 1: {
+      return some2(pred, array0, arrays[0]);
+    }
+    default: {
+      return _someN(pred, array0, arrays);
+    }
+  }
+}
+
+export function some1(pred, array0) {
+  const { length } = array0;
+  let result = false;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i]);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function some2(pred, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  let result = false;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i], array1[i]);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+function _someN(pred, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const nArrays = arrays.length;
+  const values = new Array(nArrays);
+  let result = false;
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    result = pred(value0, ...values);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function join(sep, array) {
+  return _join.call(array, sep);
 }

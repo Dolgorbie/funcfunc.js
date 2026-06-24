@@ -320,18 +320,17 @@ function* _mapN(proc, iterable0, iterables) {
     iters[i] = iterables[i][Symbol.iterator]();
   }
 
-  const values = new Array(nIterables + 1);
+  const values = new Array(nIterables);
   try {
     for (const v0 of iterable0) {
-      values[0] = v0;
       for (let i = 0; i < nIterables; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
         }
-        values[i + 1] = res.value;
+        values[i] = res.value;
       }
-      yield proc(...values);
+      yield proc(v0, ...values);
     }
   } finally {
     for (const iter of iters) {
@@ -384,18 +383,17 @@ function* _flatMapN(proc, iterable0, iterables) {
     iters[i] = iterables[i][Symbol.iterator]();
   }
 
-  const values = new Array(nIterables + 1);
+  const values = new Array(nIterables);
   try {
     for (const v0 of iterable0) {
-      values[0] = v0;
       for (let i = 0; i < nIterables; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
         }
-        values[i + 1] = res.value;
+        values[i] = res.value;
       }
-      yield* proc(...values);
+      yield* proc(v0, ...values);
     }
   } finally {
     for (const iter of iters) {
@@ -454,19 +452,18 @@ function _reduceN(proc, init, iterable0, iterables) {
     iters[i] = iterables[i][Symbol.iterator]();
   }
 
-  const values = new Array(niter + 1);
+  const values = new Array(niter);
   try {
     let acc = init;
     for (const v0 of iterable0) {
-      values[0] = v0;
       for (let i = 0; i < niter; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return acc;
         }
-        values[i + 1] = res.value;
+        values[i] = res.value;
       }
-      acc = proc(acc, ...values);
+      acc = proc(acc, v0, ...values);
     }
     return acc;
   } finally {
@@ -522,18 +519,17 @@ function _forEachN(proc, iterable0, iterables) {
     iters[i] = iterables[i][Symbol.iterator]();
   }
 
-  const values = new Array(niter + 1);
+  const values = new Array(niter);
   try {
     for (const v0 of iterable0) {
-      values[0] = v0;
       for (let i = 0; i < niter; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
         }
-        values[i + 1] = res.value;
+        values[i] = res.value;
       }
-      proc(...values);
+      proc(v0, ...values);
     }
   } finally {
     for (const iter of iters) {
@@ -596,20 +592,19 @@ function _everyN(pred, iterable0, iterables) {
     iters[i] = iterables[i][Symbol.iterator]();
   }
 
-  const values = new Array(niter + 1);
+  const values = new Array(niter);
 
   try {
     let result = true;
     LoopIter0: for (const v0 of iterable0) {
-      values[0] = v0;
       for (let i = 0; i < niter; ++i) {
         const res = iters[i].next();
         if (res.done) {
           break LoopIter0;
         }
-        values[i + 1] = res.value;
+        values[i] = res.value;
       }
-      result = pred(...values);
+      result = pred(v0, ...values);
       if (!result) {
         break;
       }
@@ -676,20 +671,19 @@ function _someN(pred, iterable0, iterables) {
     iters[i] = iterables[i][Symbol.iterator]();
   }
 
-  const values = new Array(niter + 1);
+  const values = new Array(niter);
 
   try {
     let result = false;
     LoopIter0: for (const v0 of iterable0) {
-      values[0] = v0;
       for (let i = 0; i < niter; ++i) {
         const res = iters[i].next();
         if (res.done) {
           break LoopIter0;
         }
-        values[i + 1] = res.value;
+        values[i] = res.value;
       }
-      result = pred(...values);
+      result = pred(v0, ...values);
       if (result) {
         break;
       }
