@@ -1,5 +1,4 @@
 import { toUInt } from "./asfunc";
-import { constant } from "./core";
 import { car, cdr, cons, isPair, lcons, listOf } from "./list";
 
 // creation ================
@@ -85,7 +84,7 @@ export function lflat(listOfList) {
     return null;
   }
 
-  return lconcat2Lazy(car(listOfList), () => lflat(cdr(listOfList)));
+  return lconcat2(car(listOfList), () => lflat(cdr(listOfList)));
 }
 
 export function lconcat(list0, ...lists) {
@@ -94,23 +93,26 @@ export function lconcat(list0, ...lists) {
       return list0;
     }
     case 1: {
-      return lconcat2(list0, lists[0]);
+      return lconcat2(list0, () => lists[0]);
     }
     default: {
-      return lconcat2Lazy(list0, () => lconcat(...lists));
+      return lconcat2(list0, () => _lconcatN(0, lists));
     }
   }
 }
 
-export function lconcat2(list0, list1) {
-  return lconcat2Lazy(list0, constant(list1));
-}
-
-export function lconcat2Lazy(list0, thunk) {
+export function lconcat2(list0, thunk) {
   if (!isPair(list0)) {
     return thunk();
   }
-  return lcons(car(list0), () => lconcat2Lazy(cdr(list0), thunk));
+  return lcons(car(list0), () => lconcat2(cdr(list0), thunk));
+}
+
+function _lconcatN(offset, lists) {
+  if (offset === lists.length) {
+    return null;
+  }
+  return lconcat2(lists[offset], () => _lconcatN(offset + 1, lists));
 }
 
 export function lzip(list0, ...lists) {
@@ -292,14 +294,14 @@ export function lflatMap1(proc, list0) {
   if (!isPair(list0)) {
     return null;
   }
-  return lconcat2Lazy(proc(car(list0)), () => lflatMap1(proc, cdr(list0)));
+  return lconcat2(proc(car(list0)), () => lflatMap1(proc, cdr(list0)));
 }
 
 export function lflatMap2(proc, list0, list1) {
   if (!isPair(list0) || !isPair(list1)) {
     return null;
   }
-  return lconcat2Lazy(proc(car(list0), car(list1)), () => lflatMap2(proc, cdr(list0), cdr(list1)));
+  return lconcat2(proc(car(list0), car(list1)), () => lflatMap2(proc, cdr(list0), cdr(list1)));
 }
 
 function _lflatMapN(proc, list0, lists) {
@@ -319,7 +321,7 @@ function _lflatMapN(proc, list0, lists) {
     values[i] = car(listI);
   }
 
-  return lconcat2Lazy(proc(value0, ...values), () => {
+  return lconcat2(proc(value0, ...values), () => {
     const rest0 = cdr(list0);
     const rests = new Array(nLists);
     for (let i = 0; i < nLists; ++i) {
