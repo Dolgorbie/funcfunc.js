@@ -2,6 +2,20 @@
 
 import { toUInt } from "./asfunc";
 
+const _nil = {
+  [Symbol.iterator]() {
+    return new _ListIter(this);
+  }
+}
+
+export function nil() {
+  return _nil;
+}
+
+export function isNil(x) {
+  return x === _nil;
+}
+
 export class Pair {
   constructor(car, cdr, lazy) {
     this._car = car;
@@ -28,11 +42,11 @@ class _ListIter extends Iterator {
       return { value: car(_list), done: false };
     }
 
-    return { value: _list, done: true };
+    return { value: void 0, done: true };
   }
 
   return(value) {
-    this._list = null;
+    this._list = _nil;
     return { value, done: true };
   }
 }
@@ -142,7 +156,7 @@ export function length(list) {
 
 export function listOf(...values) {
   const { length } = values;
-  let result = null;
+  let result = _nil;
   for (let i = length - 1; i >= 0; --i) {
     result = cons(values[i], result);
   }
@@ -151,7 +165,7 @@ export function listOf(...values) {
 
 export function repeat(count, value) {
   const n = toUInt(count);
-  let result = null;
+  let result = _nil;
   for (let i = 0; i < n; ++i) {
     result = cons(value, result);
   }
@@ -163,7 +177,7 @@ export function iota(count, start = 0, step = 1) {
   const a0 = +start;
   const d = +step;
 
-  let result = null;
+  let result = _nil;
   for (let i = n - 1; i >= 0; --i) {
     result = cons(d * i + a0, result);
   }
@@ -176,9 +190,9 @@ export function iota(count, start = 0, step = 1) {
 export function take(count, list) {
   const n = toUInt(count);
   let tmp = list;
-  let result = null;
+  let result = _nil;
   for (let i = 0; i < n; ++i) {
-    if (tmp === null) {
+    if (tmp === _nil) {
       return list;
     }
     if (!isPair(tmp)) {
@@ -187,7 +201,7 @@ export function take(count, list) {
     result = cons(car(tmp), result);
     tmp = cdr(tmp);
   }
-  return tmp === null ? list : reverseI(result);
+  return tmp === _nil ? list : reverseI(result);
 }
 
 export function drop(count, list) {
@@ -213,7 +227,7 @@ export function dropRight(count, list) {
 // composition ================
 
 export function flat(listOfList) {
-  let result = null;
+  let result = _nil;
   for (let tmp = listOfList; isPair(tmp); tmp = cdr(tmp)) {
     result = reverse(car(tmp), result);
   }
@@ -221,7 +235,7 @@ export function flat(listOfList) {
 }
 
 export function flatI(listOfList) {
-  let acc = null;
+  let acc = _nil;
   let tmp;
   for (tmp = listOfList; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
@@ -287,7 +301,7 @@ export function zip(list0, ...lists) {
   const nLists = lists.length;
   const tmps = [...lists];
   const values = new Array(nLists + 1);
-  let result = null;
+  let result = _nil;
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
     values[0] = car(tmp0);
     for (let i = 0; i < nLists; ++i) {
@@ -308,7 +322,7 @@ export function entries(list0, ...lists) {
   const tmps = [...lists];
   const values = new Array(nLists + 2);
   let index = 0;
-  let result = null;
+  let result = _nil;
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
     values[0] = index;
     values[1] = car(tmp0);
@@ -329,7 +343,7 @@ export function entries(list0, ...lists) {
 // filtering ================
 
 export function filter(pred, list) {
-  let result = null;
+  let result = _nil;
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
     if (pred(x)) {
@@ -345,11 +359,11 @@ export function findTail(pred, list) {
       return result;
     }
   }
-  return null;
+  return _nil;
 }
 
 export function takeWhile(pred, list) {
-  let result = null;
+  let result = _nil;
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
     if (!pred(x)) {
@@ -366,12 +380,12 @@ export function dropWhile(pred, list) {
       return result;
     }
   }
-  return null;
+  return _nil;
 }
 
 export function unique(list) {
   const cache = new Set();
-  let result = null;
+  let result = _nil;
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
     if (cache.has(x)) {
@@ -412,7 +426,7 @@ export function reverseMap(proc, list0, ...lists) {
 }
 
 export function reverseMap1(proc, list0) {
-  let result = null;
+  let result = _nil;
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
     result = cons(proc(car(tmp)), result);
   }
@@ -420,7 +434,7 @@ export function reverseMap1(proc, list0) {
 }
 
 export function reverseMap2(proc, list0, list1) {
-  let result = null;
+  let result = _nil;
   for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
     result = cons(proc(car(tmp0), car(tmp1)), result);
   }
@@ -430,7 +444,7 @@ export function reverseMap2(proc, list0, list1) {
 function _reverseMapN(proc, list0, lists) {
   const nLists = lists.length;
 
-  let result = null;
+  let result = _nil;
   const tmps = [...lists];
   const values = new Array(nLists + 1);
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
@@ -475,7 +489,7 @@ export function reverseFlatMap(proc, list0, ...lists) {
 }
 
 export function reverseFlatMap1(proc, list0) {
-  let result = null;
+  let result = _nil;
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
     result = reverse(proc(car(tmp)), result);
   }
@@ -483,7 +497,7 @@ export function reverseFlatMap1(proc, list0) {
 }
 
 export function reverseFlatMap2(proc, list0, list1) {
-  let result = null;
+  let result = _nil;
   for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
     result = reverse(proc(car(tmp0), car(tmp1)), result);
   }
@@ -493,7 +507,7 @@ export function reverseFlatMap2(proc, list0, list1) {
 function _reverseFlatMapN(proc, list0, lists) {
   const nLists = lists.length;
 
-  let result = null;
+  let result = _nil;
   const tmps = [...lists];
   const values = new Array(nLists + 1);
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
@@ -664,7 +678,7 @@ function _forEachN(proc, list0, lists) {
 
 // misc ================
 
-export function reverse(list, last = null) {
+export function reverse(list, last = _nil) {
   let acc = last;
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     acc = cons(car(tmp), acc);
@@ -672,7 +686,7 @@ export function reverse(list, last = null) {
   return acc;
 }
 
-export function reverseI(list, last = null) {
+export function reverseI(list, last = _nil) {
   let acc = last;
   let tmp = list;
 
