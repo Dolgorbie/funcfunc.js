@@ -40,6 +40,45 @@ export function iota(count, start = 0, step = 1) {
   return result;
 }
 
+export function unfold(gen, seed, tailGen = void 0) {
+  const result = [];
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    result.push(value);
+    seed = "seed" in res ? res.seed : value;
+  }
+
+  if (tailGen !== void 0) {
+    const tail = tailGen(seed);
+    let { length } = tail;
+    for (let i = 0; i < length; ++i) {
+      result.push(tail[i]);
+    }
+  }
+
+  return result;
+}
+
+export function unfoldRight(gen, seed, tail = []) {
+  const result = [];
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    result.push(value);
+    seed = "seed" in res ? res.seed : value;
+  }
+
+  result.reverse();
+
+  const { length } = tail;
+  for (let i = 0; i < length; ++i) {
+    result.push(tail[i]);
+  }
+
+  return result;
+}
+
 // splicing ================
 
 export function take(count, array) {

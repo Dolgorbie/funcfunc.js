@@ -1,5 +1,5 @@
 import { toUInt } from "./asfunc";
-import { car, cdr, cons, isPair, lcons, listOf } from "./list";
+import { car, cdr, cons, isPair, lcons, listOf, nil } from "./list";
 
 // creation ================
 
@@ -64,6 +64,15 @@ export function iterableToLazyList(iterable) {
   }
 
   return _loop();
+}
+
+export function lunfold(gen, seed, tailGen = void 0) {
+  const res = gen(seed);
+  const { value, done } = res;
+  if (done) {
+    return tailGen === void 0 ? nil() : tailGen(seed);
+  }
+  return lcons(value, () => lunfold(gen, "seed" in res ? res.seed : value, tailGen));
 }
 
 // splicing ================

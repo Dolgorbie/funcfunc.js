@@ -189,6 +189,28 @@ export function iota(count, start = 0, step = 1) {
   return result;
 }
 
+export function unfold(gen, seed, tailGen = void 0) {
+  let acc = _nil;
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    acc = cons(value, acc);
+    seed = "seed" in res ? res.seed : value;
+  }
+  return reverseI(acc, tailGen === void 0 ? _nil : tailGen(seed));
+}
+
+export function unfoldRight(gen, seed, tail = _nil) {
+  let acc = tail;
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    acc = cons(value, acc);
+    seed = "seed" in res ? res.seed : value;
+  }
+  return acc;
+}
+
 // splicing ================
 
 export function take(count, list) {

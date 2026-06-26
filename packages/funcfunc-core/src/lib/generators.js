@@ -115,6 +115,18 @@ class _IotaIter extends _IterBase {
   }
 }
 
+export function* unfold(gen, seed, tailGen = void 0) {
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    yield value;
+    seed = "seed" in res ? res.seed : value;
+  }
+  if (tailGen !== void 0) {
+    yield* tailGen(seed);
+  }
+}
+
 // splicing ================
 
 export function* take(count, iterable) {
