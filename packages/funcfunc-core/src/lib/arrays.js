@@ -1,20 +1,20 @@
-// helpers ================
-
 import { toUInt } from "./asfunc";
+
+// helpers ================
 
 const _slice = Array.prototype.slice;
 
 const _join = Array.prototype.join;
 
 function _lengthMin(array0, arrays) {
-  let len = array0.length;
-  const n = arrays.length;
+  const nArrays = arrays.length;
 
-  for (let i = 0; i < n; ++i) {
-    len = Math.min(len, arrays[i].length);
+  let { length } = array0;
+  for (let i = 0; i < nArrays; ++i) {
+    length = Math.min(length, arrays[i].length);
   }
 
-  return len;
+  return length;
 }
 
 // creation ================
@@ -28,13 +28,13 @@ export function repeat(count, value) {
 }
 
 export function iota(count, start = 0, step = 1) {
-  const n = toUInt(count);
-  const a0 = +start;
-  const d = +step;
+  count = toUInt(count);
+  start = +start;
+  step = +step;
 
-  const result = new Array(n);
-  for (let i = 0; i < n; ++i) {
-    result[i] = d * i + a0;
+  const result = new Array(count);
+  for (let i = 0; i < count; ++i) {
+    result[i] = step * i + start;
   }
 
   return result;
@@ -82,62 +82,62 @@ export function unfoldRight(gen, seed, tail = []) {
 // splicing ================
 
 export function take(count, array) {
-  const n = toUInt(count);
-  if (n >= array.length) {
+  count = toUInt(count);
+  if (count >= array.length) {
     return array;
   }
-  return _slice.call(array, 0, n);
+  return _slice.call(array, 0, count);
 }
 
 export function drop(count, array) {
-  const n = toUInt(count);
-  if (n === 0) {
+  count = toUInt(count);
+  if (count === 0) {
     return array;
   }
-  return _slice.call(array, n);
+  return _slice.call(array, count);
 }
 
 export function takeRight(count, array) {
-  const n = toUInt(count);
+  count = toUInt(count);
   const { length } = array;
-  if (n >= length) {
+  if (count >= length) {
     return array;
   }
-  return _slice.call(array, length - n);
+  return _slice.call(array, length - count);
 }
 
 export function dropRight(count, array) {
-  const n = toUInt(count);
-  if (n === 0) {
+  count = toUInt(count);
+  if (count === 0) {
     return array;
   }
-  return _slice.call(array, 0, array.length - n);
+  return _slice.call(array, 0, array.length - count);
 }
 
 // composition ================
 
-export function flat(arraysOfArray) {
-  switch (arraysOfArray.length) {
+export function flat(arrays) {
+  switch (arrays.length) {
     case 0: {
-      return arraysOfArray;
+      return arrays;
     }
     case 1: {
-      return arraysOfArray[0];
+      return arrays[0];
     }
     default: {
       let length = 0;
-      const nOuter = arraysOfArray.length;
+      const nOuter = arrays.length;
       for (let i = 0; i < nOuter; ++i) {
-        length += arraysOfArray[i].length;
+        length += arrays[i].length;
       }
 
       const result = new Array(length);
       let jOffset = 0;
       for (let i = 0; i < nOuter; ++i) {
-        const ai = arraysOfArray[i];
-        const nInner = ai.length;
+        const arrayI = arrays[i];
+        const nInner = arrayI.length;
         for (let j = 0; j < nInner; ++j) {
-          result[j + jOffset] = ai[j];
+          result[j + jOffset] = arrayI[j];
         }
         jOffset += nInner;
       }
@@ -168,7 +168,21 @@ export function zip(array0, ...arrays) {
 }
 
 export function entries(array0, ...arrays) {
-  return zip(iota(_lengthMin(array0, arrays)), array0, ...arrays);
+  const nArrays = arrays.length;
+  const length = _lengthMin(array0, arrays);
+
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    const acc = new Array(nArrays + 2);
+    acc[0] = i;
+    acc[1] = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      acc[j + 2] = arrays[j][i];
+    }
+    result[i] = acc;
+  }
+
+  return result;
 }
 
 // filtering ================
@@ -370,40 +384,37 @@ export function reduce(proc, init, array0, ...arrays) {
 
 export function reduce1(proc, init, array0) {
   const { length } = array0;
-  let acc = init;
 
   for (let i = 0; i < length; ++i) {
-    acc = proc(acc, array0[i]);
+    init = proc(init, array0[i]);
   }
 
-  return acc;
+  return init;
 }
 
 export function reduce2(proc, init, array0, array1) {
   const length = Math.min(array0.length, array1.length);
-  let acc = init;
 
   for (let i = 0; i < length; ++i) {
-    acc = proc(acc, array0[i], array1[i]);
+    init = proc(init, array0[i], array1[i]);
   }
 
-  return acc;
+  return init;
 }
 
 function _reduceN(proc, init, array0, arrays) {
   const nArrays = arrays.length;
 
   const length = _lengthMin(array0, arrays);
-  let acc = init;
   const values = new Array(nArrays);
   for (let i = 0; i < length; ++i) {
     const value0 = array0[i];
     for (let j = 0; j < nArrays; ++j) {
       values[j] = arrays[j][i];
     }
-    acc = proc(acc, value0, ...values);
+    init = proc(init, value0, ...values);
   }
-  return acc;
+  return init;
 }
 
 export function reduceRight(proc, init, array0, ...arrays) {
@@ -422,40 +433,37 @@ export function reduceRight(proc, init, array0, ...arrays) {
 
 export function reduceRight1(proc, init, array0) {
   const { length } = array0;
-  let acc = init;
 
   for (let i = length - 1; i >= 0; --i) {
-    acc = proc(acc, array0[i]);
+    init = proc(init, array0[i]);
   }
 
-  return acc;
+  return init;
 }
 
 export function reduceRight2(proc, init, array0, array1) {
   const length = Math.min(array0.length, array1.length);
-  let acc = init;
 
-  for (let i = length; i >= 0; --i) {
-    acc = proc(acc, array0[i], array1[i]);
+  for (let i = length - 1; i >= 0; --i) {
+    init = proc(init, array0[i], array1[i]);
   }
 
-  return acc;
+  return init;
 }
 
 function _reduceRightN(proc, init, array0, arrays) {
   const nArrays = arrays.length;
 
   const length = _lengthMin(array0, arrays);
-  let acc = init;
   const values = new Array(nArrays);
   for (let i = length - 1; i >= 0; --i) {
     const value0 = array0[i];
     for (let j = 0; j < nArrays; ++j) {
       values[j] = arrays[j][i];
     }
-    acc = proc(acc, value0, ...values);
+    init = proc(init, value0, ...values);
   }
-  return acc;
+  return init;
 }
 
 export function forEach(proc, array0, ...arrays) {

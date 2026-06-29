@@ -1,6 +1,6 @@
-// core ================
-
 import { toUInt } from "./asfunc";
+
+// core ================
 
 const _nil = {
   [Symbol.iterator]() {
@@ -38,8 +38,9 @@ class _ListIter extends Iterator {
     const { _list } = this;
 
     if (isPair(_list)) {
+      const value = car(_list);
       this._list = cdr(_list);
-      return { value: car(_list), done: false };
+      return { value, done: false };
     }
 
     return { value: void 0, done: true };
@@ -62,8 +63,9 @@ class _IListIter extends Iterator {
     const { _list } = this;
 
     if (isPair(_list)) {
+      const value = car(_list);
       this._list = cdr(_list);
-      return { value: car(_list), done: false };
+      return { value, done: false };
     }
 
     if (this._done) {
@@ -114,15 +116,15 @@ export function setCar(pair, value) {
 }
 
 export function setCdr(pair, value) {
+  pair._lazy = false;
   return pair._cdr = value;
 }
 
 export function lastPair(pair) {
-  let p = pair;
-  while (isPair(cdr(p))) {
-    p = cdr(p);
+  while (isPair(cdr(pair))) {
+    pair = cdr(pair);
   }
-  return p;
+  return pair;
 }
 
 export function iter(list) {
@@ -134,14 +136,13 @@ export function improperIter(improperList) {
 }
 
 export function at(list, index) {
-  let acc = list;
   for (let i = 0; i < index; ++i) {
-    if (!isPair(acc)) {
+    if (!isPair(list)) {
       return void 0;
     }
-    acc = cdr(acc);
+    list = cdr(list);
   }
-  return isPair(acc) ? car(acc) : void 0;
+  return isPair(list) ? car(list) : void 0;
 }
 
 export function xat(index, list) {
@@ -168,22 +169,22 @@ export function listOf(...values) {
 }
 
 export function repeat(count, value) {
-  const n = toUInt(count);
+  count = toUInt(count);
   let result = _nil;
-  for (let i = 0; i < n; ++i) {
+  for (let i = 0; i < count; ++i) {
     result = cons(value, result);
   }
   return result;
 }
 
 export function iota(count, start = 0, step = 1) {
-  const n = toUInt(count);
-  const a0 = +start;
-  const d = +step;
+  count = toUInt(count);
+  start = +start;
+  step = +step;
 
   let result = _nil;
-  for (let i = n - 1; i >= 0; --i) {
-    result = cons(d * i + a0, result);
+  for (let i = count - 1; i >= 0; --i) {
+    result = cons(step * i + start, result);
   }
 
   return result;
@@ -201,23 +202,22 @@ export function unfold(gen, seed, tailGen = void 0) {
 }
 
 export function unfoldRight(gen, seed, tail = _nil) {
-  let acc = tail;
   let res;
   while ((res = gen(seed)), !res.done) {
     const { value } = res;
-    acc = cons(value, acc);
+    tail = cons(value, tail);
     seed = "seed" in res ? res.seed : value;
   }
-  return acc;
+  return tail;
 }
 
 // splicing ================
 
 export function take(count, list) {
-  const n = toUInt(count);
+  count = toUInt(count);
   let tmp = list;
   let result = _nil;
-  for (let i = 0; i < n; ++i) {
+  for (let i = 0; i < count; ++i) {
     if (tmp === _nil) {
       return list;
     }
@@ -231,14 +231,14 @@ export function take(count, list) {
 }
 
 export function takeI(count, list) {
-  const n = toUInt(count);
+  count = toUInt(count);
 
-  if (n === 0) {
+  if (count === 0) {
     return _nil;
   }
 
   let tmp = list;
-  for (let i = 0; i < n - 1; ++i) {
+  for (let i = 0; i < count - 1; ++i) {
     if (!isPair(tmp)) {
       return list;
     }
@@ -251,15 +251,14 @@ export function takeI(count, list) {
 }
 
 export function drop(count, list) {
-  const n = toUInt(count);
-  let result = list;
-  for (let i = 0; i < n; ++i) {
-    if (!isPair(result)) {
-      return result;
+  count = toUInt(count);
+  for (let i = 0; i < count; ++i) {
+    if (!isPair(list)) {
+      return list;
     }
-    result = cdr(result);
+    list = cdr(list);
   }
-  return result;
+  return list;
 }
 
 export function takeRight(count, list) {
@@ -288,10 +287,10 @@ export function flat(listOfList) {
   return reverseI(result);
 }
 
-export function flatI(listOfList) {
+export function flatI(lists) {
   let acc = _nil;
   let tmp;
-  for (tmp = listOfList; isPair(tmp); tmp = cdr(tmp)) {
+  for (tmp = lists; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
     if (isPair(x)) {
       acc = x;
@@ -353,18 +352,17 @@ export function concatI(list0, ...lists) {
 
 export function zip(list0, ...lists) {
   const nLists = lists.length;
-  const tmps = [...lists];
   const values = new Array(nLists + 1);
   let result = _nil;
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
     values[0] = car(tmp0);
     for (let i = 0; i < nLists; ++i) {
-      const tmpI = tmps[i];
+      const tmpI = lists[i];
       if (!isPair(tmpI)) {
         break Outer;
       }
       values[i + 1] = car(tmpI);
-      tmps[i] = cdr(tmpI);
+      lists[i] = cdr(tmpI);
     }
     result = cons(listOf(...values), result);
   }
@@ -373,7 +371,6 @@ export function zip(list0, ...lists) {
 
 export function entries(list0, ...lists) {
   const nLists = lists.length;
-  const tmps = [...lists];
   const values = new Array(nLists + 2);
   let index = 0;
   let result = _nil;
@@ -381,12 +378,12 @@ export function entries(list0, ...lists) {
     values[0] = index;
     values[1] = car(tmp0);
     for (let i = 0; i < nLists; ++i) {
-      const tmpI = tmps[i];
+      const tmpI = lists[i];
       if (!isPair(tmpI)) {
         break Outer;
       }
       values[i + 2] = car(tmpI);
-      tmps[i] = cdr(tmpI);
+      lists[i] = cdr(tmpI);
     }
     result = cons(listOf(...values), result);
     index += 1;
@@ -486,14 +483,14 @@ export function dropWhile(pred, list) {
 }
 
 export function unique(list) {
-  const cache = new Set();
+  const appeared = new Set();
   let result = _nil;
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
-    if (cache.has(x)) {
+    if (appeared.has(x)) {
       continue;
     }
-    cache.add(x);
+    appeared.add(x);
     result = cons(x, result);
   }
   return reverseI(result);
@@ -547,19 +544,18 @@ function _reverseMapN(proc, list0, lists) {
   const nLists = lists.length;
 
   let result = _nil;
-  const tmps = [...lists];
-  const values = new Array(nLists + 1);
+  const values = new Array(nLists);
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
-    values[0] = car(tmp0);
+    const value0 = car(tmp0);
     for (let i = 0; i < nLists; ++i) {
-      const tmpI = tmps[i];
+      const tmpI = lists[i];
       if (!isPair(tmpI)) {
         break Outer;
       }
-      values[i + 1] = car(tmpI);
-      tmps[i] = cdr(tmpI);
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
     }
-    result = cons(proc(...values), result);
+    result = cons(proc(value0, ...values), result);
   }
   return result;
 }
@@ -679,19 +675,18 @@ function _reverseFlatMapN(proc, list0, lists) {
   const nLists = lists.length;
 
   let result = _nil;
-  const tmps = [...lists];
-  const values = new Array(nLists + 1);
+  const values = new Array(nLists);
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
-    values[0] = car(tmp0);
+    const value0 = car(tmp0);
     for (let i = 0; i < nLists; ++i) {
-      const tmpI = tmps[i];
+      const tmpI = lists[i];
       if (!isPair(tmpI)) {
         break Outer;
       }
-      values[i + 1] = car(tmpI);
-      tmps[i] = cdr(tmpI);
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
     }
-    result = reverse(proc(...values), result);
+    result = reverse(proc(value0, ...values), result);
   }
   return result;
 }
@@ -793,40 +788,36 @@ export function reduce(proc, init, list0, ...lists) {
 }
 
 export function reduce1(proc, init, list0) {
-  let acc = init;
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
-    acc = proc(acc, car(tmp));
+    init = proc(init, car(tmp));
   }
-  return acc;
+  return init;
 }
 
 export function reduce2(proc, init, list0, list1) {
-  let acc = init;
   for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
-    acc = proc(acc, car(tmp0), car(tmp1));
+    init = proc(init, car(tmp0), car(tmp1));
   }
-  return acc;
+  return init;
 }
 
 function _reduceN(proc, init, list0, lists) {
   const nLists = lists.length;
 
-  let acc = init;
-  const tmps = [...lists];
-  const values = new Array(nLists + 1);
+  const values = new Array(nLists);
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
-    values[0] = car(tmp0);
+    const value0 = car(tmp0);
     for (let i = 0; i < nLists; ++i) {
-      const tmpI = tmps[i];
+      const tmpI = lists[i];
       if (!isPair(tmpI)) {
         break Outer;
       }
-      values[i + 1] = car(tmpI);
-      tmps[i] = cdr(tmpI);
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
     }
-    acc = proc(acc, ...values);
+    init = proc(init, value0, ...values);
   }
-  return acc;
+  return init;
 }
 
 export function reduceRight(proc, init, list0, ...lists) {
@@ -864,21 +855,21 @@ function _reduceRightN(proc, init, list0, lists) {
     return init;
   }
 
-  const values = new Array(nLists + 1);
-  values[0] = car(list0);
+  const value0 = car(list0);
+  const values = new Array(nLists);
 
   const rest0 = cdr(list0);
   const rests = new Array(nLists);
   for (let i = 0; i < nLists; ++i) {
-    const tmp = lists[i];
-    if (!isPair(tmp)) {
+    const tmpI = lists[i];
+    if (!isPair(tmpI)) {
       return init;
     }
-    values[i + 1] = car(tmp);
-    rests[i] = cdr(tmp);
+    values[i] = car(tmpI);
+    rests[i] = cdr(tmpI);
   }
 
-  return proc(_reduceRightN(proc, init, rest0, rests), ...values);
+  return proc(_reduceRightN(proc, init, rest0, rests), value0, ...values);
 }
 
 export function forEach(proc, list0, ...lists) {
@@ -910,20 +901,19 @@ export function forEach2(proc, list0, list1) {
 function _forEachN(proc, list0, lists) {
   const nLists = lists.length;
 
-  const tmps = [...lists];
-  const values = new Array(nLists + 1);
+  const values = new Array(nLists);
 
   for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
-    values[0] = car(tmp0);
+    const value0 = car(tmp0);
     for (let i = 0; i < nLists; ++i) {
-      const tmpI = tmps[i];
+      const tmpI = lists[i];
       if (!isPair(tmpI)) {
         return;
       }
-      values[i + 1] = car(tmpI);
-      tmps[i] = cdr(tmpI);
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
     }
-    proc(...values);
+    proc(value0, ...values);
   }
 }
 

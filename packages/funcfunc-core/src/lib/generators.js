@@ -1,25 +1,10 @@
-// helpers ================
-
 import { toUInt } from "./asfunc";
+
+// helpers ================
 
 function _safeReturn(iter) {
   if (typeof iter.return === "function") {
     iter.return();
-  }
-}
-
-class _IterBase {
-  [Symbol.iterator]() {
-    return this;
-  }
-
-  return(value) {
-    this.next = _IterBase._returnDone;
-    return { value, done: true };
-  }
-
-  static _returnDone() {
-    return { value: void 0, done: true };
   }
 }
 
@@ -33,87 +18,42 @@ export function* iterableOf(...values) {
 
 export function repeat(count, value) {
   if (count === void 0 || count === Number.POSITIVE_INFINITY) {
-    return new _RepeatInfIter(value);
+    return _repeatInf(value);
   }
-  return new _RepeatIter(count, value);
+  return _repeatFinite(toUInt(count), value);
 }
 
-class _RepeatInfIter extends _IterBase {
-  constructor(value) {
-    super();
-    this._value = value;
-  }
-
-  next() {
-    return { value: this._value, done: false };
-  }
-
-  return(value) {
-    this._value = void 0;
-    return super.return(value);
+function* _repeatInf(value) {
+  for (; ;) {
+    yield value;
   }
 }
 
-class _RepeatIter extends _IterBase {
-  constructor(count, value) {
-    super();
-    this._count = toUInt(count);
-    this._value = value;
-    this._i = 0;
-  }
-
-  next() {
-    if (this._i >= this._count) {
-      return this.return();
-    }
-    this._i += 1;
-    return { value: this._value, done: false };
-  }
-
-  return(value) {
-    this._value = void 0;
-    return super.return(value);
+function* _repeatFinite(count, value) {
+  for (let i = 0; i < count; ++i) {
+    yield value;
   }
 }
 
 export function iota(count, start = 0, step = 1) {
   if (count === void 0 || count === Number.POSITIVE_INFINITY) {
-    return new _IotaInfIter(start, step);
+    return _iotaInf(+start, +step);
   }
-  return new _IotaIter(count, start, step);
+  return _iotaFinite(toUInt(count), +start, +step);
 }
 
-class _IotaInfIter extends _IterBase {
-  constructor(start, step) {
-    super();
-    this._start = +start;
-    this._step = +step;
-    this._i = 0;
-  }
-
-  next() {
-    const value = (this._i++) * this._step + this._start;
-    return { value, done: false };
+function* _iotaInf(start, step) {
+  for (let i = 0; ; ++i) {
+    yield step * i + start;
   }
 }
 
-class _IotaIter extends _IterBase {
-  constructor(count, start, step) {
-    super();
-    this._count = toUInt(count);
-    this._start = +start;
-    this._step = +step;
-    this._i = 0;
-  }
-
-  next() {
-    if (this._i >= this._count) {
-      return this.return();
-    }
-    const value = (this._i++) * this._step + this._start;
-    return { value, done: false };
+function* _iotaFinite(count, start, step) {
+  for (let i = 0; i < count; ++i) {
+    yield step * i + start;
   }
 }
+
 
 export function* unfold(gen, seed, tailGen = void 0) {
   let res;
@@ -129,13 +69,13 @@ export function* unfold(gen, seed, tailGen = void 0) {
 
 // splicing ================
 
-export function* take(count, iterable) {
-  const n = toUInt(count);
-  const iter = iterable[Symbol.iterator]();
+export function* take(count, iter) {
+  count = toUInt(count);
+  iter = iter[Symbol.iterator]();
 
   try {
     let res;
-    for (let i = 0; i < n; ++i) {
+    for (let i = 0; i < count; ++i) {
       res = iter.next()
       if (res.done) {
         return;
@@ -147,20 +87,20 @@ export function* take(count, iterable) {
   }
 }
 
-export function* drop(count, iterable) {
-  const n = toUInt(count);
-  const iter = iterable[Symbol.iterator]();
+export function* drop(count, iter) {
+  count = toUInt(count);
+  iter = iter[Symbol.iterator]();
 
   try {
     let res;
-    for (let i = 0; i < n; ++i) {
+    for (let i = 0; i < count; ++i) {
       res = iter.next()
       if (res.done) {
         return;
       }
     }
 
-    while (!(res = iter.next()).done) {
+    while ((res = iter.next()), !res.done) {
       yield res.value;
     }
   } finally {
@@ -170,30 +110,29 @@ export function* drop(count, iterable) {
 
 // composition ================
 
-export function* flat(iterablesOfIterable) {
-  for (const iter of iterablesOfIterable) {
+export function* flat(iters) {
+  for (const iter of iters) {
     yield* iter;
   }
 }
 
-export function concat(...iterables) {
-  return flat(iterables);
+export function concat(...iters) {
+  return flat(iters);
 }
 
-export function* zip(iterable0, ...iterables) {
-  const niter = iterables.length;
+export function* zip(iter0, ...iters) {
+  const nIters = iters.length;
 
-  const iters = new Array(niter);
-  for (let i = 0; i < niter; ++i) {
-    iters[i] = iterables[i][Symbol.iterator]();
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
   }
 
   try {
-    for (const v0 of iterable0) {
-      const values = new Array(niter + 1);
-      values[0] = v0;
+    for (const value0 of iter0) {
+      const values = new Array(nIters + 1);
 
-      for (let i = 0; i < niter; ++i) {
+      values[0] = value0;
+      for (let i = 0; i < nIters; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
@@ -210,26 +149,26 @@ export function* zip(iterable0, ...iterables) {
   }
 }
 
-export function entries(...iterables) {
-  return zip(iota(), ...iterables);
+export function entries(...iters) {
+  return zip(iota(), ...iters);
 }
 
 // filtering ================
 
-export function* filter(pred, iterable) {
-  for (const v of iterable) {
+export function* filter(pred, iter) {
+  for (const v of iter) {
     if (pred(v)) {
       yield v;
     }
   }
 }
 
-export function* findTail(pred, iterable) {
-  const iter = iterable[Symbol.iterator]();
+export function* findTail(pred, iter) {
+  iter = iter[Symbol.iterator]();
 
   try {
     let res;
-    while (!(res = iter.next()).done) {
+    while ((res = iter.next()), !res.done) {
       const { value } = res;
       if (pred(value)) {
         yield value;
@@ -237,7 +176,7 @@ export function* findTail(pred, iterable) {
       }
     }
 
-    while (!(res = iter.next()).done) {
+    while ((res = iter.next()), !res.done) {
       yield res.value;
     }
   } finally {
@@ -245,8 +184,8 @@ export function* findTail(pred, iterable) {
   }
 }
 
-export function* takeWhile(pred, iterable) {
-  for (const v of iterable) {
+export function* takeWhile(pred, iter) {
+  for (const v of iter) {
     if (!pred(v)) {
       break;
     }
@@ -254,12 +193,12 @@ export function* takeWhile(pred, iterable) {
   }
 }
 
-export function* dropWhile(pred, iterable) {
-  const iter = iterable[Symbol.iterator]();
+export function* dropWhile(pred, iter) {
+  iter = iter[Symbol.iterator]();
 
   try {
     let res;
-    while (!(res = iter.next()).done) {
+    while ((res = iter.next()), !res.done) {
       const { value } = res;
       if (!pred(value)) {
         yield value;
@@ -267,7 +206,7 @@ export function* dropWhile(pred, iterable) {
       }
     }
 
-    while (!(res = iter.next()).done) {
+    while ((res = iter.next()), !res.done) {
       yield res.value;
     }
   } finally {
@@ -275,9 +214,10 @@ export function* dropWhile(pred, iterable) {
   }
 }
 
-export function* unique(iterable) {
+export function* unique(iter) {
   const appeared = new Set();
-  for (const v of iterable) {
+
+  for (const v of iter) {
     if (appeared.has(v)) {
       continue;
     }
@@ -288,61 +228,60 @@ export function* unique(iterable) {
 
 // mapping ================
 
-export function map(proc, iterable0, ...iterables) {
-  switch (iterables.length) {
+export function map(proc, iter0, ...iters) {
+  switch (iters.length) {
     case 0: {
-      return map1(proc, iterable0);
+      return map1(proc, iter0);
     }
     case 1: {
-      return map2(proc, iterable0, iterables[0]);
+      return map2(proc, iter0, iters[0]);
     }
     default: {
-      return _mapN(proc, iterable0, iterables);
+      return _mapN(proc, iter0, iters);
     }
   }
 }
 
-export function* map1(proc, iterable0) {
-  for (const v0 of iterable0) {
-    yield proc(v0);
+export function* map1(proc, iter0) {
+  for (const value0 of iter0) {
+    yield proc(value0);
   }
 }
 
-export function* map2(proc, iterable0, iterable1) {
-  const iter1 = iterable1[Symbol.iterator]();
+export function* map2(proc, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
 
   try {
-    for (const v0 of iterable0) {
+    for (const value0 of iter0) {
       const res1 = iter1.next();
       if (res1.done) {
         return;
       }
-      yield proc(v0, res1.value);
+      yield proc(value0, res1.value);
     }
   } finally {
     _safeReturn(iter1);
   }
 }
 
-function* _mapN(proc, iterable0, iterables) {
-  const nIterables = iterables.length;
-  const iters = new Array(nIterables);
+function* _mapN(proc, iter0, iters) {
+  const nIters = iters.length;
 
-  for (let i = 0; i < nIterables; ++i) {
-    iters[i] = iterables[i][Symbol.iterator]();
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
   }
 
-  const values = new Array(nIterables);
+  const values = new Array(nIters);
   try {
-    for (const v0 of iterable0) {
-      for (let i = 0; i < nIterables; ++i) {
+    for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
         }
         values[i] = res.value;
       }
-      yield proc(v0, ...values);
+      yield proc(value0, ...values);
     }
   } finally {
     for (const iter of iters) {
@@ -351,61 +290,60 @@ function* _mapN(proc, iterable0, iterables) {
   }
 }
 
-export function flatMap(proc, iterable0, ...iterables) {
-  switch (iterables.length) {
+export function flatMap(proc, iter0, ...iters) {
+  switch (iters.length) {
     case 0: {
-      return flatMap1(proc, iterable0);
+      return flatMap1(proc, iter0);
     }
     case 1: {
-      return flatMap2(proc, iterable0, iterables[0]);
+      return flatMap2(proc, iter0, iters[0]);
     }
     default: {
-      return _flatMapN(proc, iterable0, iterables);
+      return _flatMapN(proc, iter0, iters);
     }
   }
 }
 
-export function* flatMap1(proc, iterable0) {
-  for (const v0 of iterable0) {
-    yield* proc(v0);
+export function* flatMap1(proc, iter0) {
+  for (const value0 of iter0) {
+    yield* proc(value0);
   }
 }
 
-export function* flatMap2(proc, iterable0, iterable1) {
-  const iter1 = iterable1[Symbol.iterator]();
+export function* flatMap2(proc, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
 
   try {
-    for (const v0 of iterable0) {
+    for (const value0 of iter0) {
       const res1 = iter1.next();
       if (res1.done) {
         return;
       }
-      yield* proc(v0, res1.value);
+      yield* proc(value0, res1.value);
     }
   } finally {
     _safeReturn(iter1);
   }
 }
 
-function* _flatMapN(proc, iterable0, iterables) {
-  const nIterables = iterables.length;
+function* _flatMapN(proc, iter0, iters) {
+  const nIters = iters.length;
 
-  const iters = new Array(nIterables);
-  for (let i = 0; i < nIterables; ++i) {
-    iters[i] = iterables[i][Symbol.iterator]();
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
   }
 
-  const values = new Array(nIterables);
+  const values = new Array(nIters);
   try {
-    for (const v0 of iterable0) {
-      for (let i = 0; i < nIterables; ++i) {
+    for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
         }
         values[i] = res.value;
       }
-      yield* proc(v0, ...values);
+      yield* proc(value0, ...values);
     }
   } finally {
     for (const iter of iters) {
@@ -416,132 +354,127 @@ function* _flatMapN(proc, iterable0, iterables) {
 
 // reduction ================
 
-export function reduce(proc, init, iterable0, ...iterables) {
-  switch (iterables.length) {
+export function reduce(proc, init, iter0, ...iters) {
+  switch (iters.length) {
     case 0: {
-      return reduce1(proc, init, iterable0);
+      return reduce1(proc, init, iter0);
     }
     case 1: {
-      return reduce2(proc, init, iterable0, iterables[0]);
+      return reduce2(proc, init, iter0, iters[0]);
     }
     default: {
-      return _reduceN(proc, init, iterable0, iterables);
+      return _reduceN(proc, init, iter0, iters);
     }
   }
 }
 
-export function reduce1(proc, init, iterable0) {
-  let acc = init;
-  for (const v0 of iterable0) {
-    acc = proc(acc, v0);
+export function reduce1(proc, init, iter0) {
+  for (const value0 of iter0) {
+    init = proc(init, value0);
   }
-  return acc;
+  return init;
 }
 
-export function reduce2(proc, init, iterable0, iterable1) {
-  const iter1 = iterable1[Symbol.iterator]();
-  let acc = init;
+export function reduce2(proc, init, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
 
   try {
-    for (const v0 of iterable0) {
+    for (const value0 of iter0) {
       const res1 = iter1.next();
       if (res1.done) {
-        return acc;
+        return init;
       }
-      acc = proc(acc, v0, res1.value);
+      init = proc(init, value0, res1.value);
     }
-    return acc;
+    return init;
   } finally {
     _safeReturn(iter1);
   }
 }
 
-function _reduceN(proc, init, iterable0, iterables) {
-  const niter = iterables.length;
+function _reduceN(proc, init, iter0, iters) {
+  const nIters = iters.length;
 
-  const iters = new Array(niter);
-  for (let i = 0; i < niter; ++i) {
-    iters[i] = iterables[i][Symbol.iterator]();
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
   }
 
-  const values = new Array(niter);
+  const values = new Array(nIters);
   try {
-    let acc = init;
-    for (const v0 of iterable0) {
-      for (let i = 0; i < niter; ++i) {
+    for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
         const res = iters[i].next();
         if (res.done) {
-          return acc;
+          return init;
         }
         values[i] = res.value;
       }
-      acc = proc(acc, v0, ...values);
+      init = proc(init, value0, ...values);
     }
-    return acc;
+    return init;
   } finally {
-    for (const it of iters) {
-      _safeReturn(it);
+    for (const iter of iters) {
+      _safeReturn(iter);
     }
   }
 }
 
-export function forEach(proc, iterable0, ...iterables) {
-  switch (iterables.length) {
+export function forEach(proc, iter0, ...iters) {
+  switch (iters.length) {
     case 0: {
-      forEach1(proc, iterable0);
+      forEach1(proc, iter0);
       break;
     }
     case 1: {
-      forEach2(proc, iterable0, iterables[0]);
+      forEach2(proc, iter0, iters[0]);
       break;
     }
     default: {
-      _forEachN(proc, iterable0, iterables);
+      _forEachN(proc, iter0, iters);
     }
   }
 }
 
-export function forEach1(proc, iterable0) {
-  for (const v0 of iterable0) {
-    proc(v0);
+export function forEach1(proc, iter0) {
+  for (const value0 of iter0) {
+    proc(value0);
   }
 }
 
-export function forEach2(proc, iterable0, iterable1) {
-  const iter1 = iterable1[Symbol.iterator]();
+export function forEach2(proc, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
 
   try {
-    for (const v0 of iterable0) {
+    for (const value0 of iter0) {
       const res1 = iter1.next();
       if (res1.done) {
         return;
       }
-      proc(v0, res1.value);
+      proc(value0, res1.value);
     }
   } finally {
     _safeReturn(iter1);
   }
 }
 
-function _forEachN(proc, iterable0, iterables) {
-  const niter = iterables.length;
+function _forEachN(proc, iter0, iters) {
+  const nIters = iters.length;
 
-  const iters = new Array(niter);
-  for (let i = 0; i < niter; ++i) {
-    iters[i] = iterables[i][Symbol.iterator]();
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
   }
 
-  const values = new Array(niter);
+  const values = new Array(nIters);
   try {
-    for (const v0 of iterable0) {
-      for (let i = 0; i < niter; ++i) {
+    for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
         }
         values[i] = res.value;
       }
-      proc(v0, ...values);
+      proc(value0, ...values);
     }
   } finally {
     for (const iter of iters) {
@@ -550,24 +483,24 @@ function _forEachN(proc, iterable0, iterables) {
   }
 }
 
-export function every(pred, iterable0, ...iterables) {
-  switch (iterables.length) {
+export function every(pred, iter0, ...iters) {
+  switch (iters.length) {
     case 0: {
-      return every1(pred, iterable0);
+      return every1(pred, iter0);
     }
     case 1: {
-      return every2(pred, iterable0, iterables[0]);
+      return every2(pred, iter0, iters[0]);
     }
     default: {
-      return _everyN(pred, iterable0, iterables);
+      return _everyN(pred, iter0, iters);
     }
   }
 }
 
-export function every1(pred, iterable0) {
+export function every1(pred, iter0) {
   let result = true;
-  for (const v0 of iterable0) {
-    result = pred(v0);
+  for (const value0 of iter0) {
+    result = pred(value0);
     if (!result) {
       break;
     }
@@ -575,17 +508,17 @@ export function every1(pred, iterable0) {
   return result;
 }
 
-export function every2(pred, iterable0, iterable1) {
-  const iter1 = iterable1[Symbol.iterator]();
-  let result = true;
+export function every2(pred, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
 
+  let result = true;
   try {
-    for (const v0 of iterable0) {
+    for (const value0 of iter0) {
       const res1 = iter1.next();
       if (res1.done) {
         break;
       }
-      result = pred(v0, res1.value);
+      result = pred(value0, res1.value);
       if (!result) {
         break;
       }
@@ -596,57 +529,56 @@ export function every2(pred, iterable0, iterable1) {
   }
 }
 
-function _everyN(pred, iterable0, iterables) {
-  const niter = iterables.length;
+function _everyN(pred, iter0, iters) {
+  const nIters = iters.length;
 
-  const iters = new Array(niter);
-  for (let i = 0; i < niter; ++i) {
-    iters[i] = iterables[i][Symbol.iterator]();
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
   }
 
-  const values = new Array(niter);
 
+  let result = true;
+  const values = new Array(nIters);
   try {
-    let result = true;
-    LoopIter0: for (const v0 of iterable0) {
-      for (let i = 0; i < niter; ++i) {
+    Outer: for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
         const res = iters[i].next();
         if (res.done) {
-          break LoopIter0;
+          break Outer;
         }
         values[i] = res.value;
       }
-      result = pred(v0, ...values);
+      result = pred(value0, ...values);
       if (!result) {
         break;
       }
     }
     return result;
   } finally {
-    for (const it of iters) {
-      _safeReturn(it);
+    for (const iter of iters) {
+      _safeReturn(iter);
     }
   }
 }
 
-export function some(pred, iterable0, ...iterables) {
-  switch (iterables.length) {
+export function some(pred, iter0, ...iters) {
+  switch (iters.length) {
     case 0: {
-      return some1(pred, iterable0);
+      return some1(pred, iter0);
     }
     case 1: {
-      return some2(pred, iterable0, iterables[0]);
+      return some2(pred, iter0, iters[0]);
     }
     default: {
-      return _someN(pred, iterable0, iterables);
+      return _someN(pred, iter0, iters);
     }
   }
 }
 
-export function some1(pred, iterable0) {
+export function some1(pred, iter0) {
   let result = false;
-  for (const v0 of iterable0) {
-    result = pred(v0);
+  for (const value0 of iter0) {
+    result = pred(value0);
     if (result) {
       break;
     }
@@ -654,17 +586,17 @@ export function some1(pred, iterable0) {
   return result;
 }
 
-export function some2(pred, iterable0, iterable1) {
-  const iter1 = iterable1[Symbol.iterator]();
-  let result = false;
+export function some2(pred, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
 
+  let result = false;
   try {
-    for (const v0 of iterable0) {
+    for (const value0 of iter0) {
       const res1 = iter1.next();
       if (res1.done) {
         break;
       }
-      result = pred(v0, res1.value);
+      result = pred(value0, res1.value);
       if (result) {
         break;
       }
@@ -675,46 +607,44 @@ export function some2(pred, iterable0, iterable1) {
   }
 }
 
-function _someN(pred, iterable0, iterables) {
-  const niter = iterables.length;
+function _someN(pred, iter0, iters) {
+  const nIters = iters.length;
 
-  const iters = new Array(niter);
-  for (let i = 0; i < niter; ++i) {
-    iters[i] = iterables[i][Symbol.iterator]();
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
   }
 
-  const values = new Array(niter);
-
+  let result = false;
+  const values = new Array(nIters);
   try {
-    let result = false;
-    LoopIter0: for (const v0 of iterable0) {
-      for (let i = 0; i < niter; ++i) {
+    Outer: for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
         const res = iters[i].next();
         if (res.done) {
-          break LoopIter0;
+          break Outer;
         }
         values[i] = res.value;
       }
-      result = pred(v0, ...values);
+      result = pred(value0, ...values);
       if (result) {
         break;
       }
     }
     return result;
   } finally {
-    for (const it of iters) {
-      _safeReturn(it);
+    for (const iter of iters) {
+      _safeReturn(iter);
     }
   }
 }
 
 const _join_buffer_size = 10000;
 
-export function join(sep, iterable) {
+export function join(sep, iter) {
   const result = [];
   const buffer = new Array(_join_buffer_size);
   let i = 0;
-  for (const v of iterable) {
+  for (const v of iter) {
     if (i >= _join_buffer_size) {
       result.push(buffer.join(sep));
       i = 0;
