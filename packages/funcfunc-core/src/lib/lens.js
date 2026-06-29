@@ -1,5 +1,4 @@
 import { is, isArray, isObject } from "./asfunc";
-import { makeArray } from "./core";
 
 export function view(lns, target) {
   return lns._view(target);
@@ -183,7 +182,7 @@ class _IndexLens extends LensLike {
       return result;
     }
 
-    const result = makeArray(_index + 1);
+    const result = new Array(_index + 1).fill();
     result[_index] = value;
     return result;
   }
@@ -196,7 +195,7 @@ class _IndexLens extends LensLike {
       return target;
     }
 
-    const result = makeArray(_index + 1);
+    const result = new Array(_index + 1).fill();
     result[_index] = value;
     return result;
   }
