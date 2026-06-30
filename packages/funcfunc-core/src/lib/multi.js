@@ -1,6 +1,7 @@
 import { is } from "./asfunc";
+import { car, cdr, flatMap1, isPair, map1 } from "./list";
 
-export function multi({ dispatch, isa = _isa, defaultImpl = _defaultImpl }) {
+export function multi({ dispatch, defaultImpl = _defaultImpl }) {
   const implMap = new Map();
 
   function _doMethod(...args) {
@@ -33,14 +34,32 @@ export function derive(parent, child) {
   }
 }
 
+/*
+{
+  superA1: (superA1 (superA1a) (superA1b)),
+  superA1a: (superA1a)
+  superA1b: (superA1b)
+  superA2: (superA2 (superA2a) (superA2b)),
+  superA2a: (superA2a),
+  superA2b: (superA2b),
+  superB1: (superB1),
+  superB2: (superB2),
+  classA: (classA (superA1 (superA1a) (superA1b)) (superA2 (superA2a) (superA2b))),
+  classB: (classB (superB1) (superB2)),
+}
+*/
 const _hierarchy = new Map();
 
-function _isa(key) {
-  const uppers = _hierarchy.get(key);
-  return uppers ? uppers : [key];
+export function* traverseHierarchy(hierarchy) {
+  const current = car(hierarchy);
+  yield current;
+  for (let ancestors = cdr(hierarchy); isPair(ancestors); ancestors = flatMap1(cdr, ancestors)) {
+    const parents = map1(car, ancestors);
+    yield* parents;
+  }
 }
 
-export { _isa as isa };
+export function isa()
 
 function _defaultImpl() {
   throw TypeError("Not implemented");
