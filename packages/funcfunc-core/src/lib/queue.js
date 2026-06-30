@@ -1,3 +1,4 @@
+import { reverseIter } from "./arrays";
 
 export class Queue {
   constructor(...values) {
@@ -15,12 +16,10 @@ export class Queue {
   }
 
   pop() {
-    const { _values } = this;
-    if (_values.length > 0) {
-      return this._values.pop();
+    if (this._values.length === 0) {
+      this._arrange();
     }
-    this._values = this._added.reverse();
-    this._added = [];
+    return this._values.pop();
   }
 
   delete(value) {
@@ -40,17 +39,12 @@ export class Queue {
   }
 
   has(value) {
-    this._values.includes(value) || this._added.includes(value);
+    return this._values.includes(value) || this._added.includes(value);
   }
 
-  *values() {
-    const { _values } = this;
-    const nValues = _values.length;
-    for (let i = nValues - 1; i >= 0; --i) {
-      yield _values[i];
-    }
-
-    yield* this._added;
+  values() {
+    this._arrange();
+    return reverseIter(this._values);
   }
 
   keys() {
@@ -59,7 +53,7 @@ export class Queue {
 
   *entries() {
     for (const v of this.values()) {
-      yield* [v, v];
+      yield [v, v];
     }
   }
 
@@ -70,12 +64,25 @@ export class Queue {
 
   forEach(callback, thisArg = void 0) {
     callback = thisArg === void 0 ? callback : callback.bind(thisArg);
-    for (const v of this._values()) {
-      callback(v);
+    for (const v of this.values()) {
+      callback(v, v, this);
     }
   }
 
   [Symbol.iterator]() {
     return this.values();
+  }
+
+  _arrange() {
+    if (this._added.length === 0) {
+      return;
+    }
+
+    const newValues = this._added.reverse();
+    for (const oldValue of this._values) {
+      newValues.push(oldValue);
+    }
+    this._values = newValues;
+    this._added = [];
   }
 }

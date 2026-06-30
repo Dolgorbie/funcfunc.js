@@ -623,3 +623,21 @@ function _someN(pred, array0, arrays) {
 export function join(sep, array) {
   return _join.call(array, sep);
 }
+
+// misc ================
+
+export function reverse(array) {
+  const { length } = array;
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    result[i] = array[length - i - 1];
+  }
+  return result;
+}
+
+export function* reverseIter(array) {
+  const { length } = array;
+  for (let i = length - 1; i >= 0; --i) {
+    yield array[i];
+  }
+}
