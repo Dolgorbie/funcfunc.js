@@ -1,69 +1,82 @@
-
-export function genc({ processors = [], merge = _defaultMerge } = {}) {
+export function genc({ processors = [], merge = simpleMerge } = {}) {
   return (...names) => {
     const acc = [];
-    _loop(0, processors, acc, names);
+    _loopNames(acc, processors, 0, names);
     return merge(acc);
   }
 }
 
-function _loop(procid, processors, acc, names) {
-  const nNames = names.length;
-  Outer: for (let i = 0; i < nNames; ++i) {
-    let name = names[i];
-
-    if (Array.isArray(name)) {
-      _loop(procid, processors, acc, name);
+function _loopNames(acc, processors, offsetProcs, names) {
+  for (const name of names) {
+    if (name === false) {
       continue;
     }
-
-    const nProcessors = processors.length;
-    for (let j = procid; j < nProcessors; ++j) {
-      const proc = processors[j];
-      name = proc(name);
-      if (name === false) {
-        continue Outer;
-      }
-      if (Array.isArray(name)) {
-        _loop(j + 1, processors, acc, name);
-        continue Outer;
-      }
+    if (Array.isArray(name)) {
+      _loopNames(acc, processors, offsetProcs, name);
+      continue;
     }
-
-    if (name !== false) {
-      acc.push(name);
-    }
+    _loopProcs(acc, processors, offsetProcs, name);
   }
 }
 
-export const c = genc();
+function _loopProcs(acc, processors, offsetProcs, name) {
+  const { length } = processors;
+  for (let i = offsetProcs; i < length; ++i) {
+    const proc = processors[i];
+    name = proc(name);
+    if (name === false) {
+      return;
+    }
+    if (Array.isArray(name)) {
+      _loopNames(acc, processors, i + 1, name);
+      return;
+    }
+  }
+  acc.push(name);
+}
 
-export const clegacy = genc({ preprocess: _legacyPreprocess });
+export const c = genc({ processors: [omitFalsyProcessor] });
+
+export const clegacy = genc({ processors: [omitFalsyProcessor, objectKeysProcessor] });
 
 export function cprops(styles) {
-  return genc({ postprocess: (prop) => prop && (styles[prop] ?? prop) });
+  return genc({ processors: [createPropProcessor(styles), omitFalsyProcessor] });
 }
 
 export function cprefix(prefix) {
-  return genc({ postprocess: (name) => name && `${prefix}${name}` });
+  return genc({ processors: [omitFalsyProcessor, createPrefixingProcessor(prefix)] });
 }
 
-function _defaultMerge(names) {
-  return names.join(" ");
+export const craw = genc();
+
+export function omitFalsyProcessor(name) {
+  return name || false;
 }
 
-function _legacyPreprocess(name) {
-  if (name == null || typeof name !== "object" || Array.isArray(name)) {
+export function objectKeysProcessor(name) {
+  if (name == null || typeof name !== "object") {
     return name;
   }
   const keys = Object.keys(name)
   const acc = new Array(keys.length);
   let i = 0;
   for (const k of keys) {
-    if (name[k]) {
+    if (k !== "" && name[k]) {
       acc[i++] = k;
     }
   }
   acc.length = i;
   return acc;
+}
+
+export function createPropProcessor(styles) {
+  return (prop) => styles[prop] ?? prop
+}
+
+export function createPrefixingProcessor(prefix) {
+  return (name) => `${prefix}${name}`
+}
+
+export function simpleMerge(names) {
+  return names.join(" ");
 }
