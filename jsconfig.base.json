@@ -4,7 +4,7 @@
     "rootDir": "${configDir}/src",
     "outDir": "${configDir}/dist",
     "module": "preserve",
-    "target": "es2025",
+    "target": "es2021",
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,

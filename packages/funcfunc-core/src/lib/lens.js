@@ -1,6 +1,11 @@
+import { every1, map1, reduce1 } from "./arrays";
 import { is, isArray, isObject } from "./asfunc";
 
 export function view(lns, target) {
+  return lns._view(target);
+}
+
+export function xview(target, lns) {
   return lns._view(target);
 }
 
@@ -8,7 +13,11 @@ export function upd(lns, target, value) {
   return lns._upd(target, value);
 }
 
-export function mut(lns, target, value) {
+export function xupd(target, lns, value) {
+  return lns._upd(target, value);
+}
+
+export function xmut(target, lns, value) {
   return lns._mut(target, value);
 }
 
@@ -65,22 +74,22 @@ class _ChainLens extends LensLike {
   constructor(lenses) {
     super();
     this._lenses = lenses;
-    this._hasOnlyMutable = lenses.every((lns) => lns._isMutable());
+    this._hasOnlyMutable = every1(isMutableLens, lenses);
   }
 
   _view(target) {
-    return this._lenses.reduce((acc, lns) => lns._view(acc), target);
+    return reduce1(xview, target, this._lenses);
   }
 
   _upd(target, value) {
-    return _chainUpd(this._lenses, target, value);
+    return _chainUpd(0, this._lenses, target, value);
   }
 
   _mut(target, value) {
     if (!this._hasOnlyMutable) {
       throw TypeError("expects all lenses are mutable, but some are immutable.");
     }
-    return _chainMut(this._lenses, target, value);
+    return _chainMut(0, this._lenses, target, value);
   }
 
   _isMutable() {
@@ -89,7 +98,7 @@ class _ChainLens extends LensLike {
 }
 
 export function chain(...lenses) {
-  if (!lenses.every((lns) => lns instanceof LensLike)) {
+  if (!every1((lns) => lns instanceof LensLike, lenses)) {
     throw TypeError("expects LensLike");
   }
   switch (lenses.length) {
@@ -105,22 +114,22 @@ export function chain(...lenses) {
   }
 }
 
-function _chainUpd(lenses, target, value) {
-  if (lenses.length === 0) {
+function _chainUpd(indexLenses, lenses, target, value) {
+  if (lenses.length === indexLenses) {
     return value;
   }
 
-  const [lns0, ...rest] = lenses;
-  return lns0._upd(target, _chainUpd(rest, lns0._view(target), value));
+  const lnsI = lenses[indexLenses];
+  return lnsI._upd(target, _chainUpd(indexLenses + 1, lenses, lnsI._view(target), value));
 }
 
-function _chainMut(lenses, target, value) {
-  if (lenses.length === 0) {
+function _chainMut(indexLenses, lenses, target, value) {
+  if (lenses.length === indexLenses) {
     return value;
   }
 
-  const [lns0, ...rest] = lenses;
-  return lns0._mut(target, _chainMut(rest, lns0._view(target), value));
+  const lnsI = lenses[indexLenses];
+  return lnsI._mut(target, _chainMut(indexLenses + 1, lenses, lnsI._view(target), value));
 }
 
 class _PropLens extends LensLike {
@@ -202,7 +211,7 @@ class _IndexLens extends LensLike {
 }
 
 export function pathLens(...segments) {
-  const lenses = segments.map((s) => {
+  const lenses = map1((s) => {
     switch (typeof s) {
       case "number": {
         return new _IndexLens(s);
@@ -215,7 +224,7 @@ export function pathLens(...segments) {
         throw TypeError("expects number, string, or symbol");
       }
     }
-  });
+  }, segments);
 
   return chain(...lenses);
 }

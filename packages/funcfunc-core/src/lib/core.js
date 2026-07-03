@@ -1,6 +1,3 @@
-const _call = Function.call;
-const _apply = Function.apply;
-
 export function doNothing() {
 }
 
@@ -52,46 +49,6 @@ export function xcall4(arg0, proc, arg1, arg2, arg3) {
   return proc(arg0, arg1, arg2, arg3);
 }
 
-export function mcall(proc, self, ...args) {
-  return _apply.call(proc, self, args);
-}
-
-export function mcall1(proc, self, arg0) {
-  return _call.call(proc, self, arg0);
-}
-
-export function mcall2(proc, self, arg0, arg1) {
-  return _call.call(proc, self, arg0, arg1);
-}
-
-export function mcall3(proc, self, arg0, arg1, arg2) {
-  return _call.call(proc, self, arg0, arg1, arg2);
-}
-
-export function mcall4(proc, self, arg0, arg1, arg2, arg3) {
-  return _call.call(proc, self, arg0, arg1, arg2, arg3);
-}
-
-export function xmcall(self, proc, ...args) {
-  return _apply.call(proc, self, args);
-}
-
-export function xmcall1(self, proc, arg0) {
-  return _call.call(proc, self, arg0);
-}
-
-export function xmcall2(self, proc, arg0, arg1) {
-  return _call.call(proc, self, arg0, arg1);
-}
-
-export function xmcall3(self, proc, arg0, arg1, arg2) {
-  return _call.call(proc, self, arg0, arg1, arg2);
-}
-
-export function xmcall4(self, proc, arg0, arg1, arg2, arg3) {
-  return _call.call(proc, self, arg0, arg1, arg2, arg3);
-}
-
 export function apply(proc, args) {
   return proc(...args);
 }
@@ -100,31 +57,75 @@ export function xapply(args, proc) {
   return proc(...args);
 }
 
-export function methodToFunc(method) {
-  return _call.bind(method);
+export function methodF(method) {
+  return (self, ...args) => method.call(self, ...args);
 }
 
-export function newToFunc(clazz) {
+export function methodF0(method) {
+  return (self) => method.call(self);
+}
+
+export function methodF1(method) {
+  return (self, arg0) => method.call(self, arg0);
+}
+
+export function methodF2(method) {
+  return (self, arg0, arg1) => method.call(self, arg0, arg1);
+}
+
+export function methodF3(method) {
+  return (self, arg0, arg1, arg2) => method.call(self, arg0, arg1, arg2);
+}
+
+export function methodF4(method) {
+  return (self, arg0, arg1, arg2, arg3) => method.call(self, arg0, arg1, arg2, arg3);
+}
+
+export function refF(methodName) {
+  return (self, ...args) => self[methodName](...args);
+}
+
+export function refF0(methodName) {
+  return (self) => self[methodName]();
+}
+
+export function refF1(methodName) {
+  return (self, arg0) => self[methodName](arg0);
+}
+
+export function refF2(methodName) {
+  return (self, arg0, arg1) => self[methodName](arg0, arg1);
+}
+
+export function refF3(methodName) {
+  return (self, arg0, arg1, arg2) => self[methodName](arg0, arg1, arg2);
+}
+
+export function refF4(methodName) {
+  return (self, arg0, arg1, arg2, arg3) => self[methodName](arg0, arg1, arg2, arg3);
+}
+
+export function newF(clazz) {
   return (...args) => new clazz(...args);
 }
 
-export function newToFunc0(clazz) {
+export function newF0(clazz) {
   return () => new clazz();
 }
 
-export function newToFunc1(clazz) {
+export function newF1(clazz) {
   return (arg0) => new clazz(arg0);
 }
 
-export function newToFunc2(clazz) {
+export function newF2(clazz) {
   return (arg0, arg1) => new clazz(arg0, arg1);
 }
 
-export function newToFunc3(clazz) {
+export function newF3(clazz) {
   return (arg0, arg1, arg2) => new clazz(arg0, arg1, arg2);
 }
 
-export function newToFunc4(clazz) {
+export function newF4(clazz) {
   return (arg0, arg1, arg2, arg3) => new clazz(arg0, arg1, arg2, arg3);
 }
 
@@ -132,64 +133,24 @@ export function curry2(proc) {
   return (arg0) => (...args) => proc(arg0, ...args);
 }
 
-export function curry21(proc) {
-  return (arg0) => (arg1) => proc(arg0, arg1);
-}
-
 export function curry3(proc) {
   return (arg0) => (arg1) => (...args) => proc(arg0, arg1, ...args);
-}
-
-export function curry31(proc) {
-  return (arg0) => (arg1) => (arg2) => proc(arg0, arg1, arg2);
 }
 
 export function curry4(proc) {
   return (arg0) => (arg1) => (arg2) => (...args) => proc(arg0, arg1, arg2, ...args);
 }
 
-export function curry41(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => proc(arg0, arg1, arg2, arg3);
+export function uncurry2(proc) {
+  return (arg0, ...args) => proc(arg0)(...args);
 }
 
-export function curry5(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => (...args) => proc(arg0, arg1, arg2, arg3, ...args);
+export function uncurry3(proc) {
+  return (arg0, arg1, ...args) => proc(arg0)(arg1)(...args);
 }
 
-export function curry51(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => (arg4) => proc(arg0, arg1, arg2, arg3, arg4);
-}
-
-export function curry6(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => (arg4) => (...args) => proc(arg0, arg1, arg2, arg3, arg4, ...args);
-}
-
-export function curry61(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => (arg4) => (arg5) => proc(arg0, arg1, arg2, arg3, arg4, arg5);
-}
-
-export function curry7(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => (arg4) => (arg5) => (...args) => proc(arg0, arg1, arg2, arg3, arg4, arg5, ...args);
-}
-
-export function curry71(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => (arg4) => (arg5) => (arg6) => proc(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
-}
-
-export function curry8(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => (arg4) => (arg5) => (arg6) => (...args) => proc(arg0, arg1, arg2, arg3, arg4, arg5, arg6, ...args);
-}
-
-export function curry81(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => (arg4) => (arg5) => (arg6) => (arg7) => proc(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
-}
-
-export function curry9(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => (arg4) => (arg5) => (arg6) => (arg7) => (...args) => proc(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, ...args);
-}
-
-export function curry91(proc) {
-  return (arg0) => (arg1) => (arg2) => (arg3) => (arg4) => (arg5) => (arg6) => (arg7) => (arg8) => proc(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+export function uncurry4(proc) {
+  return (arg0, arg1, arg2, ...args) => proc(arg0)(arg1)(arg2)(...args);
 }
 
 export function pa(proc, ...args) {
@@ -197,7 +158,19 @@ export function pa(proc, ...args) {
 }
 
 export function pa1(proc, ...args) {
-  return (param) => proc(...args, param);
+  return (param0) => proc(...args, param0);
+}
+
+export function pa2(proc, ...args) {
+  return (param0, param1) => proc(...args, param0, param1);
+}
+
+export function pa3(proc, ...args) {
+  return (param0, param1, param2) => proc(...args, param0, param1, param2);
+}
+
+export function pa4(proc, ...args) {
+  return (param0, param1, param2, param3) => proc(...args, param0, param1, param2, param3);
 }
 
 export function xpa(proc, ...args) {
@@ -205,15 +178,47 @@ export function xpa(proc, ...args) {
 }
 
 export function xpa1(proc, ...args) {
-  return (param) => proc(param, ...args);
+  return (param0) => proc(param0, ...args);
 }
 
-export function pipe(proc0, ...procs) {
-  return (...args) => procs.reduce(xcall1, proc0(...args));
+export function xpa2(proc, ...args) {
+  return (param0, params1) => proc(param0, params1, ...args);
+}
+
+export function xpa3(proc, ...args) {
+  return (param0, params1, param2) => proc(param0, params1, param2, ...args);
+}
+
+export function xpa4(proc, ...args) {
+  return (param0, params1, param2, param3) => proc(param0, params1, param2, param3, ...args);
+}
+
+export function pipe(...procs) {
+  const { length } = procs;
+  if (length === 0) {
+    return itself;
+  }
+  return (...args) => {
+    let res = procs[0](...args);
+    for (let i = 1; i < length; ++i) {
+      res = procs[i](res);
+    }
+    return res;
+  };
 }
 
 export function cmp(...procs) {
-  return (arg) => procs.reduceRight(xcall1, arg);
+  const { length } = procs;
+  if (length === 0) {
+    return itself;
+  }
+  return (...args) => {
+    let res = procs[length - 1](...args);
+    for (let i = length - 2; i >= 0; --i) {
+      res = procs[i](res);
+    }
+    return res;
+  };
 }
 
 export function not(pred) {
@@ -226,6 +231,14 @@ export function not1(pred) {
 
 export function not2(pred) {
   return (arg0, arg1) => !pred(arg0, arg1);
+}
+
+export function not3(pred) {
+  return (arg0, arg1, arg2) => !pred(arg0, arg1, arg2);
+}
+
+export function not4(pred) {
+  return (arg0, arg1, arg2, arg3) => !pred(arg0, arg1, arg2, arg3);
 }
 
 export function and(...preds) {
@@ -279,16 +292,38 @@ export function and2(...preds) {
   };
 }
 
-export function and2n(pred0, pred1) {
-  return (...args) => pred0(...args) && pred1(...args);
+export function and3(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1, arg2) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
 }
 
-export function and21(pred0, pred1) {
-  return (arg0) => pred0(arg0) && pred1(arg0);
-}
+export function and4(...preds) {
+  const n = preds.length;
 
-export function and22(pred0, pred1) {
-  return (arg0, arg1) => pred0(arg0, arg1) && pred1(arg0, arg1);
+  return (arg0, arg1, arg2, arg3) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2, arg3);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
 }
 
 export function or(...preds) {
@@ -342,14 +377,36 @@ export function or2(...preds) {
   };
 }
 
-export function or2n(pred0, pred1) {
-  return (...args) => pred0(...args) || pred1(...args);
+export function or3(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1, arg2) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
 }
 
-export function or21(pred0, pred1) {
-  return (arg0) => pred0(arg0) || pred1(arg0);
-}
+export function or4(...preds) {
+  const n = preds.length;
 
-export function or22(pred0, pred1) {
-  return (arg0, arg1) => pred0(arg0, arg1) || pred1(arg0, arg1);
+  return (arg0, arg1, arg2, arg3) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2, arg3);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
 }

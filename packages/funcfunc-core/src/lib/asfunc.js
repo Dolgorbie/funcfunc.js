@@ -160,6 +160,10 @@ export function toUInt(value) {
   return (value | 0) & ~(value >> 31);
 }
 
+export function toBoolean(value) {
+  return !!value;
+}
+
 export function toString(value) {
   return `${value}`;
 }
