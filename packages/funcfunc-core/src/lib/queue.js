@@ -22,20 +22,11 @@ export class Queue {
     return this._values.pop();
   }
 
-  delete(value) {
-    let index = this._values.lastIndexOf(value);
-    if (index >= 0) {
-      this._values.splice(index, 1);
-      return true;
+  peek() {
+    if (this._values.length === 0) {
+      this._arrange();
     }
-
-    index = this._added.indexOf(value);
-    if (index >= 0) {
-      this._added.splice(index, 1);
-      return true;
-    }
-
-    return false;
+    return this._values[0];
   }
 
   has(value) {

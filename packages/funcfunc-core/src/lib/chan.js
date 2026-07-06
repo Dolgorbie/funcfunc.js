@@ -8,69 +8,46 @@ export function isEndOfChan(value) {
   return value === _eoc;
 }
 
-export function Closable(Base = void 0) {
-  return class Closable extends Base {
-    constructor(options) {
-      super(options);
 
-      const { abortSignal } = options;
+export class Chan {
+  constructor({ bufferCapacity, signal } = {}) {
+    this._bufferCapacity = bufferCapacity === void 0 ? bufferCapacity : Math.max(0, bufferCapacity | 0);
+    this._bufferQueue = new Queue();
 
-      this._closed = false;
-      this._cleanupSet = new Set();
-      this._signal = abortSignal;
-
-      if (abortSignal != null) {
-        this.close = this.close.bind(this);
-        abortSignal.addEventListener("abort", this.close);
-      }
-    }
-
-    get isClosed() {
-      return this._closed;
-    }
-
-    close() {
-      if (this._closed) {
-        return;
-      }
-
-      if (this._signal != null) {
-        this._signal.removeEventListener("abort", this.close);
-      }
-
-      this._cleanupSet.forEach((callback) => callback(this));
-    }
-
-    _addCleanup(callback) {
-      this._cleanupSet.add(callback);
-    }
-
-    _deleteCleanup(callback) {
-      this._cleanupSet.delete(callback);
-    }
-  }
-}
-
-export class Chan extends Closable() {
-  constructor(options) {
-    super(options);
     this._pushContQueue = new Queue();
     this._popContQueue = new Queue();
-    this._addCleanup(this._cleanup.bind(this));
+
+    this._closed = false;
+    this._customCleanupSet = new Set();
+    this._signal = signal;
+
+    if (signal != null) {
+      this.close = this.close.bind(this);
+      signal.addEventListener("abort", this.close);
+      this._customCleanupSet.add(_removeAbortEventListenter);
+    }
   }
 
   push(value) {
-    if (this.isClosed) {
+    if (this._closed) {
       throw Error("chan closed");
     }
 
     const { _popContQueue } = this;
 
-    if (_popContQueue.size > 0) {
-      const resolve = _popContQueue.pop();
+    while (_popContQueue.size > 0) {
+      const [isActive, resolve] = _popContQueue.pop();
+      if (isActive()) {
+        resolve(value);
+        return _resolve();
+      }
+    }
 
-      resolve(value);
-      return _resolve(value);
+    const { _bufferCapacity, _bufferQueue } = this;
+
+    if (_bufferCapacity === void 0 || _bufferQueue.size < _bufferCapacity) {
+      _bufferQueue.add(value);
+      return _resolve();
     }
 
     return new Promise((resolve, reject) => {
@@ -79,30 +56,68 @@ export class Chan extends Closable() {
   }
 
   pop() {
-    if (this.isClosed) {
+    if (this._closed) {
       return _resolve(_eoc);
+    }
+
+    const { _bufferQueue } = this;
+
+    if (_bufferQueue.size > 0) {
+      const value = _bufferQueue.pop();
+      return _resolve(value);
     }
 
     const { _pushContQueue } = this;
 
     if (_pushContQueue.size > 0) {
-      const pushCont = _pushContQueue.pop();
-      const [value, resolve] = pushCont;
+      const [value, resolve] = _pushContQueue.pop();
 
-      resolve(value);
+      resolve();
       return _resolve(value);
     }
 
     return new Promise((resolve) => {
-      this._popContQueue.add(resolve);
+      const { _popContQueue } = this;
+
+      while (_popContQueue.size > 0) {
+        const [isActive] = _popContQueue.peek();
+        if (isActive()) {
+          break;
+        }
+        _popContQueue.pop();
+      }
+
+      _popContQueue.add([_constantTrue, resolve]);
     });
   }
 
-  _cleanup() {
+  get isClosed() {
+    return this._closed;
+  }
+
+  close() {
+    if (this._closed) {
+      return;
+    }
+
+    this._bufferQueue.clear();
+
     this._pushContQueue.forEach(([, , reject]) => reject(Error("chan closed")));
-    this._popContQueue.forEach((resolve) => resolve(_eoc));
+    this._popContQueue.forEach(([isActive, resolve]) => isActive() && resolve(_eoc));
     this._pushContQueue.clear();
     this._popContQueue.clear();
+
+    this._customCleanupSet.forEach((callback) => callback(this));
+
+    this._closed = true;
+  }
+
+  addCleanup(callback) {
+    this._customCleanupSet.add(callback);
+  }
+
+  deleteCleanup(callback) {
+    this._customCleanupSet.delete(callback);
   }
 
   static async alts(...chans) {
@@ -111,34 +126,56 @@ export class Chan extends Closable() {
     for (let i = 0; i < length; ++i) {
       const chan = chans[(i + offset) % length];
 
-      if (chan.isClosed) {
+      if (chan._closed) {
         return _resolve({ value: _eoc, chan });
       }
 
-      const { _pushContQueue } = chan;
-      if (_pushContQueue.size > 0) {
-        const pushCont = _pushContQueue.pop();
+      const { _bufferQueue } = chan;
 
-        const [value, resolve] = pushCont;
-        resolve(value);
+      if (_bufferQueue.size > 0) {
+        const value = _bufferQueue.pop();
+        return _resolve({ value, chan });
+      }
+
+      const { _pushContQueue } = chan;
+
+      if (_pushContQueue.size > 0) {
+        const [value, resolve] = _pushContQueue.pop();
+
+        resolve();
         return _resolve({ value, chan });
       }
     }
 
     return await new Promise((resolve) => {
-      const resolves = new Array(length);
-      for (let i = 0; i < length; ++i) {
-        const chan = chans[i];
-        resolves[i] = (value) => {
-          for (let j = 0; j < length; ++j) {
-            chans[j]._popContQueue.delete(resolves[j]);
+      let isResolved = false;
+
+      function isActive() {
+        return !isResolved;
+      }
+
+      function createResolve(chan) {
+        return (value) => {
+          if (isResolved) {
+            throw Error("alts chans conflict");
           }
+          isResolved = true;
           resolve({ value, chan });
         };
       }
 
       for (let i = 0; i < length; ++i) {
-        chans[i]._popContQueue.add(resolves[i]);
+        const chan = chans[i];
+        const { _popContQueue } = chan;
+
+        while (_popContQueue.size > 0) {
+          const [isActive] = _popContQueue.peek();
+          if (isActive()) {
+            break;
+          }
+          _popContQueue.pop();
+        }
+        chan._popContQueue.add([isActive, createResolve(chan)]);
       }
     });
   }
@@ -163,4 +200,12 @@ export class Chan extends Closable() {
 
     return chan;
   }
+}
+
+function _constantTrue() {
+  return true;
+}
+
+function _removeAbortEventListenter(chan) {
+  chan._signal.removeEventListener("abort", chan.close);
 }

@@ -1,3 +1,4 @@
+import { every2, map1, reverseIter } from "./arrays";
 import { is } from "./asfunc";
 import { upd, view } from "./lens";
 
@@ -33,98 +34,108 @@ export function release(node) {
   return node._release();
 }
 
-class _Node {
+class _RC {
+  constructor() {
+    this._count = 0;
+    this._initProcs = new Map();
+    this._finalProcs = [];
+  }
+
+  retain() {
+    if (this._count++ === 0) {
+      this._setup();
+    }
+    return this;
+  }
+
+  release() {
+    if (this._count === 0) {
+      throw Error("too many release");
+    }
+    if (--this._count === 0) {
+      this._cleanup();
+    }
+    return this;
+  }
+
+  addInitEventListener(callback, thisArg = void 0) {
+    if (this._count === 0) {
+      throw Error("event listeners can be accepted before this retained.");
+    }
+    this._initProcs.set(callback, [callback, thisArg]);
+  }
+
+  removeInitEventListener(callback) {
+    if (this._count === 0) {
+      throw Error("event listeners can be removed before this retained.");
+    }
+    this._initProcs.delete(callback);
+  }
+
+  _setup() {
+    for (const [proc, thisArg] of this._initProcs.values()) {
+      const finalProc = proc.call(thisArg);
+      if (typeof finalProc === "function") {
+        this._finalProcs.push([finalProc, thisArg]);
+      }
+    }
+  }
+
+  _cleanup() {
+    for (const [proc, thisArg] of reverseIter(this._finalProcs)) {
+      proc.call(thisArg);
+    }
+    this._finalProcs = [];
+  }
+}
+
+const _st_disabled = 0;
+const _st_fresh = 1;
+const _st_stale = 2;
+
+class _SigContainer {
   constructor() {
     this._children = new Set();
     this._effects = new Set();
   }
 
-  _regChild(node) {
-    this._children.add(node);
+  children() {
+    return this._children.values();
   }
 
-  _remChild(node) {
-    this._children.delete(node);
+  effects() {
+    return this._effects.values();
   }
 
-  _regEff(eff) {
+  regChild(sigNode) {
+    this._children.add(sigNode);
+  }
+
+  remChild(sigNode) {
+    this._children.delete(sigNode);
+  }
+
+  clearChildren() {
+    this._children = new Set();
+  }
+
+  regEff(eff) {
     this._effects.add(eff);
   }
 
-  _remEff(eff) {
+  remEff(eff) {
     this._effects.delete(eff);
   }
-}
 
-class _InterNode extends _Node {
-  constructor() {
-    super();
-    this._count = 0;
-    this._meta = { _state: "disabled" };
-  }
-
-  _setup() {
-    this._meta = { _state: "new" };
-  }
-
-  _cleanup() {
-    this._meta = { _state: "disabled" };
-  }
-
-  _retain() {
-    if (this._count++ === 0) {
-      this._setup();
-    }
-  }
-
-  _release() {
-    if (--this._count === 0) {
-      this._cleanup();
-    }
-  }
-
-  *_stale() {
-    switch (this._meta._state) {
-      case "disabled": {
-        throw Error("disabled");
-      }
-      case "stale": {
-        break;
-      }
-      default: {
-        this._meta._state = "stale";
-        yield* this._effects;
-        for (const c of this._children) {
-          yield* c._stale();
-        }
-      }
-    }
-  }
-
-  _regChild(node) {
-    super._regChild(node);
-    this._retain();
-  }
-
-  _remChild(node) {
-    this._release();
-    super._remChild(node);
-  }
-
-  _regEff(eff) {
-    super._regEff(eff);
-    this._retain();
-  }
-
-  _remEff(eff) {
-    this._release();
-    super._remEff(eff);
+  clearEffs() {
+    this._effects = new Set();
   }
 }
 
-export class Atom extends _Node {
+export class Atom {
   constructor(init) {
-    super();
+    this._sigContainer = new _SigContainer();
+
     this._value = init;
   }
 
@@ -136,35 +147,59 @@ export class Atom extends _Node {
     const { _value } = this;
     const next = swapper(_value);
 
-    if (is(_value, next)) {
+    if (Object.is(_value, next)) {
       return [_value, false];
     }
 
     this._value = next;
 
-    const effects = new Set(_staleAndCollectEffects(this._children, this._effects));
+    const { _sigContainer } = this;
 
-    effects.forEach((eff) => eff._invoke());
+    const effs = new Set(_staleAndCollectEffects(_sigContainer.children(), _sigContainer.effects()));
+
+    effs.forEach((eff) => eff._invoke());
 
     return [next, true];
   }
+
+  _regChild(sigNode) {
+    this._sigContainer.regChild(sigNode);
+  }
+
+  _remChild(sigNode) {
+    this._sigContainer.remChild(sigNode);
+  }
+
+  _regEff(eff) {
+    this._sigContainer.regEff(eff);
+  }
+
+  _remEff(eff) {
+    this._sigContainer.remEff(eff);
+  }
 }
 
-function* _staleAndCollectEffects(nodes, effects) {
-  yield* effects;
+function* _staleAndCollectEffects(sigNodes, effs) {
+  yield* effs;
 
-  for (const n of nodes) {
+  for (const n of sigNodes) {
     yield* n._stale();
   }
 }
 
 
-export class Track extends _InterNode {
+export class Track {
   constructor(handler, depNodes) {
-    super();
+    this._rc = new _RC();
+    this._sigContainer = new _SigContainer();
+
     this._handler = handler;
     this._depNodes = depNodes;
-    this._meta = { _state: "disabled" };
+    this._state = _st_disabled;
+    this._depValues = [];
+    this._value = void 0;
+
+    this._rc.addInitEventListener(this._setup, this);
   }
 
   _deref() {
@@ -172,48 +207,65 @@ export class Track extends _InterNode {
   }
 
   _update() {
-    const { _meta } = this;
-
-    switch (_meta._state) {
-      case "disabled": {
+    switch (this._stateId) {
+      case _st_disabled: {
         throw Error("disabled track");
       }
-      case "fresh": {
+      case _st_fresh: {
         break;
       }
-      case "stale": {
-        const depValues = this._depNodes.map((node) => node._deref());
+      case _st_stale: {
+        const depValues = map1((sigNode) => sigNode._deref(), this._depNodes);
 
-        const changed = !_meta._depValues.every((prev, i) => is(prev, depValues[i]));
+        const changed = !every2((prev, next) => Object.is(prev, next), this._depValues, depValues);
         if (changed) {
-          _meta._depValues = depValues;
+          this._depValues = depValues;
           const next = this._handler(...depValues);
-          if (!is(_meta._value, next)) {
-            _meta._value = next;
+          if (!Object.is(this._value, next)) {
+            this._value = next;
           }
         }
         break;
       }
       default: {
-        const depValues = this._depNodes.map((node) => node._deref());
+        const depValues = map1((node) => node._deref(), this._depNodes);
         const value = this._handler(...depValues);
-        _meta._depValues = depValues;
-        _meta._value = value;
+        this._depValues = depValues;
+        this._value = value;
         break;
       }
     }
-    _meta._state = "fresh";
-    return _meta._value;
+    this._activate();
+    return this._value;
   }
 
   _setup() {
-    super._setup();
-    this._depNodes.forEach((n) => n._regChild(this));
+    this._depNodes.forEach((sigNode) => sigNode._regChild(this));
+    return [this._cleanup, this];
   }
 
   _cleanup() {
-    this._depNodes.forEach((n) => n._remChild(this));
-    super._cleanup();
+    this._depNodes.forEach((sigNode) => sigNode._remChild(this));
+  }
+
+  _regChild(sigNode) {
+    super._regChild(sigNode);
+    this._retain();
+  }
+
+  _remChild(sigNode) {
+    this._release();
+    super._remChild(sigNode);
+  }
+
+  _regEff(eff) {
+    super._regEff(eff);
+    this._retain();
+  }
+
+  _remEff(eff) {
+    this._release();
+    super._remEff(eff);
   }
 }
 
