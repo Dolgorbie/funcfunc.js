@@ -1,230 +1,185 @@
-import { every1, map1, reduce1 } from "./arrays";
-import { is, isArray, isObject } from "./asfunc";
+export const idlens = lens((target) => target, (_target, value) => value);
 
-export function view(lns, target) {
-  return lns._view(target);
-}
-
-export function xview(target, lns) {
-  return lns._view(target);
-}
-
-export function upd(lns, target, value) {
-  return lns._upd(target, value);
-}
-
-export function xupd(target, lns, value) {
-  return lns._upd(target, value);
-}
-
-export function xmut(target, lns, value) {
-  return lns._mut(target, value);
-}
-
-export function isLens(lns) {
-  return lns instanceof LensLike;
-}
-
-export function isMutableLens(lns) {
-  return isLens(lns) && lns._isMutable();
-}
-
-export class LensLike {
-  _isMutable() {
-    return typeof this._mut === "function";
+export function lens(ref, upd, thisArg = void 0) {
+  if (thisArg === void 0) {
+    return { ref, upd };
   }
-}
-
-class _Lens extends LensLike {
-  constructor(view, upd, mut = void 0) {
-    super();
-    this._view = view;
-    this._upd = upd;
-    if (mut != null) {
-      this._mut = mut;
-    }
-  }
-}
-
-export function lens(view, upd, mut = void 0) {
-  return new _Lens(view, upd, mut);
-}
-
-class _IdLens extends LensLike {
-  static _INSTANCE = new _IdLens();
-
-  constructor() {
-    super();
-  }
-
-  _view(target) {
-    return target;
-  }
-
-  _upd(_target, value) {
-    return value;
-  }
-
-  _mut(_target, value) {
-    return value;
-  }
-}
-
-class _ChainLens extends LensLike {
-  constructor(lenses) {
-    super();
-    this._lenses = lenses;
-    this._hasOnlyMutable = every1(isMutableLens, lenses);
-  }
-
-  _view(target) {
-    return reduce1(xview, target, this._lenses);
-  }
-
-  _upd(target, value) {
-    return _chainUpd(0, this._lenses, target, value);
-  }
-
-  _mut(target, value) {
-    if (!this._hasOnlyMutable) {
-      throw TypeError("expects all lenses are mutable, but some are immutable.");
-    }
-    return _chainMut(0, this._lenses, target, value);
-  }
-
-  _isMutable() {
-    return this._hasOnlyMutable;
-  }
+  return { ref: ref.bind(thisArg), upd: upd.bind(thisArg) };
 }
 
 export function chain(...lenses) {
-  if (!every1((lns) => lns instanceof LensLike, lenses)) {
-    throw TypeError("expects LensLike");
+  return _chainLens(lenses);
+}
+
+export function pathLens(...propOrIndex) {
+  const { length } = propOrIndex;
+  for (let i = 0; i < length; ++i) {
+    const segment = propOrIndex[i];
+    switch (typeof segment) {
+      case "string":
+      case "symbol": {
+        propOrIndex[i] = _propLens(segment);
+        break;
+      }
+      case "number": {
+        propOrIndex[i] = _indexLens(segment);
+        break;
+      }
+      default: {
+        throw TypeError(`expects string, symbol, or number, but got: ${segment}`);
+      }
+    }
   }
-  switch (lenses.length) {
+
+  return _chainLens(propOrIndex);
+}
+
+function _chainLens(lenses) {
+  const { length } = lenses;
+  switch (length) {
     case 0: {
-      return _IdLens._INSTANCE;
+      return idlens;
     }
     case 1: {
       return lenses[0];
     }
     default: {
-      return new _ChainLens(lenses);
+      // TODO: determine most efficient threshold.
+      if (length < 128) {
+        return _shortChainLens(lenses);
+      }
+      return _longChainLens(lenses);
     }
   }
 }
 
-function _chainUpd(indexLenses, lenses, target, value) {
-  if (lenses.length === indexLenses) {
+function _shortChainLens(lenses) {
+  const { length } = lenses;
+
+  function _ref(target) {
+    return _commonChainRef(lenses, length, target);
+  }
+
+  function _upd(target, value) {
+    return _updLoop(0, target, value);
+  }
+
+  function _updLoop(index, target, value) {
+    if (index >= length) {
+      return value;
+    }
+
+    const lensI = lenses[index];
+    return lensI.upd(target, _updLoop(index + 1, lensI.ref(target), value));
+  }
+
+  return lens(_ref, _upd);
+}
+
+function _longChainLens(lenses) {
+  const { length } = lenses;
+
+  function _ref(target) {
+    return _commonChainRef(lenses, length, target);
+  }
+
+  function _upd(target, value) {
+    const subTargets = new Array(length);
+    subTargets[0] = target;
+    for (let i = 0; i < length - 1; ++i) {
+      subTargets[i + 1] = lenses[i].ref(subTargets[i]);
+    }
+
+    for (let i = length - 1; i >= 0; --i) {
+      value = lenses[i].upd(subTargets[i], value);
+    }
+
     return value;
   }
 
-  const lnsI = lenses[indexLenses];
-  return lnsI._upd(target, _chainUpd(indexLenses + 1, lenses, lnsI._view(target), value));
+  return lens(_ref, _upd);
 }
 
-function _chainMut(indexLenses, lenses, target, value) {
-  if (lenses.length === indexLenses) {
-    return value;
+function _commonChainRef(lenses, length, target) {
+  for (let i = 0; i < length; ++i) {
+    target = lenses[i].ref(target);
   }
-
-  const lnsI = lenses[indexLenses];
-  return lnsI._mut(target, _chainMut(indexLenses + 1, lenses, lnsI._view(target), value));
+  return target;
 }
 
-class _PropLens extends LensLike {
-  constructor(prop) {
-    super();
-    this._prop = prop;
+function _propLens(prop) {
+  function _ref(target) {
+    if (target === null || typeof target !== "object") {
+      return void 0;
+    }
+    return target[prop];
   }
 
-  _view(target) {
-    return isObject(target) ? target[this._prop] : void 0;
-  }
-
-  _upd(target, value) {
-    const { _prop } = this;
-
-    if (isObject(target)) {
-      if (_prop in target && is(target[_prop], value)) {
-        return target;
-      }
-      return { ...target, [_prop]: value };
+  function _upd(target, value) {
+    if (target === null || typeof target !== "object") {
+      return { [prop]: value };
     }
 
-    return { [_prop]: value };
-  }
-
-  _mut(target, value) {
-    const { _prop } = this;
-
-    if (isObject(target)) {
-      target[_prop] = value;
+    if (prop in target && Object.is(target[prop], value)) {
       return target;
     }
 
-    return { [_prop]: value };
+    return { ...target, [prop]: value };
   }
+
+  return lens(_ref, _upd);
 }
 
-class _IndexLens extends LensLike {
-  constructor(index) {
-    super();
-    this._index = index;
+function _indexLens(index) {
+  index = Math.max(0, index | 0);
+
+  function _ref(target) {
+    if (!Array.isArray(target)) {
+      return void 0;
+    }
+    return target[index];
   }
 
-  _view(target) {
-    return isArray(target) ? target[this._index] : void 0;
-  }
-
-  _upd(target, value) {
-    const { _index } = this;
-
-    if (isArray(target)) {
-      const result = [...target];
-      const len = target.length;
-      if (len < _index) {
-        result.length = _index + 1;
-        result.fill(void 0, len);
-      }
-      result[_index] = value;
-      return result;
+  function _upd(target, value) {
+    if (!Array.isArray(target)) {
+      const res = new Array(index + 1).fill();
+      res[index] = value;
+      return res;
     }
 
-    const result = new Array(_index + 1).fill();
-    result[_index] = value;
-    return result;
-  }
-
-  _mut(target, value) {
-    const { _index } = this;
-
-    if (isArray(target)) {
-      target[_index] = value;
+    const { length } = target;
+    if (length > index && Object.is(target[index], value)) {
       return target;
     }
 
-    const result = new Array(_index + 1).fill();
-    result[_index] = value;
-    return result;
+    const res = [...target];
+    if (length <= index) {
+      res.length = index + 1;
+      res.fill(void 0, length);
+    }
+    res[index] = value;
+    return res;
   }
+
+  return lens(_ref, _upd);
 }
 
-export function pathLens(...segments) {
-  const lenses = map1((s) => {
-    switch (typeof s) {
-      case "number": {
-        return new _IndexLens(s);
-      }
-      case "string":
-      case "symbol": {
-        return new _PropLens(s);
-      }
-      default: {
-        throw TypeError("expects number, string, or symbol");
-      }
-    }
-  }, segments);
+export function ref(lns, target) {
+  return lns.ref(target);
+}
 
-  return chain(...lenses);
+export function xref(target, lns) {
+  return lns.ref(target);
+}
+
+export function upd(lns, target, value) {
+  return lns.upd(target, value);
+}
+
+export function xupd(target, lns, value) {
+  return lns.upd(target, value);
+}
+
+export function isLens(lns) {
+  return lns != null && typeof lns === "object" && typeof lns.ref === "function" && typeof lns.upd === "function";
 }

@@ -1,5 +1,3 @@
-import { isArray, isObject } from "./asfunc";
-
 export function createClassNamesCombinator({ processors = [], merge = simpleMerge } = {}) {
   return (...names) => {
     const acc = [];
@@ -13,7 +11,7 @@ function _loopNames(acc, processors, offsetProcs, names) {
     if (name === false) {
       continue;
     }
-    if (isArray(name)) {
+    if (Array.isArray(name)) {
       _loopNames(acc, processors, offsetProcs, name);
       continue;
     }
@@ -29,7 +27,7 @@ function _loopProcs(acc, processors, offsetProcs, name) {
     if (name === false) {
       return;
     }
-    if (isArray(name)) {
+    if (Array.isArray(name)) {
       _loopNames(acc, processors, i + 1, name);
       return;
     }
@@ -68,7 +66,7 @@ export function omitFalsyProcessor(name) {
 }
 
 export function objectKeysProcessor(name) {
-  if (!isObject(name)) {
+  if (name === null || typeof name === "object") {
     return name;
   }
 
