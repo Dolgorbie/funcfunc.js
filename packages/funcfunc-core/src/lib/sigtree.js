@@ -1,11 +1,10 @@
 import { every2, map1, reverseIter } from "./arrays";
 import { is } from "./asfunc";
-import { upd, view } from "./lens";
 
 const _st_disabled = 0;
 const _st_fresh = 1;
 const _st_stale = 2;
-const _st_new = 2;
+const _st_new = 3;
 
 export function atom(init) {
   return new Atom(init);
@@ -98,6 +97,9 @@ class _SigContainer {
   constructor() {
     this.__children = new Set();
     this.__effects = new Set();
+    this.__regChildCallbacks = new Set();
+    this.__regEffCallbacks = new Set();
+    this.__remCallbacks = new Map();
   }
 
   _children() {
@@ -110,9 +112,11 @@ class _SigContainer {
 
   _regChild(sigNode) {
     this.__children.add(sigNode);
+    this.__invokeRegCallbacks(sigNode, this.__regChildCallbacks);
   }
 
   _remChild(sigNode) {
+    this.__invokeRemCallbacks(sigNode, this.__remCallbacks);
     this.__children.delete(sigNode);
   }
 
@@ -130,6 +134,37 @@ class _SigContainer {
 
   _clearEffs() {
     this.__effects = new Set();
+  }
+
+  _addRegChildCallback(callback, thisArg = void 0) {
+    this.__regChildCallbacks.add([callback, thisArg]);
+  }
+
+  _addRegEffCallback(callback, thisArg = void 0) {
+    this.__regEffCallbacks.add([callback, thisArg]);
+  }
+
+  __invokeRegCallbacks(sigNode, callbacks) {
+    for (const [proc, thisArg] of callbacks) {
+      const remCallback = proc.call(thisArg, sigNode);
+      if (typeof remCallback === "function") {
+        let remCallbacks = this.__remCallbacks.get(sigNode);
+        if (remCallbacks === void 0) {
+          this.__remCallbacks.set(sigNode, (remCallbacks = []));
+        }
+        remCallbacks.push([remCallback, thisArg]);
+      }
+    }
+  }
+
+  __invokeRemCallbacks(sigNode, callbacks) {
+    const remCallbacks = callbacks.get(sigNode);
+    if (remCallbacks !== void 0) {
+      for (const [proc, thisArg] of reverseIter(remCallbacks)) {
+        proc.call(thisArg, sigNode);
+      }
+      remCallbacks.length = 0;
+    }
   }
 }
 
@@ -196,11 +231,13 @@ export class Track {
 
     this._handler = handler;
     this._depNodes = depNodes;
-    this._state = _st_disabled;
+
+    this._state = _st_new;
     this._depValues = [];
     this._value = void 0;
 
     this._rc._addInit(this._setup, this);
+    this._sigContainer._addRegChildCallback(this._regChildEffCallback, this);
   }
 
   _deref() {
@@ -266,6 +303,30 @@ export class Track {
     }
   }
 
+  _retain() {
+    this._rc._retain();
+  }
+
+  _release() {
+    this._rc._release();
+  }
+
+  _regChild(sigNode) {
+    this._sigContainer._regChild(sigNode);
+  }
+
+  _remChild(sigNode) {
+    this._sigContainer._remChild(sigNode);
+  }
+
+  _regEff(eff) {
+    this._sigContainer._regEff(eff);
+  }
+
+  _remEff(eff) {
+    this._sigContainer._remEff(eff);
+  }
+
   _setup() {
     this._depNodes.forEach((sigNode) => sigNode._regChild(this));
     return this._cleanup;
@@ -275,34 +336,28 @@ export class Track {
     this._depNodes.forEach((sigNode) => sigNode._remChild(this));
   }
 
-  _regChild(sigNode) {
-    this._sigContainer._regChild(sigNode);
-    this._rc._retain();
+  _regChildEffCallback() {
+    this._retain();
+    return this._remChildEffCallback;
   }
 
-  _remChild(sigNode) {
-    this._rc._release()
-    this._sigContainer._remChild(sigNode);
-  }
-
-  _regEff(eff) {
-    this._sigContainer._regEff(eff);
-    this._rc._retain();
-  }
-
-  _remEff(eff) {
-    this._rc._release();
-    this._sigContainer._remEff(eff);
+  _remChildEffCallback() {
+    this._release();
   }
 }
 
 
-export class Focus extends _InterNode {
-  constructor(lns, depNode) {
-    super();
-    this._lens = lns;
+export class Focus {
+  constructor(lens, depNode) {
+    this._rc = new _RC();
+    this._sigContainer = new _SigContainer();
+
+    this._lens = lens;
     this._depNode = depNode;
-    this._meta = { _state: "disabled" };
+
+    this._state = _st_new;
+    this._depValue = void 0;
+    this._value = void 0;
   }
 
   _deref() {
@@ -311,43 +366,49 @@ export class Focus extends _InterNode {
 
   _swap(swapper) {
     const { _lens } = this;
-    const [, changed] = this._depNode._swap((dep) => upd(_lens, dep, swapper(view(_lens, dep))));
+    const [, changed] = this._depNode._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep))));
 
     return [this._update(), changed];
   }
 
   _update() {
-    const { _meta } = this;
 
-    switch (_meta._state) {
-      case "disabled": {
+    switch (this._state) {
+      case _st_disabled: {
         throw Error("disabled focus");
       }
-      case "fresh": {
+      case _st_fresh: {
         break;
       }
-      case "stale": {
+      case _st_stale: {
         const depValue = this._depNode._deref();
 
-        if (!is(_meta._depValue, depValue)) {
-          _meta._depValue = depValue;
-          const next = view(this._lens, depValue);
-          if (!is(_meta._value, next)) {
-            _meta._value = next;
+        if (!Object.is(this._depValue, depValue)) {
+          this._depValue = depValue;
+          const next = this._lens.ref(depValue);
+          if (!Object.is(this._value, next)) {
+            this._value = next;
           }
         }
         break;
       }
-      default: {
+      case _st_new: {
         const depValue = this._depNode._deref();
-        const value = view(this._lens, depValue);
-        _meta._depValue = depValue;
-        _meta._value = value;
+        const value = this._lens.ref(depValue);
+        this._depValue = depValue;
+        this._value = value;
         break;
       }
+      default: {
+        throw Error("Unrecognized state");
+      }
     }
-    _meta._state = "fresh";
-    return _meta._value;
+    this._state = _st_fresh;
+    return this._value;
+  }
+
+  *_stale() {
+
   }
 
   _setup() {

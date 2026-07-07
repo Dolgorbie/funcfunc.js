@@ -14,32 +14,32 @@ export function isChan(obj) {
   return obj instanceof Chan;
 }
 
-export function tryPush(chan, value) {
-  return chan.tryPush(value);
+export function tryPost(chan, value) {
+  return chan.tryPost(value);
 }
 
-export function xtryPush(value, chan) {
-  return chan.tryPush(value);
+export function xtryPost(value, chan) {
+  return chan.tryPost(value);
 }
 
-export function tryPop(chan) {
-  return chan.tryPop();
+export function tryTake(chan) {
+  return chan.tryTake();
 }
 
-export function push(chan, value) {
-  return chan.push(value);
+export function post(chan, value) {
+  return chan.post(value);
 }
 
-export function xpush(value, chan) {
-  return chan.push(value);
+export function xpost(value, chan) {
+  return chan.post(value);
 }
 
-export function pop(chan, signal = void 0) {
-  return chan.pop(signal);
+export function take(chan, signal = void 0) {
+  return chan.take(signal);
 }
 
-export function xpop(signal, chan) {
-  return chan.pop(signal);
+export function xtake(signal, chan) {
+  return chan.take(signal);
 }
 
 export class Chan {
@@ -47,8 +47,8 @@ export class Chan {
     this._bufferCapacity = undefMap1(pipe(toUInt, pa1(Math.max, 0)), bufferCapacity);
     this._bufferQueue = new Queue();
 
-    this._pushContQueue = new Queue();
-    this._popContQueue = new Queue();
+    this._postContQueue = new Queue();
+    this._takeContQueue = new Queue();
 
     this._closed = false;
     this._customCleanupSet = new Set();
@@ -61,14 +61,14 @@ export class Chan {
     }
   }
 
-  tryPush(value) {
+  tryPost(value) {
     if (this._closed) {
       throw Error("chan closed");
     }
 
-    const { _popContQueue } = this;
-    if (_popContQueue.size > 0) {
-      const resolve = _popContQueue.pop();
+    const { _takeContQueue } = this;
+    if (_takeContQueue.size > 0) {
+      const resolve = _takeContQueue.pop();
       resolve(value);
       return true;
     }
@@ -82,25 +82,25 @@ export class Chan {
     return false;
   }
 
-  async push(value) {
-    const success = this.tryPush(value);
+  async post(value) {
+    const success = this.tryPost(value);
     if (success) {
       return;
     }
 
     return new Promise((resolve, reject) => {
-      this._pushContQueue.add([value, resolve, reject]);
+      this._postContQueue.add([value, resolve, reject]);
     });
   }
 
-  tryPop() {
+  tryTake() {
     const { _bufferQueue } = this;
     if (_bufferQueue.size > 0) {
       const value = _bufferQueue.pop();
 
-      const { _pushContQueue } = this;
-      if (_pushContQueue.size > 0) {
-        const [value, resolve] = _pushContQueue.pop();
+      const { _postContQueue } = this;
+      if (_postContQueue.size > 0) {
+        const [value, resolve] = _postContQueue.pop();
         _bufferQueue.add(value);
         resolve();
       }
@@ -112,9 +112,9 @@ export class Chan {
       return { value: _eoc, success: true };
     }
 
-    const { _pushContQueue } = this;
-    if (_pushContQueue.size > 0) {
-      const [value, resolve] = _pushContQueue.pop();
+    const { _postContQueue } = this;
+    if (_postContQueue.size > 0) {
+      const [value, resolve] = _postContQueue.pop();
       resolve();
       return { value, success: true };
     }
@@ -122,15 +122,15 @@ export class Chan {
     return { value: void 0, success: false };
   }
 
-  async pop(signal = void 0) {
+  async take(signal = void 0) {
     if (signal === void 0) {
-      const res = this.tryPop();
+      const res = this.tryTake();
       if (res.success) {
         return res.value;
       }
 
       return new Promise((resolve) => {
-        this._popContQueue.add(resolve);
+        this._takeContQueue.add(resolve);
       });
     }
 
@@ -138,15 +138,15 @@ export class Chan {
       throw signal.reason;
     }
 
-    const res = this.tryPop();
+    const res = this.tryTake();
     if (res.success) {
       return res.value;
     }
 
     return new Promise((resolve, reject) => {
-      const { _popContQueue } = this;
+      const { _takeContQueue } = this;
       function _cancel() {
-        _popContQueue.remove(_cleanAndResolve);
+        _takeContQueue.remove(_cleanAndResolve);
         signal.removeEventListener("abort", _cancel);
         reject(signal.reason);
       }
@@ -162,7 +162,7 @@ export class Chan {
       }
 
       signal.addEventListener("abort", _cancel);
-      _popContQueue.add(_cleanAndResolve);
+      _takeContQueue.add(_cleanAndResolve);
     });
   }
 
@@ -175,10 +175,10 @@ export class Chan {
       return;
     }
 
-    this._pushContQueue.forEach(([, , reject]) => reject(Error("chan closed")));
-    this._popContQueue.forEach((resolve) => resolve(_eoc));
-    this._pushContQueue.clear();
-    this._popContQueue.clear();
+    this._postContQueue.forEach(([, , reject]) => reject(Error("chan closed")));
+    this._takeContQueue.forEach((resolve) => resolve(_eoc));
+    this._postContQueue.clear();
+    this._takeContQueue.clear();
 
     this._customCleanupSet.forEach((callback) => callback(this));
 
@@ -199,7 +199,7 @@ export class Chan {
     for (let i = 0; i < length; ++i) {
       const chan = chans[(i + offset) % length];
 
-      const res = chan.tryPop();
+      const res = chan.tryTake();
       if (res.success) {
         return { value: res.value, chan };
       }
@@ -209,7 +209,7 @@ export class Chan {
     const { signal } = abortCtrl;
 
     return Promise.any(map1(async (chan) => {
-      const value = await chan.pop(signal);
+      const value = await chan.take(signal);
       abortCtrl.abort(Error("selected another chan by `alts`."));
       return { value, chan };
     }, chans));
@@ -221,12 +221,12 @@ export class Chan {
 
     (async () => {
       try {
-        await chan.push({ success: true, value: await promise, error: void 0 });
+        await chan.post({ success: true, value: await promise, error: void 0 });
       } catch (error) {
         try {
-          await chan.push({ success: false, value: void 0, error });
+          await chan.post({ success: false, value: void 0, error });
         } catch (e) {
-          console.error("failed to push the error-result to chan:", chan, "which error is:", error, e);
+          console.error("failed to post the error-result to chan:", chan, "which error is:", error, e);
         }
       } finally {
         chan.close();
