@@ -2,6 +2,11 @@ import { every2, map1, reverseIter } from "./arrays";
 import { is } from "./asfunc";
 import { upd, view } from "./lens";
 
+const _st_disabled = 0;
+const _st_fresh = 1;
+const _st_stale = 2;
+const _st_new = 2;
+
 export function atom(init) {
   return new Atom(init);
 }
@@ -36,99 +41,95 @@ export function release(node) {
 
 class _RC {
   constructor() {
-    this._count = 0;
-    this._initProcs = new Map();
-    this._finalProcs = [];
+    this.__count = 0;
+    this.__initProcs = new Map();
+    this.__finalProcs = [];
   }
 
-  retain() {
-    if (this._count++ === 0) {
-      this._setup();
+  _retain() {
+    if (this.__count++ === 0) {
+      this.__setup();
     }
     return this;
   }
 
-  release() {
-    if (this._count === 0) {
+  _release() {
+    if (this.__count === 0) {
       throw Error("too many release");
     }
-    if (--this._count === 0) {
-      this._cleanup();
+    if (--this.__count === 0) {
+      this.__cleanup();
     }
     return this;
   }
 
-  addInitEventListener(callback, thisArg = void 0) {
-    if (this._count === 0) {
+  _addInit(callback, thisArg = void 0) {
+    if (this.__count === 0) {
       throw Error("event listeners can be accepted before this retained.");
     }
-    this._initProcs.set(callback, [callback, thisArg]);
+    this.__initProcs.set(callback, [callback, thisArg]);
   }
 
-  removeInitEventListener(callback) {
-    if (this._count === 0) {
+  _remInit(callback) {
+    if (this.__count === 0) {
       throw Error("event listeners can be removed before this retained.");
     }
-    this._initProcs.delete(callback);
+    this.__initProcs.delete(callback);
   }
 
-  _setup() {
-    for (const [proc, thisArg] of this._initProcs.values()) {
+  __setup() {
+    for (const [proc, thisArg] of this.__initProcs.values()) {
       const finalProc = proc.call(thisArg);
       if (typeof finalProc === "function") {
-        this._finalProcs.push([finalProc, thisArg]);
+        this.__finalProcs.push([finalProc, thisArg]);
       }
     }
   }
 
-  _cleanup() {
-    for (const [proc, thisArg] of reverseIter(this._finalProcs)) {
+  __cleanup() {
+    for (const [proc, thisArg] of reverseIter(this.__finalProcs)) {
       proc.call(thisArg);
     }
-    this._finalProcs = [];
+    this.__finalProcs = [];
   }
 }
 
-const _st_disabled = 0;
-const _st_fresh = 1;
-const _st_stale = 2;
-
 class _SigContainer {
   constructor() {
-    this._children = new Set();
-    this._effects = new Set();
+    this.__children = new Set();
+    this.__effects = new Set();
   }
 
-  children() {
-    return this._children.values();
+  _children() {
+    return this.__children.values();
   }
 
-  effects() {
-    return this._effects.values();
+  _effects() {
+    return this.__effects.values();
   }
 
-  regChild(sigNode) {
-    this._children.add(sigNode);
+  _regChild(sigNode) {
+    this.__children.add(sigNode);
   }
 
-  remChild(sigNode) {
-    this._children.delete(sigNode);
+  _remChild(sigNode) {
+    this.__children.delete(sigNode);
   }
 
-  clearChildren() {
-    this._children = new Set();
+  _clearChildren() {
+    this.__children = new Set();
   }
 
-  regEff(eff) {
-    this._effects.add(eff);
+  _regEff(eff) {
+    this.__effects.add(eff);
   }
 
-  remEff(eff) {
-    this._effects.delete(eff);
+  _remEff(eff) {
+    this.__effects.delete(eff);
   }
 
-  clearEffs() {
-    this._effects = new Set();
+  _clearEffs() {
+    this.__effects = new Set();
   }
 }
 
@@ -155,7 +156,7 @@ export class Atom {
 
     const { _sigContainer } = this;
 
-    const effs = new Set(_staleAndCollectEffects(_sigContainer.children(), _sigContainer.effects()));
+    const effs = new Set(_staleAndCollectEffects(_sigContainer._children(), _sigContainer._effects()));
 
     effs.forEach((eff) => eff._invoke());
 
@@ -163,19 +164,19 @@ export class Atom {
   }
 
   _regChild(sigNode) {
-    this._sigContainer.regChild(sigNode);
+    this._sigContainer._regChild(sigNode);
   }
 
   _remChild(sigNode) {
-    this._sigContainer.remChild(sigNode);
+    this._sigContainer._remChild(sigNode);
   }
 
   _regEff(eff) {
-    this._sigContainer.regEff(eff);
+    this._sigContainer._regEff(eff);
   }
 
   _remEff(eff) {
-    this._sigContainer.remEff(eff);
+    this._sigContainer._remEff(eff);
   }
 }
 
@@ -199,7 +200,7 @@ export class Track {
     this._depValues = [];
     this._value = void 0;
 
-    this._rc.addInitEventListener(this._setup, this);
+    this._rc._addInit(this._setup, this);
   }
 
   _deref() {
@@ -207,7 +208,7 @@ export class Track {
   }
 
   _update() {
-    switch (this._stateId) {
+    switch (this._state) {
       case _st_disabled: {
         throw Error("disabled track");
       }
@@ -227,21 +228,47 @@ export class Track {
         }
         break;
       }
-      default: {
+      case _st_new: {
         const depValues = map1((node) => node._deref(), this._depNodes);
         const value = this._handler(...depValues);
         this._depValues = depValues;
         this._value = value;
         break;
       }
+      default: {
+        throw Error("Unrecognized state");
+      }
     }
-    this._activate();
+    this._state = _st_fresh;
     return this._value;
+  }
+
+  *_stale() {
+    switch (this._state) {
+      case _st_disabled: {
+        throw Error("disabled track");
+      }
+      case _st_fresh: {
+        const { _sigContainer } = this;
+        yield* _sigContainer._effects();
+        for (const c of _sigContainer._children()) {
+          yield* c._stale();
+        }
+        break;
+      }
+      case _st_stale:
+      case _st_new: {
+        break;
+      }
+      default: {
+        throw Error("Unrecognized state");
+      }
+    }
   }
 
   _setup() {
     this._depNodes.forEach((sigNode) => sigNode._regChild(this));
-    return [this._cleanup, this];
+    return this._cleanup;
   }
 
   _cleanup() {
@@ -249,23 +276,23 @@ export class Track {
   }
 
   _regChild(sigNode) {
-    super._regChild(sigNode);
-    this._retain();
+    this._sigContainer._regChild(sigNode);
+    this._rc._retain();
   }
 
   _remChild(sigNode) {
-    this._release();
-    super._remChild(sigNode);
+    this._rc._release()
+    this._sigContainer._remChild(sigNode);
   }
 
   _regEff(eff) {
-    super._regEff(eff);
-    this._retain();
+    this._sigContainer._regEff(eff);
+    this._rc._retain();
   }
 
   _remEff(eff) {
-    this._release();
-    super._remEff(eff);
+    this._rc._release();
+    this._sigContainer._remEff(eff);
   }
 }
 
