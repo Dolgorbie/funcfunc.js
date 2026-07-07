@@ -44,43 +44,19 @@ function _chainLens(lenses) {
       return lenses[0];
     }
     default: {
-      // TODO: determine most efficient threshold.
-      if (length < 128) {
-        return _shortChainLens(lenses);
-      }
-      return _longChainLens(lenses);
+      return _chainLensImpl(lenses);
     }
   }
 }
 
-function _shortChainLens(lenses) {
+function _chainLensImpl(lenses) {
   const { length } = lenses;
 
   function _ref(target) {
-    return _commonChainRef(lenses, length, target);
-  }
-
-  function _upd(target, value) {
-    return _updLoop(0, target, value);
-  }
-
-  function _updLoop(index, target, value) {
-    if (index >= length) {
-      return value;
+    for (let i = 0; i < length; ++i) {
+      target = lenses[i].ref(target);
     }
-
-    const lensI = lenses[index];
-    return lensI.upd(target, _updLoop(index + 1, lensI.ref(target), value));
-  }
-
-  return lens(_ref, _upd);
-}
-
-function _longChainLens(lenses) {
-  const { length } = lenses;
-
-  function _ref(target) {
-    return _commonChainRef(lenses, length, target);
+    return target;
   }
 
   function _upd(target, value) {
@@ -98,13 +74,6 @@ function _longChainLens(lenses) {
   }
 
   return lens(_ref, _upd);
-}
-
-function _commonChainRef(lenses, length, target) {
-  for (let i = 0; i < length; ++i) {
-    target = lenses[i].ref(target);
-  }
-  return target;
 }
 
 function _propLens(prop) {
@@ -142,20 +111,19 @@ function _indexLens(index) {
 
   function _upd(target, value) {
     if (!Array.isArray(target)) {
-      const res = new Array(index + 1).fill();
+      const res = new Array(index + 1);
       res[index] = value;
       return res;
     }
 
     const { length } = target;
-    if (length > index && Object.is(target[index], value)) {
+    if (index in target && Object.is(target[index], value)) {
       return target;
     }
 
     const res = [...target];
     if (length <= index) {
       res.length = index + 1;
-      res.fill(void 0, length);
     }
     res[index] = value;
     return res;

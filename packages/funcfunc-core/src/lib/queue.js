@@ -1,41 +1,49 @@
-import { reverseIter } from "./arrays";
+import { pa1 } from "./core";
+import { car, cdr, concatI, cons, findTail, isNil, iter, listOf, nil, removeI, reverse, reverseI } from "./list";
 
 export class Queue {
   constructor(...values) {
-    this._values = values.reverse();
-    this._added = [];
+    this._size = values.length;
+    this._values = listOf(...values);
+    this._added = nil();
   }
 
   get size() {
-    return this._values.length + this._added.length;
+    return this._size;
   }
 
   add(value) {
-    this._added.push(value);
+    this._size += 1;
+    this._added = cons(value, this._added);
     return this;
   }
 
   pop() {
-    if (this._values.length === 0) {
+    if (isNil(this._values)) {
       this._arrange();
     }
-    return this._values.pop();
+
+    this._size -= 1;
+    const value = car(this._values);
+    this._values = cdr(this._values);
+    return value;
   }
 
   peek() {
-    if (this._values.length === 0) {
+    if (isNil(this._values)) {
       this._arrange();
     }
-    return this._values[0];
+    return car(this._values);
   }
 
   has(value) {
-    return this._values.includes(value) || this._added.includes(value);
+    const compare = pa1(Object.is, value)
+    return !isNil(findTail(compare, this._values)) || !isNil(findTail(compare, this._added));
   }
 
-  values() {
-    this._arrange();
-    return reverseIter(this._values);
+  *values() {
+    yield* iter(this._values);
+    yield* iter(reverse(this._added));
   }
 
   keys() {
@@ -48,9 +56,15 @@ export class Queue {
     }
   }
 
+  remove(value) {
+    this._arrange();
+    this._values = removeI(value, this._values);
+  }
+
   clear() {
-    this._values = [];
-    this._added = [];
+    this._size = 0;
+    this._values = nil();
+    this._added = nil();
   }
 
   forEach(callback, thisArg = void 0) {
@@ -65,15 +79,7 @@ export class Queue {
   }
 
   _arrange() {
-    if (this._added.length === 0) {
-      return;
-    }
-
-    const newValues = this._added.reverse();
-    for (const oldValue of this._values) {
-      newValues.push(oldValue);
-    }
-    this._values = newValues;
-    this._added = [];
+    this._values = concatI(this._values, reverseI(this._added));
+    this._added = nil();
   }
 }

@@ -1,6 +1,8 @@
+import { map1 } from "./arrays";
+import { toUInt } from "./asfunc";
+import { pa1, pipe } from "./core";
+import { undefMap1 } from "./nullable";
 import { Queue } from "./queue";
-
-const _resolve = Promise.resolve;
 
 const _eoc = Symbol("end of chan");
 
@@ -8,10 +10,41 @@ export function isEndOfChan(value) {
   return value === _eoc;
 }
 
+export function isChan(obj) {
+  return obj instanceof Chan;
+}
+
+export function tryPush(chan, value) {
+  return chan.tryPush(value);
+}
+
+export function xtryPush(value, chan) {
+  return chan.tryPush(value);
+}
+
+export function tryPop(chan) {
+  return chan.tryPop();
+}
+
+export function push(chan, value) {
+  return chan.push(value);
+}
+
+export function xpush(value, chan) {
+  return chan.push(value);
+}
+
+export function pop(chan, signal = void 0) {
+  return chan.pop(signal);
+}
+
+export function xpop(signal, chan) {
+  return chan.pop(signal);
+}
 
 export class Chan {
   constructor({ bufferCapacity, signal } = {}) {
-    this._bufferCapacity = bufferCapacity === void 0 ? bufferCapacity : Math.max(0, bufferCapacity | 0);
+    this._bufferCapacity = undefMap1(pipe(toUInt, pa1(Math.max, 0)), bufferCapacity);
     this._bufferQueue = new Queue();
 
     this._pushContQueue = new Queue();
@@ -28,26 +61,31 @@ export class Chan {
     }
   }
 
-  push(value) {
+  tryPush(value) {
     if (this._closed) {
       throw Error("chan closed");
     }
 
     const { _popContQueue } = this;
-
-    while (_popContQueue.size > 0) {
-      const [isActive, resolve] = _popContQueue.pop();
-      if (isActive()) {
-        resolve(value);
-        return _resolve();
-      }
+    if (_popContQueue.size > 0) {
+      const resolve = _popContQueue.pop();
+      resolve(value);
+      return true;
     }
 
     const { _bufferCapacity, _bufferQueue } = this;
-
     if (_bufferCapacity === void 0 || _bufferQueue.size < _bufferCapacity) {
       _bufferQueue.add(value);
-      return _resolve();
+      return true;
+    }
+
+    return false;
+  }
+
+  async push(value) {
+    const success = this.tryPush(value);
+    if (success) {
+      return;
     }
 
     return new Promise((resolve, reject) => {
@@ -55,39 +93,76 @@ export class Chan {
     });
   }
 
-  pop() {
-    if (this._closed) {
-      return _resolve(_eoc);
-    }
-
+  tryPop() {
     const { _bufferQueue } = this;
-
     if (_bufferQueue.size > 0) {
       const value = _bufferQueue.pop();
-      return _resolve(value);
+
+      const { _pushContQueue } = this;
+      if (_pushContQueue.size > 0) {
+        const [value, resolve] = _pushContQueue.pop();
+        _bufferQueue.add(value);
+        resolve();
+      }
+
+      return { value, success: true };
+    }
+
+    if (this._closed) {
+      return { value: _eoc, success: true };
     }
 
     const { _pushContQueue } = this;
-
     if (_pushContQueue.size > 0) {
       const [value, resolve] = _pushContQueue.pop();
-
       resolve();
-      return _resolve(value);
+      return { value, success: true };
     }
 
-    return new Promise((resolve) => {
-      const { _popContQueue } = this;
+    return { value: void 0, success: false };
+  }
 
-      while (_popContQueue.size > 0) {
-        const [isActive] = _popContQueue.peek();
-        if (isActive()) {
-          break;
-        }
-        _popContQueue.pop();
+  async pop(signal = void 0) {
+    if (signal === void 0) {
+      const res = this.tryPop();
+      if (res.success) {
+        return res.value;
       }
 
-      _popContQueue.add([_constantTrue, resolve]);
+      return new Promise((resolve) => {
+        this._popContQueue.add(resolve);
+      });
+    }
+
+    if (signal.aborted) {
+      throw signal.reason;
+    }
+
+    const res = this.tryPop();
+    if (res.success) {
+      return res.value;
+    }
+
+    return new Promise((resolve, reject) => {
+      const { _popContQueue } = this;
+      function _cancel() {
+        _popContQueue.remove(_cleanAndResolve);
+        signal.removeEventListener("abort", _cancel);
+        reject(signal.reason);
+      }
+
+      function _cleanAndResolve(value) {
+        signal.removeEventListener("abort", _cancel);
+        resolve(value);
+      }
+
+      if (signal.aborted) {
+        reject(signal.reason);
+        return;
+      }
+
+      signal.addEventListener("abort", _cancel);
+      _popContQueue.add(_cleanAndResolve);
     });
   }
 
@@ -100,10 +175,8 @@ export class Chan {
       return;
     }
 
-    this._bufferQueue.clear();
-
     this._pushContQueue.forEach(([, , reject]) => reject(Error("chan closed")));
-    this._popContQueue.forEach(([isActive, resolve]) => isActive() && resolve(_eoc));
+    this._popContQueue.forEach((resolve) => resolve(_eoc));
     this._pushContQueue.clear();
     this._popContQueue.clear();
 
@@ -126,63 +199,25 @@ export class Chan {
     for (let i = 0; i < length; ++i) {
       const chan = chans[(i + offset) % length];
 
-      if (chan._closed) {
-        return _resolve({ value: _eoc, chan });
-      }
-
-      const { _bufferQueue } = chan;
-
-      if (_bufferQueue.size > 0) {
-        const value = _bufferQueue.pop();
-        return _resolve({ value, chan });
-      }
-
-      const { _pushContQueue } = chan;
-
-      if (_pushContQueue.size > 0) {
-        const [value, resolve] = _pushContQueue.pop();
-
-        resolve();
-        return _resolve({ value, chan });
+      const res = chan.tryPop();
+      if (res.success) {
+        return { value: res.value, chan };
       }
     }
 
-    return await new Promise((resolve) => {
-      let isResolved = false;
+    const abortCtrl = new AbortController();
+    const { signal } = abortCtrl;
 
-      function isActive() {
-        return !isResolved;
-      }
-
-      function createResolve(chan) {
-        return (value) => {
-          if (isResolved) {
-            throw Error("alts chans conflict");
-          }
-          isResolved = true;
-          resolve({ value, chan });
-        };
-      }
-
-      for (let i = 0; i < length; ++i) {
-        const chan = chans[i];
-        const { _popContQueue } = chan;
-
-        while (_popContQueue.size > 0) {
-          const [isActive] = _popContQueue.peek();
-          if (isActive()) {
-            break;
-          }
-          _popContQueue.pop();
-        }
-        chan._popContQueue.add([isActive, createResolve(chan)]);
-      }
-    });
+    return Promise.any(map1(async (chan) => {
+      const value = await chan.pop(signal);
+      abortCtrl.abort(Error("selected another chan by `alts`."));
+      return { value, chan };
+    }, chans));
   }
 
 
-  static fromPromise(promise, options = {}) {
-    const chan = new Chan(options);
+  static fromPromise(promise, signal = void 0) {
+    const chan = new Chan({ bufferCapacity: 0, signal });
 
     (async () => {
       try {
@@ -200,10 +235,6 @@ export class Chan {
 
     return chan;
   }
-}
-
-function _constantTrue() {
-  return true;
 }
 
 function _removeAbortEventListenter(chan) {

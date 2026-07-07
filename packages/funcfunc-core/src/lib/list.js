@@ -482,6 +482,45 @@ export function dropWhile(pred, list) {
   return _nil;
 }
 
+export function remove(target, list) {
+  let head = _nil;
+  let tail;
+  for (tail = list; isPair(tail); tail = cdr(tail)) {
+    const x = car(tail);
+    if (Object.is(x, target)) {
+      break;
+    }
+    head = cons(x, head);
+  }
+
+  if (isPair(tail)) {
+    return reverseI(head, cdr(tail));
+  }
+
+  return reverseI(head);
+}
+
+export function removeI(target, list) {
+  if (!isPair(list)) {
+    return list;
+  }
+
+  if (Object.is(car(list), target)) {
+    return cdr(list);
+  }
+
+  let tmp = list;
+  for (let cursor = cdr(list); isPair(cursor); cursor = cdr(cursor)) {
+    const x = car(cursor);
+    if (Object.is(x, target)) {
+      setCdr(tmp, cdr(cursor));
+      continue;
+    }
+    tmp = cursor;
+  }
+  return list;
+}
+
 export function unique(list) {
   const appeared = new Set();
   let result = _nil;
