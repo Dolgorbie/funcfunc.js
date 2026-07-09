@@ -1,4 +1,4 @@
-import { map1 } from "./arrays";
+import { every1, map1 } from "./arrays";
 import { toUInt } from "./asfunc";
 import { pa1, pipe } from "./core";
 import { undefMap1 } from "./nullable";
@@ -42,27 +42,76 @@ export function xtake(signal, chan) {
   return chan.take(signal);
 }
 
+export async function alts(...chans) {
+  const { length } = chans;
+  const offset = Math.random() * length | 0
+  for (let i = 0; i < length; ++i) {
+    const chan = chans[(i + offset) % length];
+
+    const res = chan.tryTake();
+    if (res.success) {
+      return { value: res.value, chan };
+    }
+  }
+
+  const abortCtrl = new AbortController();
+  const { signal } = abortCtrl;
+
+  return Promise.any(map1(async (chan) => {
+    const value = await chan.take(signal);
+    abortCtrl.abort(Error("selected another chan by `alts`."));
+    return { value, chan };
+  }, chans));
+}
+
+export function merge(outChan, ...inChans) {
+  (async () => {
+    const abortTakeController = new AbortController();
+    const { signal: abortTakeSignal } = abortTakeController;
+    try {
+      for (; ;) {
+        const posted = await Promise.allSettled(map1(async (chan) => {
+          const value = await chan.take(abortTakeSignal);
+          if (isEndOfChan(value)) {
+            return false;
+          }
+          await outChan.post({ value, chan });
+          return true;
+        }, inChans));
+
+        if (every1(({ status, value }) => status === "rejected" || !value, posted)) {
+          return;
+        }
+      }
+    } catch (error) {
+      abortTakeController.abort(error);
+    } finally {
+      outChan.close();
+    }
+  })();
+}
+
 export class Chan {
-  constructor({ bufferCapacity, signal } = {}) {
-    this._bufferCapacity = undefMap1(pipe(toUInt, pa1(Math.max, 0)), bufferCapacity);
+  constructor({ capacity, signal } = {}) {
+    this._bufferCapacity = undefMap1(pipe(toUInt, pa1(Math.max, 0)), capacity);
     this._bufferQueue = new Queue();
 
     this._postContQueue = new Queue();
     this._takeContQueue = new Queue();
 
-    this._closed = false;
-    this._customCleanupSet = new Set();
+    this._isClosed = false;
+    this._afterCloseHooks = new Set();
     this._signal = signal;
 
     if (signal != null) {
       this.close = this.close.bind(this);
-      signal.addEventListener("abort", this.close);
-      this._customCleanupSet.add(_removeAbortEventListenter);
+      signal.addEventListener("abort", this.close, { once: true });
+      this._afterCloseHooks.add(_removeAbortEventListenter);
     }
   }
 
   tryPost(value) {
-    if (this._closed) {
+    if (this._isClosed) {
       throw Error("chan closed");
     }
 
@@ -82,14 +131,47 @@ export class Chan {
     return false;
   }
 
-  async post(value) {
+  async post(value, signal = void 0) {
+    if (signal !== void 0 && signal.aborted) {
+      throw signal.reason;
+    }
+
     const success = this.tryPost(value);
     if (success) {
       return;
     }
 
     return new Promise((resolve, reject) => {
-      this._postContQueue.add([value, resolve, reject]);
+      function _cancel() {
+        _postContQueue.delete(_cleanAndResolve);
+        signal.removeEventListener("abort", _cancel);
+        reject(signal.reason);
+      }
+
+      function _cleanAndResolve() {
+        signal.removeEventListener("abort", _cancel);
+        resolve();
+      }
+
+      function _cleanAndReject(reason) {
+        signal.removeEventListener("abort", _cancel);
+        reject(reason);
+      }
+
+      if (signal !== void 0 && signal.aborted) {
+        reject(signal.reason);
+        return;
+      }
+
+      const { _postContQueue } = this;
+
+      if (signal === void 0) {
+        _postContQueue.add([value, resolve, reject]);
+        return;
+      }
+
+      signal.addEventListener("abort", _cancel);
+      _postContQueue.add([value, _cleanAndResolve, _cleanAndReject]);
     });
   }
 
@@ -108,7 +190,7 @@ export class Chan {
       return { value, success: true };
     }
 
-    if (this._closed) {
+    if (this._isClosed) {
       return { value: _eoc, success: true };
     }
 
@@ -123,18 +205,7 @@ export class Chan {
   }
 
   async take(signal = void 0) {
-    if (signal === void 0) {
-      const res = this.tryTake();
-      if (res.success) {
-        return res.value;
-      }
-
-      return new Promise((resolve) => {
-        this._takeContQueue.add(resolve);
-      });
-    }
-
-    if (signal.aborted) {
+    if (signal !== void 0 && signal.aborted) {
       throw signal.reason;
     }
 
@@ -144,9 +215,8 @@ export class Chan {
     }
 
     return new Promise((resolve, reject) => {
-      const { _takeContQueue } = this;
       function _cancel() {
-        _takeContQueue.remove(_cleanAndResolve);
+        _takeContQueue.delete(_cleanAndResolve);
         signal.removeEventListener("abort", _cancel);
         reject(signal.reason);
       }
@@ -156,8 +226,15 @@ export class Chan {
         resolve(value);
       }
 
-      if (signal.aborted) {
+      if (signal !== void 0 && signal.aborted) {
         reject(signal.reason);
+        return;
+      }
+
+      const { _takeContQueue } = this;
+
+      if (signal === void 0) {
+        _takeContQueue.add(resolve);
         return;
       }
 
@@ -166,12 +243,12 @@ export class Chan {
     });
   }
 
-  get isClosed() {
-    return this._closed;
+  get closed() {
+    return this._isClosed;
   }
 
   close() {
-    if (this._closed) {
+    if (this._isClosed) {
       return;
     }
 
@@ -180,44 +257,21 @@ export class Chan {
     this._postContQueue.clear();
     this._takeContQueue.clear();
 
-    this._customCleanupSet.forEach((callback) => callback(this));
+    this._isClosed = true;
 
-    this._closed = true;
+    this._afterCloseHooks.forEach((callback) => callback(this));
   }
 
-  addCleanup(callback) {
-    this._customCleanupSet.add(callback);
+  addCloseHook(callback) {
+    this._afterCloseHooks.add(callback);
   }
 
-  deleteCleanup(callback) {
-    this._customCleanupSet.delete(callback);
+  deleteCloseHook(callback) {
+    this._afterCloseHooks.delete(callback);
   }
-
-  static async alts(...chans) {
-    const { length } = chans;
-    const offset = Math.random() * length | 0
-    for (let i = 0; i < length; ++i) {
-      const chan = chans[(i + offset) % length];
-
-      const res = chan.tryTake();
-      if (res.success) {
-        return { value: res.value, chan };
-      }
-    }
-
-    const abortCtrl = new AbortController();
-    const { signal } = abortCtrl;
-
-    return Promise.any(map1(async (chan) => {
-      const value = await chan.take(signal);
-      abortCtrl.abort(Error("selected another chan by `alts`."));
-      return { value, chan };
-    }, chans));
-  }
-
 
   static fromPromise(promise, signal = void 0) {
-    const chan = new Chan({ bufferCapacity: 0, signal });
+    const chan = new Chan({ capacity: 0, signal });
 
     (async () => {
       try {

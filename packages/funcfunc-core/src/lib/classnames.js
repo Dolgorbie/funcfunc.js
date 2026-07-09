@@ -66,7 +66,7 @@ export function omitFalsyProcessor(name) {
 }
 
 export function objectKeysProcessor(name) {
-  if (name === null || typeof name === "object") {
+  if (name === null || typeof name !== "object") {
     return name;
   }
 
