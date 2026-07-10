@@ -31,7 +31,7 @@ export function lift(failable) {
     return failable.value;
   }
   const { reasons } = failable;
-  throw reasons.length === 1 ? reasons[0] : AggregateError(reasons);
+  throw reasons.length === 1 ? reasons[0] : new AggregateError(reasons);
 }
 
 export function map(proc, failable1, ...failables) {
@@ -67,9 +67,9 @@ export function map2(proc, failable1, failable2) {
       return failable2;
     }
     if (success2) {
-      return success1;
+      return failable1;
     }
-    throw AggregateError([...failable1.reasons, ...failable2.reasons]);
+    throw new AggregateError([...failable1.reasons, ...failable2.reasons]);
   } catch (error) {
     return fail(error);
   }
@@ -110,7 +110,7 @@ function _mapN(proc, failable1, failables) {
       }
     }
 
-    throw AggregateError(acc);
+    throw new AggregateError(acc);
   } catch (error) {
     return fail(error);
   }
@@ -120,12 +120,12 @@ function _flatErrors(errors) {
   function _loop(acc, errors) {
     const { length } = errors;
     for (let i = 0; i < length; ++i) {
-      const error = errors[i];
-      if (error instanceof AggregateError) {
-        _loop(acc, error.errors);
-        return;
+      const errorI = errors[i];
+      if (errorI instanceof AggregateError) {
+        _loop(acc, errorI.errors);
+        continue;
       }
-      acc.push(errors);
+      acc.push(errorI);
     }
   }
 
