@@ -59,6 +59,7 @@ export class Queue {
   delete(value) {
     this._arrange();
     this._values = removeI(value, this._values);
+    this._size -= 1;
   }
 
   clear() {

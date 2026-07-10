@@ -157,7 +157,7 @@ export function toInt(value) {
 }
 
 export function toUInt(value) {
-  return (value | 0) & ~(value >> 31);
+  return (value >>> 0) & ~(value >> 31);
 }
 
 export function toBoolean(value) {
