@@ -64,55 +64,52 @@ export async function alts(...chans) {
   }, chans));
 }
 
-export function merge(outChan, options, ...inChans) {
-  let autoClose = false;
-  let ignoreRejectedInput = false;
+export function merge(output, options = {}, ...inputs) {
+  const {
+    autoClose = false
+  } = options;
 
-  if (isChan(options)) {
-    inChans = [options, ...inChans];
-  } else {
-    autoClose = options.autoClose ?? autoClose;
-    ignoreRejectedInput = options.ignoreRejectedInput ?? ignoreRejectedInput;
-  }
+  const abortTakeController = new AbortController();
+  const { signal: abortTakeSignal } = abortTakeController;
+  const abortPostController = new AbortController();
+  const { signal: abortPostSignal } = abortPostController;
 
   (async () => {
-    const abortTakeController = new AbortController();
-    const { signal: abortTakeSignal } = abortTakeController;
     try {
-      for (; ;) {
-        const success = await Promise.all(map1(async (chan) => {
-          let value;
-          try {
-            value = await chan.take(abortTakeSignal);
-            if (isEndOfChan(value)) {
-              return false;
-            }
-          } catch (error) {
-            if (ignoreRejectedInput) {
-              return false;
-            }
-            throw error;
-          }
-          await outChan.post({ value, chan });
-          return true;
-        }, inChans));
+      await Promise.all(map1(async (chan) => {
+        try {
+          for (; ;) {
+            const value = await chan.take(abortTakeSignal);
 
-        if (!success.includes(true)) {
-          return;
+            if (isEndOfChan(value)) {
+              return { _success: true, _chan: chan };
+            }
+
+            await output.post({ value, chan }, abortPostSignal);
+          }
+        } catch (error) {
+          if (error instanceof PostError) {
+            abortTakeController.abort(error);
+            return { _success: false, _chan: chan, _reason: error };
+          }
+          return { _success: false, _chan: chan, _reason: error };
         }
-      }
+      }, inputs));
     } catch (error) {
-      if (error instanceof PostError) {
-        abortTakeController.abort(error);
-      } else {
-        throw error;
-      }
+      abortTakeController.abort(error);
+      abortPostController.abort(error);
     } finally {
       if (autoClose) {
-        outChan.close();
+        if (autoClose instanceof AbortController) {
+          autoClose.abort();
+        } else {
+          output.close();
+        }
       }
     }
   })();
+
+  return output;
 }
 
 export class Chan {
@@ -167,7 +164,7 @@ export class Chan {
 
     return new Promise((resolve, reject) => {
       function _cancel() {
-        _postContQueue.delete(_cleanAndResolve);
+        _postContQueue.delete(postContQueueItem);
         signal.removeEventListener("abort", _cancel);
         reject(new PostError(this, value, "aborted.", { cause: signal.reason }));
       }
@@ -183,19 +180,21 @@ export class Chan {
       }
 
       if (signal !== void 0 && signal.aborted) {
-        reject(new PostError(this, value, "aborted.", { case: signal.reason }));
+        reject(new PostError(this, value, "aborted.", { cause: signal.reason }));
         return;
       }
 
       const { _postContQueue } = this;
+      let postContQueueItem;
 
       if (signal !== void 0) {
+        postContQueueItem = [value, _cleanAndResolve, _cleanAndReject];
         signal.addEventListener("abort", _cancel, { once: true });
-        _postContQueue.add([value, _cleanAndResolve, _cleanAndReject]);
-        return;
+      } else {
+        postContQueueItem = [value, resolve, reject];
       }
 
-      _postContQueue.add([value, resolve, reject]);
+      _postContQueue.add(postContQueueItem);
     });
   }
 
