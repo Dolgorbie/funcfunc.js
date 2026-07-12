@@ -1,4 +1,4 @@
-import { every1, map1 } from "./arrays";
+import { map1 } from "./arrays";
 import { toUInt } from "./asfunc";
 import { pa1, pipe } from "./core";
 import { undefMap1 } from "./nullable";
@@ -64,29 +64,53 @@ export async function alts(...chans) {
   }, chans));
 }
 
-export function merge(outChan, ...inChans) {
+export function merge(outChan, options, ...inChans) {
+  let autoClose = false;
+  let ignoreRejectedInput = false;
+
+  if (isChan(options)) {
+    inChans = [options, ...inChans];
+  } else {
+    autoClose = options.autoClose ?? autoClose;
+    ignoreRejectedInput = options.ignoreRejectedInput ?? ignoreRejectedInput;
+  }
+
   (async () => {
     const abortTakeController = new AbortController();
     const { signal: abortTakeSignal } = abortTakeController;
     try {
       for (; ;) {
-        const posted = await Promise.allSettled(map1(async (chan) => {
-          const value = await chan.take(abortTakeSignal);
-          if (isEndOfChan(value)) {
-            return false;
+        const success = await Promise.all(map1(async (chan) => {
+          let value;
+          try {
+            value = await chan.take(abortTakeSignal);
+            if (isEndOfChan(value)) {
+              return false;
+            }
+          } catch (error) {
+            if (ignoreRejectedInput) {
+              return false;
+            }
+            throw error;
           }
           await outChan.post({ value, chan });
           return true;
         }, inChans));
 
-        if (every1(({ status, value }) => status === "rejected" || !value, posted)) {
+        if (!success.includes(true)) {
           return;
         }
       }
     } catch (error) {
-      abortTakeController.abort(error);
+      if (error instanceof PostError) {
+        abortTakeController.abort(error);
+      } else {
+        throw error;
+      }
     } finally {
-      outChan.close();
+      if (autoClose) {
+        outChan.close();
+      }
     }
   })();
 }
@@ -112,7 +136,7 @@ export class Chan {
 
   tryPost(value) {
     if (this._isClosed) {
-      throw Error("chan closed");
+      throw new ClosedPostError(this, value, "chan was already closed.");
     }
 
     const { _takeContQueue } = this;
@@ -133,7 +157,7 @@ export class Chan {
 
   async post(value, signal = void 0) {
     if (signal !== void 0 && signal.aborted) {
-      throw signal.reason;
+      throw new PostError(this, value, "already aborted.", { cause: signal.reason });
     }
 
     const success = this.tryPost(value);
@@ -145,7 +169,7 @@ export class Chan {
       function _cancel() {
         _postContQueue.delete(_cleanAndResolve);
         signal.removeEventListener("abort", _cancel);
-        reject(signal.reason);
+        reject(new PostError(this, value, "aborted.", { cause: signal.reason }));
       }
 
       function _cleanAndResolve() {
@@ -155,23 +179,23 @@ export class Chan {
 
       function _cleanAndReject(reason) {
         signal.removeEventListener("abort", _cancel);
-        reject(reason);
+        reject(new PostError(this, value, "rejected.", { cause: reason }));
       }
 
       if (signal !== void 0 && signal.aborted) {
-        reject(signal.reason);
+        reject(new PostError(this, value, "aborted.", { case: signal.reason }));
         return;
       }
 
       const { _postContQueue } = this;
 
-      if (signal === void 0) {
-        _postContQueue.add([value, resolve, reject]);
+      if (signal !== void 0) {
+        signal.addEventListener("abort", _cancel, { once: true });
+        _postContQueue.add([value, _cleanAndResolve, _cleanAndReject]);
         return;
       }
 
-      signal.addEventListener("abort", _cancel);
-      _postContQueue.add([value, _cleanAndResolve, _cleanAndReject]);
+      _postContQueue.add([value, resolve, reject]);
     });
   }
 
@@ -206,7 +230,7 @@ export class Chan {
 
   async take(signal = void 0) {
     if (signal !== void 0 && signal.aborted) {
-      throw signal.reason;
+      throw new TakeError(this, "already aborted.", { cause: signal.reason });
     }
 
     const res = this.tryTake();
@@ -218,7 +242,7 @@ export class Chan {
       function _cancel() {
         _takeContQueue.delete(_cleanAndResolve);
         signal.removeEventListener("abort", _cancel);
-        reject(signal.reason);
+        reject(new TakeError(this, "aborted.", { cause: signal.reason }));
       }
 
       function _cleanAndResolve(value) {
@@ -227,19 +251,19 @@ export class Chan {
       }
 
       if (signal !== void 0 && signal.aborted) {
-        reject(signal.reason);
+        reject(new TakeError(this, "aborted.", { cause: signal.reason }));
         return;
       }
 
       const { _takeContQueue } = this;
 
-      if (signal === void 0) {
-        _takeContQueue.add(resolve);
+      if (signal !== void 0) {
+        signal.addEventListener("abort", _cancel, { once: true });
+        _takeContQueue.add(_cleanAndResolve);
         return;
       }
 
-      signal.addEventListener("abort", _cancel);
-      _takeContQueue.add(_cleanAndResolve);
+      _takeContQueue.add(resolve);
     });
   }
 
@@ -252,7 +276,7 @@ export class Chan {
       return;
     }
 
-    this._postContQueue.forEach(([, , reject]) => reject(Error("chan closed")));
+    this._postContQueue.forEach(([value, , reject]) => reject(new ClosedPostError(this, value, "closed")));
     this._takeContQueue.forEach((resolve) => resolve(_eoc));
     this._postContQueue.clear();
     this._takeContQueue.clear();
@@ -275,12 +299,12 @@ export class Chan {
 
     (async () => {
       try {
-        await chan.post({ success: true, value: await promise, error: void 0 });
-      } catch (error) {
+        await chan.post({ success: true, value: await promise, reason: void 0 });
+      } catch (reason) {
         try {
-          await chan.post({ success: false, value: void 0, error });
-        } catch (e) {
-          console.error("failed to post the error-result to chan:", chan, "which error is:", error, e);
+          await chan.post({ success: false, value: void 0, reason });
+        } catch (error) {
+          console.error("failed to post the error-result to chan:", chan, "which error is:", reason, error);
         }
       } finally {
         chan.close();
@@ -288,6 +312,32 @@ export class Chan {
     })();
 
     return chan;
+  }
+}
+
+export class ChanError extends Error {
+  constructor(chan, ...args) {
+    super(...args);
+    this.chan = chan;
+  }
+}
+
+export class PostError extends ChanError {
+  constructor(chan, value, ...args) {
+    super(chan, ...args);
+    this.value = value;
+  }
+}
+
+export class ClosedPostError extends PostError {
+  constructor(...args) {
+    super(...args);
+  }
+}
+
+export class TakeError extends ChanError {
+  constructor(chan, ...args) {
+    super(chan, ...args);
   }
 }
 

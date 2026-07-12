@@ -199,7 +199,7 @@ export function falseMap2(proc, x0, x1) {
   if (x0 === false || x1 === false) {
     return false;
   }
-  return proc(x0);
+  return proc(x0, x1);
 }
 
 function _falseMapN(proc, x0, xs) {

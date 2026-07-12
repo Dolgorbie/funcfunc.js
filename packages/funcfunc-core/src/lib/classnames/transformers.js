@@ -1,12 +1,3 @@
-/***
- * @typedef {null|undefined|0|0n|""} Falsy
- */
-
-/**
- * @template T
- * @param {T} name 
- * @returns {Exclude<T, Falsy>|false}
- */
 export function omitFalsy(name) {
   return name || false;
 }
