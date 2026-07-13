@@ -1,5 +1,5 @@
 import { map1 } from "../arrays";
-import { isEndOfChan, PostError } from "./core";
+import { isEndOfChan } from "./core";
 
 export function merge(output, options = {}, ...inputs) {
   const {
@@ -14,22 +14,13 @@ export function merge(output, options = {}, ...inputs) {
   (async () => {
     try {
       await Promise.all(map1(async (chan) => {
-        try {
-          for (; ;) {
-            const value = await chan.take(abortTakeSignal);
-
-            if (isEndOfChan(value)) {
-              return { _success: true, _chan: chan };
-            }
-
-            await output.post({ value, chan }, abortPostSignal);
+        for (; ;) {
+          const value = await chan.take(abortTakeSignal);
+          if (isEndOfChan(value)) {
+            return;
           }
-        } catch (error) {
-          if (error instanceof PostError) {
-            abortTakeController.abort(error);
-            return { _success: false, _chan: chan, _reason: error };
-          }
-          return { _success: false, _chan: chan, _reason: error };
+
+          await output.post({ value, chan }, abortPostSignal);
         }
       }, inputs));
     } catch (error) {
@@ -38,7 +29,7 @@ export function merge(output, options = {}, ...inputs) {
     } finally {
       if (autoClose) {
         if (autoClose instanceof AbortController) {
-          autoClose.abort();
+          autoClose.abort(Error("all input chans was closed"));
         } else {
           output.close();
         }

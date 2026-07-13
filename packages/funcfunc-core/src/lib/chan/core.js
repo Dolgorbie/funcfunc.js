@@ -1,6 +1,5 @@
-import { map1 } from "../arrays";
+import { every1, map1 } from "../arrays";
 import { toUInt } from "../asfunc";
-import { pa1, pipe } from "../core";
 import { promiseFailable } from "../failable";
 import { undefMap1 } from "../nullable";
 import { Queue } from "../queue";
@@ -81,14 +80,20 @@ export async function alts(...chans) {
       abortCtrl.abort(Error("selected another chan by `alts`."));
       return { value, chan };
     }, chans));
-  } catch (_error) {
-    return { value: _eoc, chan: chans[0] };
+  } catch (error) {
+    if (error instanceof AggregateError) {
+      const { errors: contents } = error;
+      if (every1(isChan, contents)) {
+        return { value: _eoc, chan: chans[0] };
+      }
+    }
+    throw error;
   }
 }
 
 export class Chan {
   constructor({ capacity, signal } = {}) {
-    this._bufferCapacity = undefMap1(pipe(toUInt, pa1(Math.max, 0)), capacity);
+    this._bufferCapacity = undefMap1(toUInt, capacity);
     this._bufferQueue = new Queue();
 
     this._postContQueue = new Queue();
