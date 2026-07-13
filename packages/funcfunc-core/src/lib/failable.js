@@ -24,6 +24,14 @@ export async function asyncFailable(thunk) {
   }
 }
 
+export async function promiseFailable(promise) {
+  try {
+    return await promise;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 export function isFailed(failable) {
   return failable != null && typeof failable === "object" && _reasons in failable;
 }

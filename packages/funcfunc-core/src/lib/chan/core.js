@@ -1,8 +1,9 @@
-import { map1 } from "./arrays";
-import { toUInt } from "./asfunc";
-import { pa1, pipe } from "./core";
-import { undefMap1 } from "./nullable";
-import { Queue } from "./queue";
+import { map1 } from "../arrays";
+import { toUInt } from "../asfunc";
+import { pa1, pipe } from "../core";
+import { promiseFailable } from "../failable";
+import { undefMap1 } from "../nullable";
+import { Queue } from "../queue";
 
 const _eoc = Symbol("end of chan");
 
@@ -44,72 +45,45 @@ export function xtake(signal, chan) {
 
 export async function alts(...chans) {
   const { length } = chans;
+  if (length === 0) {
+    throw Error("expects at least a chan, but got none");
+  }
+
   const offset = Math.random() * length | 0
+  let countEOC = 0;
   for (let i = 0; i < length; ++i) {
     const chan = chans[(i + offset) % length];
 
     const res = chan.tryTake();
     if (res.success) {
-      return { value: res.value, chan };
+      const { value } = res;
+      if (isEndOfChan(value)) {
+        countEOC += 1;
+      } else {
+        return { value: res.value, chan };
+      }
     }
+  }
+
+  if (countEOC === length) {
+    return { value: _eoc, chan: chans[0] };
   }
 
   const abortCtrl = new AbortController();
   const { signal } = abortCtrl;
 
-  return Promise.any(map1(async (chan) => {
-    const value = await chan.take(signal);
-    abortCtrl.abort(Error("selected another chan by `alts`."));
-    return { value, chan };
-  }, chans));
-}
-
-export function merge(output, options = {}, ...inputs) {
-  const {
-    autoClose = false
-  } = options;
-
-  const abortTakeController = new AbortController();
-  const { signal: abortTakeSignal } = abortTakeController;
-  const abortPostController = new AbortController();
-  const { signal: abortPostSignal } = abortPostController;
-
-  (async () => {
-    try {
-      await Promise.all(map1(async (chan) => {
-        try {
-          for (; ;) {
-            const value = await chan.take(abortTakeSignal);
-
-            if (isEndOfChan(value)) {
-              return { _success: true, _chan: chan };
-            }
-
-            await output.post({ value, chan }, abortPostSignal);
-          }
-        } catch (error) {
-          if (error instanceof PostError) {
-            abortTakeController.abort(error);
-            return { _success: false, _chan: chan, _reason: error };
-          }
-          return { _success: false, _chan: chan, _reason: error };
-        }
-      }, inputs));
-    } catch (error) {
-      abortTakeController.abort(error);
-      abortPostController.abort(error);
-    } finally {
-      if (autoClose) {
-        if (autoClose instanceof AbortController) {
-          autoClose.abort();
-        } else {
-          output.close();
-        }
+  try {
+    return Promise.any(map1(async (chan) => {
+      const value = await chan.take(signal);
+      if (isEndOfChan(value)) {
+        throw chan;
       }
-    }
-  })();
-
-  return output;
+      abortCtrl.abort(Error("selected another chan by `alts`."));
+      return { value, chan };
+    }, chans));
+  } catch (_error) {
+    return { value: _eoc, chan: chans[0] };
+  }
 }
 
 export class Chan {
@@ -205,8 +179,8 @@ export class Chan {
 
       const { _postContQueue } = this;
       if (_postContQueue.size > 0) {
-        const [value, resolve] = _postContQueue.pop();
-        _bufferQueue.add(value);
+        const [nextValue, resolve] = _postContQueue.pop();
+        _bufferQueue.add(nextValue);
         resolve();
       }
 
@@ -298,13 +272,9 @@ export class Chan {
 
     (async () => {
       try {
-        await chan.post({ success: true, value: await promise, reason: void 0 });
-      } catch (reason) {
-        try {
-          await chan.post({ success: false, value: void 0, reason });
-        } catch (error) {
-          console.error("failed to post the error-result to chan:", chan, "which error is:", reason, error);
-        }
+        await chan.post(await promiseFailable(promise));
+      } catch (error) {
+        console.error("failed to post the error-result to chan:", chan, "which error is:", error);
       } finally {
         chan.close();
       }
