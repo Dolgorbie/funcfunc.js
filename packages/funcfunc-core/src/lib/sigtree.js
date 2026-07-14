@@ -1,4 +1,4 @@
-import { every2, map1, reverseIter } from "./arrays";
+import { every2, forEach1, map1, reverseIter } from "./arrays";
 import { is } from "./asfunc";
 
 const _st_disabled = 0;
@@ -41,8 +41,8 @@ export function release(node) {
 class _RC {
   constructor() {
     this.__count = 0;
-    this.__initProcs = new Map();
-    this.__finalProcs = [];
+    this.__initHooks = new Map();
+    this.__finalHooks = [];
   }
 
   _retain() {
@@ -62,34 +62,28 @@ class _RC {
     return this;
   }
 
-  _addInit(callback, thisArg = void 0) {
-    if (this.__count === 0) {
-      throw Error("event listeners can be accepted before this retained.");
-    }
-    this.__initProcs.set(callback, [callback, thisArg]);
+  _addInitHook(hook, thisArg = void 0) {
+    this.__initHooks.set(hook, [hook, thisArg]);
   }
 
-  _remInit(callback) {
-    if (this.__count === 0) {
-      throw Error("event listeners can be removed before this retained.");
-    }
-    this.__initProcs.delete(callback);
+  _removeInitHook(hook) {
+    this.__initHooks.delete(hook);
   }
 
   __setup() {
-    for (const [proc, thisArg] of this.__initProcs.values()) {
-      const finalProc = proc.call(thisArg);
-      if (typeof finalProc === "function") {
-        this.__finalProcs.push([finalProc, thisArg]);
+    for (const [hook, thisArg] of this.__initHooks.values()) {
+      const newFinalHook = hook.call(thisArg);
+      if (typeof newFinalHook === "function") {
+        this.__finalHooks.push([newFinalHook, thisArg]);
       }
     }
   }
 
   __cleanup() {
-    for (const [proc, thisArg] of reverseIter(this.__finalProcs)) {
-      proc.call(thisArg);
+    for (const [hook, thisArg] of reverseIter(this.__finalHooks)) {
+      hook.call(thisArg);
     }
-    this.__finalProcs = [];
+    this.__finalHooks = [];
   }
 }
 
@@ -97,9 +91,9 @@ class _SigContainer {
   constructor() {
     this.__children = new Set();
     this.__effects = new Set();
-    this.__regChildCallbacks = new Set();
-    this.__regEffCallbacks = new Set();
-    this.__remCallbacks = new Map();
+    this.__regChildHooks = new Set();
+    this.__regEffHooks = new Set();
+    this.__removeHooks = new Map();
   }
 
   _children() {
@@ -112,11 +106,11 @@ class _SigContainer {
 
   _regChild(sigNode) {
     this.__children.add(sigNode);
-    this.__invokeRegCallbacks(sigNode, this.__regChildCallbacks);
+    this.__invokeRegHooks(sigNode, this.__regChildHooks);
   }
 
-  _remChild(sigNode) {
-    this.__invokeRemCallbacks(sigNode, this.__remCallbacks);
+  _removeChild(sigNode) {
+    this.__invokeRemoveHooks(sigNode);
     this.__children.delete(sigNode);
   }
 
@@ -126,9 +120,11 @@ class _SigContainer {
 
   _regEff(eff) {
     this.__effects.add(eff);
+    this.__invokeRegHooks(eff, this.__regEffHooks);
   }
 
-  _remEff(eff) {
+  _removeEff(eff) {
+    this.__invokeRemoveHooks(eff);
     this.__effects.delete(eff);
   }
 
@@ -136,34 +132,34 @@ class _SigContainer {
     this.__effects = new Set();
   }
 
-  _addRegChildCallback(callback, thisArg = void 0) {
-    this.__regChildCallbacks.add([callback, thisArg]);
+  _addRegChildHook(hook, thisArg = void 0) {
+    this.__regChildHooks.add([hook, thisArg]);
   }
 
-  _addRegEffCallback(callback, thisArg = void 0) {
-    this.__regEffCallbacks.add([callback, thisArg]);
+  _addRegEffHook(hook, thisArg = void 0) {
+    this.__regEffHooks.add([hook, thisArg]);
   }
 
-  __invokeRegCallbacks(sigNode, callbacks) {
-    for (const [proc, thisArg] of callbacks) {
-      const remCallback = proc.call(thisArg, sigNode);
-      if (typeof remCallback === "function") {
-        let remCallbacks = this.__remCallbacks.get(sigNode);
-        if (remCallbacks === void 0) {
-          this.__remCallbacks.set(sigNode, (remCallbacks = []));
+  __invokeRegHooks(nodeOrEff, regHooks) {
+    for (const [hook, thisArg] of regHooks) {
+      const removeHook = hook.call(thisArg, nodeOrEff);
+      if (typeof removeHook === "function") {
+        let removeHooksOfTheSigNode = this.__removeHooks.get(nodeOrEff);
+        if (removeHooksOfTheSigNode === void 0) {
+          this.__removeHooks.set(nodeOrEff, (removeHooksOfTheSigNode = []));
         }
-        remCallbacks.push([remCallback, thisArg]);
+        removeHooksOfTheSigNode.push([removeHook, thisArg]);
       }
     }
   }
 
-  __invokeRemCallbacks(sigNode, callbacks) {
-    const remCallbacks = callbacks.get(sigNode);
-    if (remCallbacks !== void 0) {
-      for (const [proc, thisArg] of reverseIter(remCallbacks)) {
+  __invokeRemoveHooks(sigNode) {
+    const hooks = this.__removeHooks.get(sigNode);
+    if (hooks !== void 0) {
+      for (const [proc, thisArg] of reverseIter(hooks)) {
         proc.call(thisArg, sigNode);
       }
-      remCallbacks.length = 0;
+      this.__removeHooks.delete(sigNode);
     }
   }
 }
@@ -195,23 +191,23 @@ export class Atom {
 
     effs.forEach((eff) => eff._invoke());
 
-    return [next, true];
+    return [this._value, true];
   }
 
-  _regChild(sigNode) {
+  regChild(sigNode) {
     this._sigContainer._regChild(sigNode);
   }
 
-  _remChild(sigNode) {
-    this._sigContainer._remChild(sigNode);
+  removeChild(sigNode) {
+    this._sigContainer._removeChild(sigNode);
   }
 
-  _regEff(eff) {
+  regEff(eff) {
     this._sigContainer._regEff(eff);
   }
 
-  _remEff(eff) {
-    this._sigContainer._remEff(eff);
+  removeEff(eff) {
+    this._sigContainer._removeEff(eff);
   }
 }
 
@@ -236,8 +232,8 @@ export class Track {
     this._depValues = [];
     this._value = void 0;
 
-    this._rc._addInit(this._setup, this);
-    this._sigContainer._addRegChildCallback(this._regChildEffCallback, this);
+    this._rc._addInitHook(this._initHook, this);
+    this._sigContainer._addRegChildHook(this._regNodeOrEffHook, this);
   }
 
   _deref() {
@@ -253,9 +249,9 @@ export class Track {
         break;
       }
       case _st_stale: {
-        const depValues = map1((sigNode) => sigNode._deref(), this._depNodes);
+        const depValues = map1(deref, this._depNodes);
 
-        const changed = !every2((prev, next) => Object.is(prev, next), this._depValues, depValues);
+        const changed = !every2(Object.is, this._depValues, depValues);
         if (changed) {
           this._depValues = depValues;
           const next = this._handler(...depValues);
@@ -266,7 +262,7 @@ export class Track {
         break;
       }
       case _st_new: {
-        const depValues = map1((node) => node._deref(), this._depNodes);
+        const depValues = map1(deref, this._depNodes);
         const value = this._handler(...depValues);
         this._depValues = depValues;
         this._value = value;
@@ -311,37 +307,37 @@ export class Track {
     this._rc._release();
   }
 
-  _regChild(sigNode) {
+  regChild(sigNode) {
     this._sigContainer._regChild(sigNode);
   }
 
-  _remChild(sigNode) {
-    this._sigContainer._remChild(sigNode);
+  removeChild(sigNode) {
+    this._sigContainer._removeChild(sigNode);
   }
 
-  _regEff(eff) {
+  regEff(eff) {
     this._sigContainer._regEff(eff);
   }
 
-  _remEff(eff) {
-    this._sigContainer._remEff(eff);
+  removeEff(eff) {
+    this._sigContainer._removeEff(eff);
   }
 
-  _setup() {
-    this._depNodes.forEach((sigNode) => sigNode._regChild(this));
-    return this._cleanup;
+  _initHook() {
+    forEach1((sigNode) => sigNode.regChild(this), this._depNodes);
+    return this._finalHook;
   }
 
-  _cleanup() {
-    this._depNodes.forEach((sigNode) => sigNode._remChild(this));
+  _finalHook() {
+    forEach1((sigNode) => sigNode.removeChild(this), this._depNodes);
   }
 
-  _regChildEffCallback() {
+  _regNodeOrEffHook() {
     this._retain();
-    return this._remChildEffCallback;
+    return this._removeNodeOrEffHook;
   }
 
-  _remChildEffCallback() {
+  _removeNodeOrEffHook() {
     this._release();
   }
 }

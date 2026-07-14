@@ -1,4 +1,4 @@
-import { forEach1, map1 } from "../arrays";
+import { flatMap1, forEach1, map1 } from "../arrays";
 import { isEndOfChan } from "./core";
 
 export function merge(output, options = {}, ...inputs) {
@@ -52,10 +52,11 @@ export function merge(output, options = {}, ...inputs) {
   return output;
 }
 
-export function tee(input, options = {}, ...outputs) {
+export function mult(input, options = {}, ...outputs) {
   const {
     closeInput = false,
     closeOutputs = false,
+    earlyStop = false,
   } = options;
 
   const abortTakeController = new AbortController();
@@ -71,10 +72,21 @@ export function tee(input, options = {}, ...outputs) {
           return;
         }
 
-        await Promise.any(map1(async (chan) => {
+        const res = await Promise.allSettled(map1(async (chan) => {
           await chan.post(value, abortPostSignal);
         }, outputs));
+
+        const errors = flatMap1((({ status, reason }) => status === "fulfilled" ? [] : [reason], res));
+        if (earlyStop && errors.length > 0) {
+          throw new AggregateError(errors);
+        }
+        if (errors.length === outputs.length) {
+          throw new AggregateError(errors);
+        }
       }
+    } catch (error) {
+      abortTakeController.abort(error);
+      abortPostController.abort(error);
     } finally {
       if (closeInput) {
         if (closeInput instanceof AbortController) {
