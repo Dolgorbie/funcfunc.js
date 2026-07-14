@@ -133,6 +133,36 @@ function _tryMapN(proc, failable0, failables) {
   }
 }
 
+export function all(failables) {
+  const reasons = [];
+
+  _collectReasons(reasons, failables);
+
+  if (reasons.length === 0) {
+    return failables;
+  }
+
+  return _toFailure(reasons);
+}
+
+export function any(failables) {
+  const { length } = failables;
+  const reasons = [];
+  for (let i = 0; i < length; ++i) {
+    const failableI = failables[i];
+    if (isSuccess(failableI)) {
+      return failableI;
+    }
+
+    const reasonsI = failableI[_reasons];
+    const nReasonsI = reasonsI.length;
+    for (let j = 0; j < nReasonsI; ++j) {
+      reasons.push(reasonsI[j]);
+    }
+  }
+  return _toFailure(reasons);
+}
+
 function _collectReasons(acc, failables) {
   const { length } = failables;
   for (let i = 0; i < length; ++i) {

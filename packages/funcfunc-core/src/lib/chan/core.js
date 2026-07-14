@@ -72,7 +72,7 @@ export async function alts(...chans) {
   const { signal } = abortCtrl;
 
   try {
-    return Promise.any(map1(async (chan) => {
+    return await Promise.any(map1(async (chan) => {
       const value = await chan.take(signal);
       if (isEndOfChan(value)) {
         throw chan;
@@ -106,7 +106,7 @@ export class Chan {
     if (signal != null) {
       this.close = this.close.bind(this);
       signal.addEventListener("abort", this.close, { once: true });
-      this._afterCloseHooks.add(_removeAbortEventListenter);
+      this._afterCloseHooks.add(_removeAbortEventListener);
     }
   }
 
@@ -142,18 +142,18 @@ export class Chan {
     }
 
     return new Promise((resolve, reject) => {
-      function _cancel() {
+      const _cancel = () => {
         _postContQueue.delete(postContQueueItem);
         signal.removeEventListener("abort", _cancel);
         reject(new PostError(this, value, "aborted.", { cause: signal.reason }));
       }
 
-      function _cleanAndResolve() {
+      const _cleanAndResolve = () => {
         signal.removeEventListener("abort", _cancel);
         resolve();
       }
 
-      function _cleanAndReject(reason) {
+      const _cleanAndReject = (reason) => {
         signal.removeEventListener("abort", _cancel);
         reject(new PostError(this, value, "rejected.", { cause: reason }));
       }
@@ -217,13 +217,13 @@ export class Chan {
     }
 
     return new Promise((resolve, reject) => {
-      function _cancel() {
+      const _cancel = () => {
         _takeContQueue.delete(_cleanAndResolve);
         signal.removeEventListener("abort", _cancel);
         reject(new TakeError(this, "aborted.", { cause: signal.reason }));
       }
 
-      function _cleanAndResolve(value) {
+      const _cleanAndResolve = (value) => {
         signal.removeEventListener("abort", _cancel);
         resolve(value);
       }
@@ -315,6 +315,6 @@ export class TakeError extends ChanError {
   }
 }
 
-function _removeAbortEventListenter(chan) {
+function _removeAbortEventListener(chan) {
   chan._signal.removeEventListener("abort", chan.close);
 }
