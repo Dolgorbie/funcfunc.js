@@ -148,6 +148,14 @@ export function xupd(target, lns, value) {
   return lns.upd(target, value);
 }
 
+export function swap(lns, target, swapper){
+  return lns.upd(target, swapper(lns.ref(target)));
+}
+
+export function xswap(target, lns, swapper){
+  return lns.upd(target, swapper(lns.ref(target)));
+}
+
 export function isLens(lns) {
   return lns != null && typeof lns === "object" && typeof lns.ref === "function" && typeof lns.upd === "function";
 }

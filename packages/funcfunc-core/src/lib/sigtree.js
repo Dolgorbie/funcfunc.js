@@ -140,6 +140,13 @@ class _SigContainer {
     this.__regEffHooks.add([hook, thisArg]);
   }
 
+  *_stale() {
+    yield* this.__effects;
+    for (const c of this.__children) {
+      yield* c._stale();
+    }
+  }
+
   __invokeRegHooks(nodeOrEff, regHooks) {
     for (const [hook, thisArg] of regHooks) {
       const removeHook = hook.call(thisArg, nodeOrEff);
@@ -282,11 +289,7 @@ export class Track {
         throw Error("disabled track");
       }
       case _st_fresh: {
-        const { _sigContainer } = this;
-        yield* _sigContainer._effects();
-        for (const c of _sigContainer._children()) {
-          yield* c._stale();
-        }
+        yield* this._sigContainer._stale();
         break;
       }
       case _st_stale:
@@ -404,7 +407,22 @@ export class Focus {
   }
 
   *_stale() {
-
+    switch (this._state) {
+      case _st_disabled: {
+        throw Error("disabled focus");
+      }
+      case _st_fresh: {
+        yield* this._sigContainer._stale();
+        break;
+      }
+      case _st_stale:
+      case _st_new: {
+        break;
+      }
+      default: {
+        throw Error("Unrecognized state");
+      }
+    }
   }
 
   _setup() {
