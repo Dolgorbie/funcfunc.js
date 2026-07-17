@@ -2,7 +2,7 @@ import { every1, map1 } from "../arrays";
 import { toUInt } from "../asfunc";
 import { promiseFailable } from "../failable";
 import { undefMap1 } from "../nullable";
-import { Queue } from "../queue";
+import { InfQueue } from "../queue/inf-queue";
 
 const _eoc = Symbol("end of chan");
 
@@ -94,10 +94,10 @@ export async function alts(...chans) {
 export class Chan {
   constructor({ capacity, signal } = {}) {
     this._bufferCapacity = undefMap1(toUInt, capacity);
-    this._bufferQueue = new Queue();
+    this._bufferQueue = new InfQueue();
 
-    this._postContQueue = new Queue();
-    this._takeContQueue = new Queue();
+    this._postContQueue = new InfQueue();
+    this._takeContQueue = new InfQueue();
 
     this._isClosed = false;
     this._afterCloseHooks = new Set();

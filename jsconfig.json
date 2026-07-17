@@ -2,7 +2,7 @@
   "include": [],
   "references": [
     {
-      "path": "packages/funcfunc-core"
+      "path": "./packages/funcfunc-core"
     },
     {
       "path": "packages/funcfunc-react"
