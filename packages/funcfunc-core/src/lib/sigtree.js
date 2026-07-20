@@ -1,10 +1,4 @@
-import { every2, forEach1, map1, reverseIter } from "./arrays";
-import { is } from "./asfunc";
-
-const _st_disabled = 0;
-const _st_fresh = 1;
-const _st_stale = 2;
-const _st_new = 3;
+import { every2, forEach1, map1 } from "./arrays";
 
 export function atom(init) {
   return new Atom(init);
@@ -39,17 +33,20 @@ export function release(node) {
 }
 
 class _RC {
-  constructor() {
+  constructor({ _thisArg, _onInit } = {}) {
+    this.__thisArg = _thisArg;
+    this.__onInit = _onInit;
+    this.__onDispose = void 0;
     this.__count = 0;
-    this.__initHooks = new Map();
-    this.__finalHooks = [];
   }
 
   _retain() {
     if (this.__count++ === 0) {
-      this.__setup();
+      const { __onInit } = this;
+      if (__onInit) {
+        this.__onDispose = __onInit.call(this.__thisArg);
+      }
     }
-    return this;
   }
 
   _release() {
@@ -57,43 +54,24 @@ class _RC {
       throw Error("too many release");
     }
     if (--this.__count === 0) {
-      this.__cleanup();
-    }
-    return this;
-  }
-
-  _addInitHook(hook, thisArg = void 0) {
-    this.__initHooks.set(hook, [hook, thisArg]);
-  }
-
-  _removeInitHook(hook) {
-    this.__initHooks.delete(hook);
-  }
-
-  __setup() {
-    for (const [hook, thisArg] of this.__initHooks.values()) {
-      const newFinalHook = hook.call(thisArg);
-      if (typeof newFinalHook === "function") {
-        this.__finalHooks.push([newFinalHook, thisArg]);
+      const { __onDispose } = this;
+      if (__onDispose) {
+        __onDispose.call(this.__thisArg);
       }
     }
-  }
-
-  __cleanup() {
-    for (const [hook, thisArg] of reverseIter(this.__finalHooks)) {
-      hook.call(thisArg);
-    }
-    this.__finalHooks = [];
   }
 }
 
 class _SigContainer {
-  constructor() {
+  constructor({ _thisArg, _onRegChild, onRegEff } = {}) {
+    this.__thisArg = _thisArg;
+    this.__onRegChild = _onRegChild;
+    this.__onRegEff = onRegEff;
+
+    this.__onRemoveHookMap = new Map();
+
     this.__children = new Set();
     this.__effects = new Set();
-    this.__regChildHooks = new Set();
-    this.__regEffHooks = new Set();
-    this.__removeHooks = new Map();
   }
 
   _children() {
@@ -105,68 +83,160 @@ class _SigContainer {
   }
 
   _regChild(sigNode) {
-    this.__children.add(sigNode);
-    this.__invokeRegHooks(sigNode, this.__regChildHooks);
+    _regItemTemplate(this.__children, sigNode, this.__onRegChild, this.__thisArg, this.__onRemoveHookMap);
   }
 
   _removeChild(sigNode) {
-    this.__invokeRemoveHooks(sigNode);
-    this.__children.delete(sigNode);
+    _removeItemTemplate(this.__children, sigNode, this.__onRemoveHookMap, this.__thisArg);
   }
 
   _clearChildren() {
-    this.__children = new Set();
+    for (const c of this.__children) {
+      this._removeChild(c);
+    }
   }
 
   _regEff(eff) {
-    this.__effects.add(eff);
-    this.__invokeRegHooks(eff, this.__regEffHooks);
+    _regItemTemplate(this.__effects, eff, this.__onRegEff, this.__thisArg, this.__onRemoveHookMap);
   }
 
   _removeEff(eff) {
-    this.__invokeRemoveHooks(eff);
-    this.__effects.delete(eff);
+    _removeItemTemplate(this.__effects, eff, this.__onRemoveHookMap, this.__thisArg);
   }
 
   _clearEffs() {
-    this.__effects = new Set();
-  }
-
-  _addRegChildHook(hook, thisArg = void 0) {
-    this.__regChildHooks.add([hook, thisArg]);
-  }
-
-  _addRegEffHook(hook, thisArg = void 0) {
-    this.__regEffHooks.add([hook, thisArg]);
-  }
-
-  *_stale() {
-    yield* this.__effects;
-    for (const c of this.__children) {
-      yield* c._stale();
+    for (const e of this.__effects) {
+      this._removeEff(e);
     }
   }
+}
 
-  __invokeRegHooks(nodeOrEff, regHooks) {
-    for (const [hook, thisArg] of regHooks) {
-      const removeHook = hook.call(thisArg, nodeOrEff);
-      if (typeof removeHook === "function") {
-        let removeHooksOfTheSigNode = this.__removeHooks.get(nodeOrEff);
-        if (removeHooksOfTheSigNode === void 0) {
-          this.__removeHooks.set(nodeOrEff, (removeHooksOfTheSigNode = []));
-        }
-        removeHooksOfTheSigNode.push([removeHook, thisArg]);
+function _regItemTemplate(itemSet, item, callback, thisArg, inverseCallbackMap) {
+  if (itemSet.has(item)) {
+    return;
+  }
+
+  itemSet.add(item);
+  if (callback) {
+    const inverseCallback = callback.call(thisArg, item);
+    if (inverseCallback) {
+      inverseCallbackMap.set(item, inverseCallback);
+    }
+  }
+}
+
+function _removeItemTemplate(itemSet, item, inverseCallbackMap, thisArg) {
+
+  if (!itemSet.has(item)) {
+    return;
+  }
+
+  const inverseCallback = inverseCallbackMap.get(item);
+  if (inverseCallback) {
+    inverseCallback.call(thisArg, item);
+    inverseCallbackMap.delete(item);
+  }
+
+  itemSet.delete(item);
+}
+
+const _st_disabled = 0;
+const _st_fresh = 1;
+const _st_stale = 2;
+const _st_new = 3;
+
+class _Stm {
+  constructor({
+    _thisArg,
+    _onStart,
+    _onActivate,
+    _onRefresh,
+    _onStale,
+    _onDispose,
+  } = {}) {
+    this.__state = _st_new;
+
+    this.__thisArg = _thisArg;
+
+    this.__onStart = _onStart;
+    this.__onActivate = _onActivate;
+    this.__onRefresh = _onRefresh;
+    this.__onStale = _onStale;
+    this.__onDispose = _onDispose;
+
+    _onStart.call(_thisArg);
+  }
+
+  _start() {
+    switch (this.__state) {
+      case _st_disabled: {
+        this.__state = _st_new;
+        return this.__onStart.call(this.__thisArg);
+      }
+      case _st_fresh:
+      case _st_stale:
+      case _st_new: {
+        throw Error("expects disabled state");
+      }
+      default: {
+        throw Error("Unrecognized state");
       }
     }
   }
 
-  __invokeRemoveHooks(sigNode) {
-    const hooks = this.__removeHooks.get(sigNode);
-    if (hooks !== void 0) {
-      for (const [proc, thisArg] of reverseIter(hooks)) {
-        proc.call(thisArg, sigNode);
+  _refresh() {
+    switch (this.__state) {
+      case _st_disabled: {
+        throw Error("disabled");
       }
-      this.__removeHooks.delete(sigNode);
+      case _st_fresh: {
+        break;
+      }
+      case _st_stale: {
+        this.__state = _st_fresh;
+        return this.__onRefresh.call(this.__thisArg);
+      }
+      case _st_new: {
+        this.__state = _st_fresh;
+        return this.__onActivate.call(this.__thisArg);
+      }
+      default: {
+        throw Error("Unrecognized state");
+      }
+    }
+  }
+
+  _stale() {
+    switch (this.__state) {
+      case _st_disabled: {
+        throw Error("disabled");
+      }
+      case _st_fresh: {
+        this.__state = _st_stale;
+        return this.__onStale.call(this.__thisArg);
+      }
+      case _st_stale:
+      case _st_new: {
+        break;
+      }
+      default: {
+        throw Error("Unrecognized state");
+      }
+    }
+    this.__state = _st_stale;
+  }
+
+  _dispose() {
+    switch (this.__state) {
+      case _st_disabled: {
+        throw Error("disabled");
+      }
+      case _st_fresh:
+      case _st_stale:
+      case _st_new: {
+        this.__state = _st_disabled;
+        return this.__onDispose.call(this.__thisArg);
+      }
     }
   }
 }
@@ -218,89 +288,45 @@ export class Atom {
   }
 }
 
-function* _staleAndCollectEffects(sigNodes, effs) {
-  yield* effs;
-
-  for (const n of sigNodes) {
-    yield* n._stale();
-  }
-}
-
-
 export class Track {
   constructor(handler, depNodes) {
-    this._rc = new _RC();
-    this._sigContainer = new _SigContainer();
+    this._stm = new _Stm({
+      _thisArg: this,
+      _onStart: this._onStart,
+      _onActivate: this._onActivate,
+      _onRefresh: this._onRefresh,
+      _onStale: this._onStale,
+      _onDispose: this._onDispose,
+    });
+
+    this._rc = new _RC({
+      _thisArg: this,
+      _onInit: this._onInit,
+    });
+
+    this._sigContainer = new _SigContainer({
+      _thisArg: this,
+      _onRegChild: this._onRegChild,
+      onRegEff: this._onRegEff,
+    });
 
     this._handler = handler;
     this._depNodes = depNodes;
 
-    this._state = _st_new;
     this._depValues = [];
     this._value = void 0;
-
-    this._rc._addInitHook(this._initHook, this);
-    this._sigContainer._addRegChildHook(this._regNodeOrEffHook, this);
-    this._sigContainer._addRegEffHook(this._regNodeOrEffHook, this);
   }
 
   _deref() {
-    return this._update();
+    return this._stm._refresh();
   }
 
-  _update() {
-    switch (this._state) {
-      case _st_disabled: {
-        throw Error("disabled track");
-      }
-      case _st_fresh: {
-        break;
-      }
-      case _st_stale: {
-        const depValues = map1(deref, this._depNodes);
-
-        const changed = !every2(Object.is, this._depValues, depValues);
-        if (changed) {
-          this._depValues = depValues;
-          const next = this._handler(...depValues);
-          if (!Object.is(this._value, next)) {
-            this._value = next;
-          }
-        }
-        break;
-      }
-      case _st_new: {
-        const depValues = map1(deref, this._depNodes);
-        const value = this._handler(...depValues);
-        this._depValues = depValues;
-        this._value = value;
-        break;
-      }
-      default: {
-        throw Error("Unrecognized state");
-      }
-    }
-    this._state = _st_fresh;
-    return this._value;
+  _stale() {
+    return this._stm._stale();
   }
 
-  *_stale() {
-    switch (this._state) {
-      case _st_disabled: {
-        throw Error("disabled track");
-      }
-      case _st_fresh: {
-        yield* this._sigContainer._stale();
-        break;
-      }
-      case _st_stale:
-      case _st_new: {
-        break;
-      }
-      default: {
-        throw Error("Unrecognized state");
-      }
-    }
+  _dispose() {
+    this._stm._dispose();
   }
 
   _retain() {
@@ -327,107 +353,107 @@ export class Track {
     this._sigContainer._removeEff(eff);
   }
 
-  _initHook() {
+  _onStart() {
     forEach1((sigNode) => sigNode._regChild(this), this._depNodes);
-    return this._finalHook;
   }
 
-  _finalHook() {
+  _onActivate() {
+    const depValues = map1(deref, this._depNodes);
+    const value = this._handler(...depValues);
+    this._depValues = depValues;
+    this._value = value;
+    return value;
+  }
+
+  _onRefresh() {
+    const depValues = map1(deref, this._depNodes);
+
+    const changed = !every2(Object.is, this._depValues, depValues);
+    if (changed) {
+      this._depValues = depValues;
+      const next = this._handler(...depValues);
+      if (!Object.is(this._value, next)) {
+        this._value = next;
+      }
+    }
+
+    return this._value;
+  }
+
+  _onStale() {
+    const { _sigContainer } = this;
+    return _staleAndCollectEffects(_sigContainer._children(), _sigContainer._effects());
+  }
+
+  _onDispose() {
     forEach1((sigNode) => sigNode._removeChild(this), this._depNodes);
+    this._depValues = [];
+    this._value = void 0;
   }
 
-  _regNodeOrEffHook() {
+  _onInit() {
+    this._stm._start();
+    return this._dispose;
+  }
+
+  _onRegChild() {
     this._retain();
-    return this._removeNodeOrEffHook;
+    return this._release;
+
   }
 
-  _removeNodeOrEffHook() {
-    this._release();
+  _onRegEff() {
+    this._retain();
+    return this._release;
   }
 }
 
-
 export class Focus {
   constructor(lens, depNode) {
-    this._rc = new _RC();
-    this._sigContainer = new _SigContainer();
+    this._stm = new _Stm({
+      _thisArg: this,
+      _onStart: this._onStart,
+      _onActivate: this._onActivate,
+      _onRefresh: this._onRefresh,
+      _onStale: this._onStale,
+      _onDispose: this._onDispose,
+    });
+
+    this._rc = new _RC({
+      _thisArg: this,
+      _onInit: this._onInit,
+    });
+
+    this._sigContainer = new _SigContainer({
+      _thisArg: this,
+      _onRegChild: this._onRegChild,
+      onRegEff: this._onRegEff,
+    });
 
     this._lens = lens;
     this._depNode = depNode;
 
-    this._state = _st_new;
     this._depValue = void 0;
     this._value = void 0;
-
-    this._rc._addInitHook(this._initHook, this);
-    this._sigContainer._addRegChildHook(this._regNodeOrEffHook, this);
-    this._sigContainer._addRegEffHook(this._regNodeOrEffHook, this);
   }
 
   _deref() {
-    return this._update();
+    return this._stm._refresh();
   }
 
   _swap(swapper) {
     const { _lens } = this;
     const [, changed] = this._depNode._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep))));
 
-    return [this._update(), changed];
+    return [this._stm._refresh(), changed];
   }
 
-  _update() {
-
-    switch (this._state) {
-      case _st_disabled: {
-        throw Error("disabled focus");
-      }
-      case _st_fresh: {
-        break;
-      }
-      case _st_stale: {
-        const depValue = this._depNode._deref();
-
-        if (!Object.is(this._depValue, depValue)) {
-          this._depValue = depValue;
-          const next = this._lens.ref(depValue);
-          if (!Object.is(this._value, next)) {
-            this._value = next;
-          }
-        }
-        break;
-      }
-      case _st_new: {
-        const depValue = this._depNode._deref();
-        const value = this._lens.ref(depValue);
-        this._depValue = depValue;
-        this._value = value;
-        break;
-      }
-      default: {
-        throw Error("Unrecognized state");
-      }
-    }
-    this._state = _st_fresh;
-    return this._value;
+  _stale() {
+    return this._stm._stale();
   }
 
-  *_stale() {
-    switch (this._state) {
-      case _st_disabled: {
-        throw Error("disabled focus");
-      }
-      case _st_fresh: {
-        yield* this._sigContainer._stale();
-        break;
-      }
-      case _st_stale:
-      case _st_new: {
-        break;
-      }
-      default: {
-        throw Error("Unrecognized state");
-      }
-    }
+  _dispose() {
+    this._stm._dispose();
   }
 
   _retain() {
@@ -454,75 +480,132 @@ export class Focus {
     this._sigContainer._removeEff(eff);
   }
 
-  _initHook() {
+  _onStart() {
     this._depNode._regChild(this);
-    return this._finalHook;
   }
 
-  _finalHook() {
+  _onActivate() {
+    const depValue = this._depNode._deref();
+    const value = this._lens.ref(depValue);
+    this._depValue = depValue;
+    this._value = value;
+    return value;
+  }
+
+  _onRefresh() {
+    const depValue = this._depNode._deref();
+
+    if (!Object.is(this._depValue, depValue)) {
+      this._depValue = depValue;
+      const next = this._lens.ref(depValue);
+      if (!Object.is(this._value, next)) {
+        this._value = next;
+      }
+    }
+
+    return this._value;
+  }
+
+  _onStale() {
+    const { _sigContainer } = this;
+    return _staleAndCollectEffects(_sigContainer._children(), _sigContainer._effects());
+  }
+
+  _onDispose() {
     this._depNode._removeChild(this);
+    this._depValue = void 0;
+    this._value = void 0;
   }
 
-  _regNodeOrEffHook() {
+  _onInit() {
+    this._stm._start();
+    return this._dispose();
+  }
+
+  _onRegChild() {
     this._retain();
-    return this._removeNodeOrEffHook;
+    return this._release;
   }
 
-  _removeNodeOrEffHook() {
-    this._release();
+  _onRegEff() {
+    this._retain();
+    return this._release;
   }
 }
 
 export class Effect {
   constructor(handler, depNodes) {
-    this._rc = new _RC();
+    this._stm = new _Stm({
+      _thisArg: this,
+      _onStart: this._onStart,
+      _onActivate: this._onActivate,
+      _onRefresh: this._onRefresh,
+      _onStale: void 0,
+      _onDispose: this._onDispose,
+    });
+
+    this._rc = new _RC({
+      _thisArg: this,
+      _onInit: this._onInit,
+    });
 
     this._handler = handler;
     this._depNodes = depNodes;
 
-    this._state = _st_new;
     this._depValues = [];
   }
 
   _invoke() {
-    const { _meta } = this;
+    this._stm._refresh();
+  }
 
-    switch (_meta._state) {
-      case "disabled": {
-        throw Error("disabled effect");
-      }
-      case "active": {
-        const depValues = this._depNodes.map((node) => node._deref());
-
-        const changed = !_meta._depValues.every((prev, i) => is(prev, depValues[i]));
-        if (changed) {
-          _meta._depValues = depValues;
-          this._handler(...depValues);
-        }
-        break;
-      }
-      default: {
-        const depValues = this._depNodes.map((node) => node._deref());
-        _meta._depValues = depValues;
-
-        this._handler(...depValues);
-        _meta._state = "active";
-        break;
-      }
-    }
+  _dispose() {
+    this._stm._dispose();
   }
 
   _retain() {
-    if (this._count++ === 0) {
-      this._meta = { _state: "new" };
-      this._depNodes.forEach((n) => n._regEff(this));
-    }
+    this._rc._retain();
   }
 
   _release() {
-    if (--this._count === 0) {
-      this._depNodes.forEach((n) => n._remEff(this));
-      this._meta = { _state: "disabled" };
+    this._rc._release();
+  }
+
+  _onStart() {
+    forEach1((sigNode) => sigNode._regEff(this), this._depNodes);
+  }
+
+  _onActivate() {
+    const depValues = map1(deref, this._depNodes);
+    this._depValues = depValues;
+    this._handler(...depValues);
+  }
+
+  _onRefresh() {
+    const depValues = map1(deref, this._depNodes);
+
+    const changed = every2(Object.is, this._depValues, depValues);
+    if (changed) {
+      this._depValues = depValues;
+      this._handler(...depValues);
     }
+  }
+
+  _onDispose() {
+    forEach1((sigNode) => sigNode._removeEff(this), this._depNodes);
+    this._depValues = [];
+  }
+
+  _onInit() {
+    this._stm._start();
+    return this._dispose;
+  }
+}
+
+function* _staleAndCollectEffects(sigNodes, effs) {
+  yield* effs;
+
+  for (const n of sigNodes) {
+    yield* n._stale();
   }
 }
