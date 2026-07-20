@@ -1,7 +1,5 @@
 import { every1, map1 } from "../arrays";
-import { toUInt } from "../asfunc";
 import { promiseFailable } from "../failable";
-import { undefMap1 } from "../nullable";
 import { InfQueue } from "../queue/inf-queue";
 
 const _eoc = Symbol("end of chan");
@@ -92,9 +90,8 @@ export async function alts(...chans) {
 }
 
 export class Chan {
-  constructor({ capacity, signal } = {}) {
-    this._bufferCapacity = undefMap1(toUInt, capacity);
-    this._bufferQueue = new InfQueue();
+  constructor({ bufferQueue, signal } = {}) {
+    this._bufferQueue = bufferQueue;
 
     this._postContQueue = new InfQueue();
     this._takeContQueue = new InfQueue();
@@ -122,10 +119,12 @@ export class Chan {
       return true;
     }
 
-    const { _bufferCapacity, _bufferQueue } = this;
-    if (_bufferCapacity === void 0 || _bufferQueue.size < _bufferCapacity) {
-      _bufferQueue.add(value);
-      return true;
+    const { _bufferQueue } = this;
+    if (_bufferQueue != null) {
+      const success = _bufferQueue.add(value);
+      if (success) {
+        return true;
+      }
     }
 
     return false;
@@ -179,7 +178,7 @@ export class Chan {
 
   tryTake() {
     const { _bufferQueue } = this;
-    if (_bufferQueue.size > 0) {
+    if (_bufferQueue != null && _bufferQueue.size > 0) {
       const value = _bufferQueue.pop();
 
       const { _postContQueue } = this;
@@ -254,10 +253,17 @@ export class Chan {
       return;
     }
 
-    this._postContQueue.forEach(([value, , reject]) => reject(new ClosedPostError(this, value, "closed")));
-    this._takeContQueue.forEach((resolve) => resolve(_eoc));
-    this._postContQueue.clear();
-    this._takeContQueue.clear();
+    const { _postContQueue, _takeContQueue } = this;
+
+    while (_postContQueue.size > 0) {
+      const [value, , reject] = _postContQueue.pop();
+      reject(new ClosedPostError(this, value, "closed"));
+    }
+
+    while (_takeContQueue.size > 0) {
+      const resolve = _takeContQueue.pop();
+      resolve(_eoc);
+    }
 
     this._isClosed = true;
 

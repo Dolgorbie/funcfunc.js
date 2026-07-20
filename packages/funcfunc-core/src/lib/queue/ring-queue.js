@@ -1,24 +1,20 @@
-import { toUInt } from "../asfunc";
-
 export class RingQueue {
-  constructor(capacity) {
-    if (capacity < 2) {
+  constructor(sizeFactor) {
+    if (sizeFactor < 0) {
       throw RangeError();
     }
 
-    this._capacity = toUInt(capacity);
-    this._buffer = Array.from({ length: this._capacity });
-    this._filled = 1;
+    this._factor = sizeFactor >>> 0;
+    this._capacity = 1 << this._factor;
+    this._modMask = this._capacity - 1;
+
+    this._buffer = new Array(this._capacity);
+    this._filled = 0;
     this._popped = 0;
   }
 
   get size() {
-    const { _filled, _popped } = this;
-    if (_popped < _filled) {
-      return _filled - _popped - 1;
-    }
-    const { _capacity } = this;
-    return _capacity - _popped + _filled - 1;
+    return (this._filled - this._popped) >>> 0;
   }
 
   get capacity() {
@@ -26,49 +22,55 @@ export class RingQueue {
   }
 
   add(value) {
-    this._buffer[this._filled++] = value;
+    const { _capacity, _modMask, _buffer, _filled } = this;
+
+    if (this.size === _capacity) {
+      const { _popped } = this;
+      _buffer[_popped & _modMask] = void 0;
+      this._popped = (_popped + 1) >>> 0;
+    }
+
+    _buffer[_filled & _modMask] = value;
+    this._filled = (_filled + 1) >>> 0;
 
     return true;
   }
 
   pop() {
-    return this._buffer[this._popped++];
-  }
-
-  peek() {
-    if (this._capacity - this._popped === 1) {
-      this._popped = 0;
-    }
-
-    if (this._filled - this._popped === 1) {
+    if (this.size === 0) {
       return void 0;
     }
 
-    return this._buffer[this._popped + 1];
+    const { _modMask, _buffer, _popped } = this;
+
+    const index = _popped & _modMask
+    const value = _buffer[index];
+
+    _buffer[index] = void 0;
+    this._popped = (_popped + 1) >>> 0;
+
+    return value;
+  }
+
+  peek() {
+    if (this.size === 0) {
+      return void 0;
+    }
+
+    return this._buffer[this._popped & this._modMask];
   }
 
   clear() {
-    this._filled = 1;
+    this._buffer = new Array(this._capacity);
+    this._filled = 0;
     this._popped = 0;
   }
 
   forEach(callback, thisArg = void 0) {
-    callback = thisArg === void 0 ? callback : callback.bind(thisArg);
-    const { _buffer, _filled, _popped } = this;
+    const { _modMask, _buffer, _filled, _popped } = this;
 
-    if (_filled - _popped > 1) {
-      for (let i = _popped + 1; i < _filled; ++i) {
-        callback(_buffer[i]);
-      }
-      return;
-    }
-
-    const { _capacity } = this;
-    for (let i = _popped + 1; i < _capacity; ++i) {
-      callback(_buffer[i]);
-    }
-    for (let i = 0; i < _filled; ++i) {
-      callback(_buffer[i]);
+    for (let i = _popped; ((_filled - i) >>> 0) > 0; ++i) {
+      callback.call(thisArg, _buffer[i & _modMask]);
     }
   }
 }

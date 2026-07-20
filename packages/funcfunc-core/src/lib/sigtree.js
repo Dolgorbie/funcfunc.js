@@ -201,15 +201,15 @@ export class Atom {
     return [this._value, true];
   }
 
-  regChild(sigNode) {
+  _regChild(sigNode) {
     this._sigContainer._regChild(sigNode);
   }
 
-  removeChild(sigNode) {
+  _removeChild(sigNode) {
     this._sigContainer._removeChild(sigNode);
   }
 
-  regEff(eff) {
+  _regEff(eff) {
     this._sigContainer._regEff(eff);
   }
 
@@ -241,6 +241,7 @@ export class Track {
 
     this._rc._addInitHook(this._initHook, this);
     this._sigContainer._addRegChildHook(this._regNodeOrEffHook, this);
+    this._sigContainer._addRegEffHook(this._regNodeOrEffHook, this);
   }
 
   _deref() {
@@ -310,15 +311,15 @@ export class Track {
     this._rc._release();
   }
 
-  regChild(sigNode) {
+  _regChild(sigNode) {
     this._sigContainer._regChild(sigNode);
   }
 
-  removeChild(sigNode) {
+  _removeChild(sigNode) {
     this._sigContainer._removeChild(sigNode);
   }
 
-  regEff(eff) {
+  _regEff(eff) {
     this._sigContainer._regEff(eff);
   }
 
@@ -327,12 +328,12 @@ export class Track {
   }
 
   _initHook() {
-    forEach1((sigNode) => sigNode.regChild(this), this._depNodes);
+    forEach1((sigNode) => sigNode._regChild(this), this._depNodes);
     return this._finalHook;
   }
 
   _finalHook() {
-    forEach1((sigNode) => sigNode.removeChild(this), this._depNodes);
+    forEach1((sigNode) => sigNode._removeChild(this), this._depNodes);
   }
 
   _regNodeOrEffHook() {
@@ -357,6 +358,10 @@ export class Focus {
     this._state = _st_new;
     this._depValue = void 0;
     this._value = void 0;
+
+    this._rc._addInitHook(this._initHook, this);
+    this._sigContainer._addRegChildHook(this._regNodeOrEffHook, this);
+    this._sigContainer._addRegEffHook(this._regNodeOrEffHook, this);
   }
 
   _deref() {
@@ -425,24 +430,58 @@ export class Focus {
     }
   }
 
-  _setup() {
-    super._setup();
-    this._depNode._regChild(this);
+  _retain() {
+    this._rc._retain();
   }
 
-  _cleanup() {
-    this._depNode._remChild(this);
-    super._cleanup();
+  _release() {
+    this._rc._release();
+  }
+
+  _regChild(sigNode) {
+    this._sigContainer._regChild(sigNode);
+  }
+
+  _removeChild(sigNode) {
+    this._sigContainer._removeChild(sigNode);
+  }
+
+  _regEff(eff) {
+    this._sigContainer._regEff(eff);
+  }
+
+  removeEff(eff) {
+    this._sigContainer._removeEff(eff);
+  }
+
+  _initHook() {
+    this._depNode._regChild(this);
+    return this._finalHook;
+  }
+
+  _finalHook() {
+    this._depNode._removeChild(this);
+  }
+
+  _regNodeOrEffHook() {
+    this._retain();
+    return this._removeNodeOrEffHook;
+  }
+
+  _removeNodeOrEffHook() {
+    this._release();
   }
 }
 
 export class Effect {
   constructor(handler, depNodes) {
-    this._count = 0;
-    this._meta = { _state: "disabled" };
+    this._rc = new _RC();
+
     this._handler = handler;
     this._depNodes = depNodes;
-    this._meta = { _state: "disabled" };
+
+    this._state = _st_new;
+    this._depValues = [];
   }
 
   _invoke() {

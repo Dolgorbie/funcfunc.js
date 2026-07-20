@@ -1,3 +1,4 @@
+const _deleted = Symbol("deleted item");
 
 export class InfQueue {
   constructor() {
@@ -11,19 +12,26 @@ export class InfQueue {
   }
 
   add(value) {
-    this._input.push(value);
+    const { _output, _input } = this;
+
+    if (_input.length === 0 && _output.length === 0) {
+      _output.unshift(value);
+      return true;
+    }
+
+    _input.push(value);
     return true;
   }
 
   pop() {
-    if (this._refreshRequired()) {
+    if (this._output.length === 0) {
       this._refresh();
     }
     return this._output.pop();
   }
 
   peek() {
-    if (this._refreshRequired()) {
+    if (this._output.length === 0) {
       this._refresh();
     }
 
@@ -45,8 +53,8 @@ export class InfQueue {
     const { _input } = this;
     const nIn = _input.length;
     for (let i = 0; i < nIn; ++i) {
-      if (i in _input && Object.is(_input[i], value)) {
-        delete _input[i];
+      if (Object.is(_input[i], value)) {
+        _input[i] = _deleted;
         this._emptyCellCount += 1;
         return true;
       }
@@ -62,43 +70,32 @@ export class InfQueue {
   }
 
   forEach(callback, thisArg = void 0) {
-    callback = thisArg === void 0 ? callback : callback.bind(thisArg);
     const { _output, _input } = this;
 
     const nOut = _output.length;
     for (let i = nOut - 1; i >= 0; --i) {
-      callback(_output[i]);
+      callback.call(thisArg, _output[i]);
     }
 
     const nIn = _input.length;
     for (let i = 0; i < nIn; ++i) {
-      if (i in _input) {
-        callback(_input[i]);
+      if (_input[i] !== _deleted) {
+        callback.call(thisArg, _input[i]);
       }
     }
-  }
-
-  _refreshRequired() {
-    return this._output.length === 0;
   }
 
   _refresh() {
     const { _output, _input } = this;
-    const nOut = _output.length;
     const nIn = _input.length;
-    const newOutput = [];
 
     for (let i = nIn - 1; i >= 0; --i) {
-      if (i in _input) {
-        newOutput.push(_input[i]);
+      if (_input[i] !== _deleted) {
+        _output.push(_input[i]);
       }
     }
 
-    for (let i = 0; i < nOut; ++i) {
-      newOutput.push(_output[i]);
-    }
-
+    this._input = [];
     this._emptyCellCount = 0;
-    this._output = newOutput;
   }
 }
