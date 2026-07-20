@@ -33,19 +33,14 @@ export function release(node) {
 }
 
 class _RC {
-  constructor({ _thisArg, _onInit } = {}) {
-    this.__thisArg = _thisArg;
-    this.__onInit = _onInit;
-    this.__onDispose = void 0;
+  constructor(listener) {
+    this.__listener = listener;
     this.__count = 0;
   }
 
   _retain() {
     if (this.__count++ === 0) {
-      const { __onInit } = this;
-      if (__onInit) {
-        this.__onDispose = __onInit.call(this.__thisArg);
-      }
+      this.__listener._onInit?.();
     }
   }
 
@@ -54,21 +49,14 @@ class _RC {
       throw Error("too many release");
     }
     if (--this.__count === 0) {
-      const { __onDispose } = this;
-      if (__onDispose) {
-        __onDispose.call(this.__thisArg);
-      }
+      this.__listener._onFinal?.();
     }
   }
 }
 
 class _SigContainer {
-  constructor({ _thisArg, _onRegChild, onRegEff } = {}) {
-    this.__thisArg = _thisArg;
-    this.__onRegChild = _onRegChild;
-    this.__onRegEff = onRegEff;
-
-    this.__onRemoveHookMap = new Map();
+  constructor(listener) {
+    this.__listener = listener;
 
     this.__children = new Set();
     this.__effects = new Set();
@@ -83,61 +71,49 @@ class _SigContainer {
   }
 
   _regChild(sigNode) {
-    _regItemTemplate(this.__children, sigNode, this.__onRegChild, this.__thisArg, this.__onRemoveHookMap);
+    const { __children } = this;
+    if (__children.has(sigNode)) {
+      return;
+    }
+    __children.add(sigNode);
+    this.__listener._onRegItem?.(sigNode);
   }
 
   _removeChild(sigNode) {
-    _removeItemTemplate(this.__children, sigNode, this.__onRemoveHookMap, this.__thisArg);
+    const { __children } = this;
+    if (!__children.has(sigNode)) {
+      return;
+    }
+    this.__listener._onRemoveItem?.(sigNode);
+    __children.delete(sigNode);
   }
 
   _clearChildren() {
-    for (const c of this.__children) {
-      this._removeChild(c);
-    }
+    forEach1((c) => this._removeChild(c), [...this.__children]);
   }
 
   _regEff(eff) {
-    _regItemTemplate(this.__effects, eff, this.__onRegEff, this.__thisArg, this.__onRemoveHookMap);
+    const { __effects } = this;
+    if (__effects.has(eff)) {
+      return;
+    }
+    __effects.add(eff);
+    this.__listener._onRegItem?.(eff);
+
   }
 
   _removeEff(eff) {
-    _removeItemTemplate(this.__effects, eff, this.__onRemoveHookMap, this.__thisArg);
+    const { __effects } = this;
+    if (!__effects.has(eff)) {
+      return;
+    }
+    this.__listener._onRemoveItem?.(eff);
+    this._effects.delete(eff);
   }
 
   _clearEffs() {
-    for (const e of this.__effects) {
-      this._removeEff(e);
-    }
+    forEach1((e) => this._removeEff(e), [...this.__effects]);
   }
-}
-
-function _regItemTemplate(itemSet, item, callback, thisArg, inverseCallbackMap) {
-  if (itemSet.has(item)) {
-    return;
-  }
-
-  itemSet.add(item);
-  if (callback) {
-    const inverseCallback = callback.call(thisArg, item);
-    if (inverseCallback) {
-      inverseCallbackMap.set(item, inverseCallback);
-    }
-  }
-}
-
-function _removeItemTemplate(itemSet, item, inverseCallbackMap, thisArg) {
-
-  if (!itemSet.has(item)) {
-    return;
-  }
-
-  const inverseCallback = inverseCallbackMap.get(item);
-  if (inverseCallback) {
-    inverseCallback.call(thisArg, item);
-    inverseCallbackMap.delete(item);
-  }
-
-  itemSet.delete(item);
 }
 
 const _st_disabled = 0;
@@ -146,32 +122,18 @@ const _st_stale = 2;
 const _st_new = 3;
 
 class _Stm {
-  constructor({
-    _thisArg,
-    _onStart,
-    _onActivate,
-    _onRefresh,
-    _onStale,
-    _onDispose,
-  } = {}) {
+  constructor(listener) {
     this.__state = _st_new;
+    this.__listener = listener;
 
-    this.__thisArg = _thisArg;
-
-    this.__onStart = _onStart;
-    this.__onActivate = _onActivate;
-    this.__onRefresh = _onRefresh;
-    this.__onStale = _onStale;
-    this.__onDispose = _onDispose;
-
-    _onStart.call(_thisArg);
+    listener._onStart?.();
   }
 
   _start() {
     switch (this.__state) {
       case _st_disabled: {
         this.__state = _st_new;
-        return this.__onStart.call(this.__thisArg);
+        return this.__listener._onStart?.();
       }
       case _st_fresh:
       case _st_stale:
@@ -194,11 +156,11 @@ class _Stm {
       }
       case _st_stale: {
         this.__state = _st_fresh;
-        return this.__onRefresh.call(this.__thisArg);
+        return this.__listener._onRefresh?.();
       }
       case _st_new: {
         this.__state = _st_fresh;
-        return this.__onActivate.call(this.__thisArg);
+        return this.__listener._onActivate?.();
       }
       default: {
         throw Error("Unrecognized state");
@@ -213,17 +175,17 @@ class _Stm {
       }
       case _st_fresh: {
         this.__state = _st_stale;
-        return this.__onStale.call(this.__thisArg);
+        return this.__listener._onStale?.();
       }
       case _st_stale:
       case _st_new: {
+        this.__state = _st_stale;
         break;
       }
       default: {
         throw Error("Unrecognized state");
       }
     }
-    this.__state = _st_stale;
   }
 
   _dispose() {
@@ -235,7 +197,7 @@ class _Stm {
       case _st_stale:
       case _st_new: {
         this.__state = _st_disabled;
-        return this.__onDispose.call(this.__thisArg);
+        return this.__listener._onDispose?.();
       }
     }
   }
@@ -243,7 +205,7 @@ class _Stm {
 
 export class Atom {
   constructor(init) {
-    this._sigContainer = new _SigContainer();
+    this._sigContainer = new _SigContainer(this);
 
     this._value = init;
   }
@@ -290,25 +252,14 @@ export class Atom {
 
 export class Track {
   constructor(handler, depNodes) {
-    this._stm = new _Stm({
-      _thisArg: this,
-      _onStart: this._onStart,
-      _onActivate: this._onActivate,
-      _onRefresh: this._onRefresh,
-      _onStale: this._onStale,
-      _onDispose: this._onDispose,
-    });
+    this._stm = new _Stm(this);
 
     this._rc = new _RC({
       _thisArg: this,
       _onInit: this._onInit,
     });
 
-    this._sigContainer = new _SigContainer({
-      _thisArg: this,
-      _onRegChild: this._onRegChild,
-      onRegEff: this._onRegEff,
-    });
+    this._sigContainer = new _SigContainer(this);
 
     this._handler = handler;
     this._depNodes = depNodes;
@@ -323,10 +274,6 @@ export class Track {
 
   _stale() {
     return this._stm._stale();
-  }
-
-  _dispose() {
-    this._stm._dispose();
   }
 
   _retain() {
@@ -393,42 +340,27 @@ export class Track {
 
   _onInit() {
     this._stm._start();
-    return this._dispose;
   }
 
-  _onRegChild() {
+  _onFinal() {
+    this._stm._dispose();
+  }
+
+  _onRegItem() {
     this._retain();
-    return this._release;
 
   }
 
-  _onRegEff() {
-    this._retain();
-    return this._release;
+  _onRemoveItem() {
+    this._release();
   }
 }
 
 export class Focus {
   constructor(lens, depNode) {
-    this._stm = new _Stm({
-      _thisArg: this,
-      _onStart: this._onStart,
-      _onActivate: this._onActivate,
-      _onRefresh: this._onRefresh,
-      _onStale: this._onStale,
-      _onDispose: this._onDispose,
-    });
-
-    this._rc = new _RC({
-      _thisArg: this,
-      _onInit: this._onInit,
-    });
-
-    this._sigContainer = new _SigContainer({
-      _thisArg: this,
-      _onRegChild: this._onRegChild,
-      onRegEff: this._onRegEff,
-    });
+    this._stm = new _Stm(this);
+    this._rc = new _RC(this);
+    this._sigContainer = new _SigContainer(this);
 
     this._lens = lens;
     this._depNode = depNode;
@@ -450,10 +382,6 @@ export class Focus {
 
   _stale() {
     return this._stm._stale();
-  }
-
-  _dispose() {
-    this._stm._dispose();
   }
 
   _retain() {
@@ -519,35 +447,25 @@ export class Focus {
 
   _onInit() {
     this._stm._start();
-    return this._dispose();
   }
 
-  _onRegChild() {
-    this._retain();
-    return this._release;
+  _onFinal() {
+    this._stm._dispose();
   }
 
-  _onRegEff() {
+  _onRegItem() {
     this._retain();
-    return this._release;
+  }
+
+  _onRemoveItem() {
+    this._release();
   }
 }
 
 export class Effect {
   constructor(handler, depNodes) {
-    this._stm = new _Stm({
-      _thisArg: this,
-      _onStart: this._onStart,
-      _onActivate: this._onActivate,
-      _onRefresh: this._onRefresh,
-      _onStale: void 0,
-      _onDispose: this._onDispose,
-    });
-
-    this._rc = new _RC({
-      _thisArg: this,
-      _onInit: this._onInit,
-    });
+    this._stm = new _Stm(this);
+    this._rc = new _RC(this);
 
     this._handler = handler;
     this._depNodes = depNodes;
@@ -557,10 +475,6 @@ export class Effect {
 
   _invoke() {
     this._stm._refresh();
-  }
-
-  _dispose() {
-    this._stm._dispose();
   }
 
   _retain() {
@@ -599,6 +513,10 @@ export class Effect {
   _onInit() {
     this._stm._start();
     return this._dispose;
+  }
+
+  _onFinal() {
+    this._stm._dispose();
   }
 }
 
