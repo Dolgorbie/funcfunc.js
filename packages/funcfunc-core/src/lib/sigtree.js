@@ -17,15 +17,21 @@ export function effect(handler, ...nodes) {
 }
 
 export function deref(node) {
-  return node._deref();
+  node._retain?.();
+  const res = node._deref();
+  node._release?.();
+  return res;
 }
 
 export function swap(node, swapper) {
-  return node._swap(swapper);
+  node._retain?.();
+  const res = node._swap(swapper);
+  node._release?.();
+  return res;
 }
 
 export function reset(node, value) {
-  return node._swap(() => value);
+  return swap(node, () => value);
 }
 
 export function retain(node) {
