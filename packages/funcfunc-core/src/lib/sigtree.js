@@ -1,4 +1,5 @@
 import { every2, forEach1, map1 } from "./arrays";
+import { delegate } from "./delegate";
 
 export function atom(init) {
   return new Atom(init);
@@ -55,19 +56,13 @@ class _RC {
 }
 
 class _SigContainer {
+  static {
+    delegate(this, "__children", [{ _children: "values" }]);
+  }
+
   constructor(listener) {
     this.__listener = listener;
-
     this.__children = new Set();
-    this.__effects = new Set();
-  }
-
-  _children() {
-    return this.__children.values();
-  }
-
-  _effects() {
-    return this.__effects.values();
   }
 
   _regChild(sigNode) {
@@ -76,7 +71,7 @@ class _SigContainer {
       return;
     }
     __children.add(sigNode);
-    this.__listener._onRegItem?.(sigNode);
+    this.__listener._onRegChild?.(sigNode);
   }
 
   _removeChild(sigNode) {
@@ -84,35 +79,12 @@ class _SigContainer {
     if (!__children.has(sigNode)) {
       return;
     }
-    this.__listener._onRemoveItem?.(sigNode);
+    this.__listener._onRemoveChild?.(sigNode);
     __children.delete(sigNode);
   }
 
   _clearChildren() {
     forEach1((c) => this._removeChild(c), [...this.__children]);
-  }
-
-  _regEff(eff) {
-    const { __effects } = this;
-    if (__effects.has(eff)) {
-      return;
-    }
-    __effects.add(eff);
-    this.__listener._onRegItem?.(eff);
-
-  }
-
-  _removeEff(eff) {
-    const { __effects } = this;
-    if (!__effects.has(eff)) {
-      return;
-    }
-    this.__listener._onRemoveItem?.(eff);
-    this._effects.delete(eff);
-  }
-
-  _clearEffs() {
-    forEach1((e) => this._removeEff(e), [...this.__effects]);
   }
 }
 
@@ -123,10 +95,8 @@ const _st_new = 3;
 
 class _Stm {
   constructor(listener) {
-    this.__state = _st_new;
+    this.__state = _st_disabled;
     this.__listener = listener;
-
-    listener._onStart?.();
   }
 
   _start() {
@@ -204,6 +174,10 @@ class _Stm {
 }
 
 export class Atom {
+  static {
+    delegate(this, "_sigContainer", ["_regChild", "_removeChild"]);
+  }
+
   constructor(init) {
     this._sigContainer = new _SigContainer(this);
 
@@ -226,39 +200,24 @@ export class Atom {
 
     const { _sigContainer } = this;
 
-    const effs = new Set(_staleAndCollectEffects(_sigContainer._children(), _sigContainer._effects()));
+    const effs = new Set(_staleAndCollectEffects(_sigContainer._children()));
 
     effs.forEach((eff) => eff._invoke());
 
     return [this._value, true];
   }
-
-  _regChild(sigNode) {
-    this._sigContainer._regChild(sigNode);
-  }
-
-  _removeChild(sigNode) {
-    this._sigContainer._removeChild(sigNode);
-  }
-
-  _regEff(eff) {
-    this._sigContainer._regEff(eff);
-  }
-
-  removeEff(eff) {
-    this._sigContainer._removeEff(eff);
-  }
 }
 
 export class Track {
+  static {
+    delegate(this, "_stm", ["_stale"]);
+    delegate(this, "_rc", ["_retain", "_release"]);
+    delegate(this, "_sigContainer", ["_regChild", "_removeChild"]);
+  }
+
   constructor(handler, depNodes) {
     this._stm = new _Stm(this);
-
-    this._rc = new _RC({
-      _thisArg: this,
-      _onInit: this._onInit,
-    });
-
+    this._rc = new _RC(this);
     this._sigContainer = new _SigContainer(this);
 
     this._handler = handler;
@@ -270,34 +229,6 @@ export class Track {
 
   _deref() {
     return this._stm._refresh();
-  }
-
-  _stale() {
-    return this._stm._stale();
-  }
-
-  _retain() {
-    this._rc._retain();
-  }
-
-  _release() {
-    this._rc._release();
-  }
-
-  _regChild(sigNode) {
-    this._sigContainer._regChild(sigNode);
-  }
-
-  _removeChild(sigNode) {
-    this._sigContainer._removeChild(sigNode);
-  }
-
-  _regEff(eff) {
-    this._sigContainer._regEff(eff);
-  }
-
-  removeEff(eff) {
-    this._sigContainer._removeEff(eff);
   }
 
   _onStart() {
@@ -329,7 +260,7 @@ export class Track {
 
   _onStale() {
     const { _sigContainer } = this;
-    return _staleAndCollectEffects(_sigContainer._children(), _sigContainer._effects());
+    return _staleAndCollectEffects(_sigContainer._children());
   }
 
   _onDispose() {
@@ -346,17 +277,23 @@ export class Track {
     this._stm._dispose();
   }
 
-  _onRegItem() {
+  _onRegChild() {
     this._retain();
 
   }
 
-  _onRemoveItem() {
+  _onRemoveChild() {
     this._release();
   }
 }
 
 export class Focus {
+  static {
+    delegate(this, "_stm", ["_stale"]);
+    delegate(this, "_rc", ["_retain", "_release"]);
+    delegate(this, "_sigContainer", ["_regChild", "_removeChild"]);
+  }
+
   constructor(lens, depNode) {
     this._stm = new _Stm(this);
     this._rc = new _RC(this);
@@ -378,34 +315,6 @@ export class Focus {
     const [, changed] = this._depNode._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep))));
 
     return [this._stm._refresh(), changed];
-  }
-
-  _stale() {
-    return this._stm._stale();
-  }
-
-  _retain() {
-    this._rc._retain();
-  }
-
-  _release() {
-    this._rc._release();
-  }
-
-  _regChild(sigNode) {
-    this._sigContainer._regChild(sigNode);
-  }
-
-  _removeChild(sigNode) {
-    this._sigContainer._removeChild(sigNode);
-  }
-
-  _regEff(eff) {
-    this._sigContainer._regEff(eff);
-  }
-
-  removeEff(eff) {
-    this._sigContainer._removeEff(eff);
   }
 
   _onStart() {
@@ -436,7 +345,7 @@ export class Focus {
 
   _onStale() {
     const { _sigContainer } = this;
-    return _staleAndCollectEffects(_sigContainer._children(), _sigContainer._effects());
+    return _staleAndCollectEffects(_sigContainer._children());
   }
 
   _onDispose() {
@@ -453,16 +362,21 @@ export class Focus {
     this._stm._dispose();
   }
 
-  _onRegItem() {
+  _onRegChild() {
     this._retain();
   }
 
-  _onRemoveItem() {
+  _onRemoveChild() {
     this._release();
   }
 }
 
 export class Effect {
+  static {
+    delegate(this, "_stm", ["_stale"]);
+    delegate(this, "_rc", ["_retain", "_release"]);
+  }
+
   constructor(handler, depNodes) {
     this._stm = new _Stm(this);
     this._rc = new _RC(this);
@@ -477,16 +391,8 @@ export class Effect {
     this._stm._refresh();
   }
 
-  _retain() {
-    this._rc._retain();
-  }
-
-  _release() {
-    this._rc._release();
-  }
-
   _onStart() {
-    forEach1((sigNode) => sigNode._regEff(this), this._depNodes);
+    forEach1((sigNode) => sigNode._regChild(this), this._depNodes);
   }
 
   _onActivate() {
@@ -498,21 +404,24 @@ export class Effect {
   _onRefresh() {
     const depValues = map1(deref, this._depNodes);
 
-    const changed = every2(Object.is, this._depValues, depValues);
+    const changed = !every2(Object.is, this._depValues, depValues);
     if (changed) {
       this._depValues = depValues;
       this._handler(...depValues);
     }
   }
 
+  *_onStale() {
+    yield this;
+  }
+
   _onDispose() {
-    forEach1((sigNode) => sigNode._removeEff(this), this._depNodes);
+    forEach1((sigNode) => sigNode._removeChild(this), this._depNodes);
     this._depValues = [];
   }
 
   _onInit() {
     this._stm._start();
-    return this._dispose;
   }
 
   _onFinal() {
@@ -520,10 +429,11 @@ export class Effect {
   }
 }
 
-function* _staleAndCollectEffects(sigNodes, effs) {
-  yield* effs;
-
+function* _staleAndCollectEffects(sigNodes) {
   for (const n of sigNodes) {
-    yield* n._stale();
+    const res = n._stale();
+    if (res != null) {
+      yield* res;
+    }
   }
 }
