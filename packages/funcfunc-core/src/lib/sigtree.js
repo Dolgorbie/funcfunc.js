@@ -1,5 +1,4 @@
 import { every2, forEach1, map1 } from "./arrays";
-import { delegate } from "./delegate";
 
 export function atom(init) {
   return new Atom(init);
@@ -23,6 +22,10 @@ export function deref(node) {
 
 export function swap(node, swapper) {
   return node._swap(swapper);
+}
+
+export function reset(node, value) {
+  return node._swap(() => value);
 }
 
 export function retain(node) {
@@ -56,13 +59,13 @@ class _RC {
 }
 
 class _SigContainer {
-  static {
-    delegate(this, "__children", [{ _children: "values" }]);
-  }
-
   constructor(listener) {
     this.__listener = listener;
     this.__children = new Set();
+  }
+
+  _children() {
+    return this.__children.values();
   }
 
   _regChild(sigNode) {
@@ -103,7 +106,8 @@ class _Stm {
     switch (this.__state) {
       case _st_disabled: {
         this.__state = _st_new;
-        return this.__listener._onStart?.();
+        this.__listener._onStart?.();
+        break;
       }
       case _st_fresh:
       case _st_stale:
@@ -122,7 +126,7 @@ class _Stm {
         throw Error("disabled");
       }
       case _st_fresh: {
-        break;
+        return this.__listener._onSkipRefresh?.();
       }
       case _st_stale: {
         this.__state = _st_fresh;
@@ -149,8 +153,7 @@ class _Stm {
       }
       case _st_stale:
       case _st_new: {
-        this.__state = _st_stale;
-        break;
+        return this.__listener._onSkipStale?.();
       }
       default: {
         throw Error("Unrecognized state");
@@ -167,20 +170,15 @@ class _Stm {
       case _st_stale:
       case _st_new: {
         this.__state = _st_disabled;
-        return this.__listener._onDispose?.();
+        this.__listener._onDispose?.();
       }
     }
   }
 }
 
 export class Atom {
-  static {
-    delegate(this, "_sigContainer", ["_regChild", "_removeChild"]);
-  }
-
   constructor(init) {
     this._sigContainer = new _SigContainer(this);
-
     this._value = init;
   }
 
@@ -193,7 +191,7 @@ export class Atom {
     const next = swapper(_value);
 
     if (Object.is(_value, next)) {
-      return [_value, false];
+      return _value;
     }
 
     this._value = next;
@@ -204,17 +202,19 @@ export class Atom {
 
     effs.forEach((eff) => eff._invoke());
 
-    return [this._value, true];
+    return this._value;
+  }
+
+  _regChild(sigNode) {
+    return this._sigContainer._regChild(sigNode);
+  }
+
+  _removeChild(sigNode) {
+    return this._sigContainer._removeChild(sigNode);
   }
 }
 
 export class Track {
-  static {
-    delegate(this, "_stm", ["_stale"]);
-    delegate(this, "_rc", ["_retain", "_release"]);
-    delegate(this, "_sigContainer", ["_regChild", "_removeChild"]);
-  }
-
   constructor(handler, depNodes) {
     this._stm = new _Stm(this);
     this._rc = new _RC(this);
@@ -229,6 +229,26 @@ export class Track {
 
   _deref() {
     return this._stm._refresh();
+  }
+
+  _stale() {
+    return this._stm._stale();
+  }
+
+  _retain() {
+    this._rc._retain();
+  }
+
+  _release() {
+    this._rc._release();
+  }
+
+  _regChild(sigNode) {
+    this._sigContainer._regChild(sigNode);
+  }
+
+  _removeChild(sigNode) {
+    this._sigContainer._removeChild(sigNode);
   }
 
   _onStart() {
@@ -254,13 +274,18 @@ export class Track {
         this._value = next;
       }
     }
+    return this._value;
+  }
 
+  _onSkipRefresh() {
     return this._value;
   }
 
   _onStale() {
-    const { _sigContainer } = this;
-    return _staleAndCollectEffects(_sigContainer._children());
+    return _staleAndCollectEffects(this._sigContainer._children());
+  }
+
+  *_onSkipStale() {
   }
 
   _onDispose() {
@@ -288,12 +313,6 @@ export class Track {
 }
 
 export class Focus {
-  static {
-    delegate(this, "_stm", ["_stale"]);
-    delegate(this, "_rc", ["_retain", "_release"]);
-    delegate(this, "_sigContainer", ["_regChild", "_removeChild"]);
-  }
-
   constructor(lens, depNode) {
     this._stm = new _Stm(this);
     this._rc = new _RC(this);
@@ -307,14 +326,34 @@ export class Focus {
   }
 
   _deref() {
-    return this._stm._refresh();
+    this._stm._refresh();
+    return this._value;
   }
 
   _swap(swapper) {
     const { _lens } = this;
-    const [, changed] = this._depNode._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep))));
+    const parentValue = this._depNode._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep))));
+    return _lens.ref(parentValue);
+  }
 
-    return [this._stm._refresh(), changed];
+  _stale() {
+    return this._stm._stale();
+  }
+
+  _retain() {
+    this._rc._retain();
+  }
+
+  _release() {
+    this._rc._release();
+  }
+
+  _regChild(sigNode) {
+    this._sigContainer._regChild(sigNode);
+  }
+
+  _removeChild(sigNode) {
+    this._sigContainer._removeChild(sigNode);
   }
 
   _onStart() {
@@ -339,13 +378,18 @@ export class Focus {
         this._value = next;
       }
     }
+    return this._value;
+  }
 
+  _onSkipRefresh() {
     return this._value;
   }
 
   _onStale() {
-    const { _sigContainer } = this;
-    return _staleAndCollectEffects(_sigContainer._children());
+    return _staleAndCollectEffects(this._sigContainer._children());
+  }
+
+  *_onSkipStale() {
   }
 
   _onDispose() {
@@ -372,11 +416,6 @@ export class Focus {
 }
 
 export class Effect {
-  static {
-    delegate(this, "_stm", ["_stale"]);
-    delegate(this, "_rc", ["_retain", "_release"]);
-  }
-
   constructor(handler, depNodes) {
     this._stm = new _Stm(this);
     this._rc = new _RC(this);
@@ -389,6 +428,18 @@ export class Effect {
 
   _invoke() {
     this._stm._refresh();
+  }
+
+  _stale() {
+    return this._stm._stale();
+  }
+
+  _retain() {
+    this._rc._retain();
+  }
+
+  _release() {
+    this._rc._release();
   }
 
   _onStart() {
@@ -415,6 +466,9 @@ export class Effect {
     yield this;
   }
 
+  *_onSkipStale() {
+  }
+
   _onDispose() {
     forEach1((sigNode) => sigNode._removeChild(this), this._depNodes);
     this._depValues = [];
@@ -431,9 +485,6 @@ export class Effect {
 
 function* _staleAndCollectEffects(sigNodes) {
   for (const n of sigNodes) {
-    const res = n._stale();
-    if (res != null) {
-      yield* res;
-    }
+    yield* n._stale();
   }
 }
