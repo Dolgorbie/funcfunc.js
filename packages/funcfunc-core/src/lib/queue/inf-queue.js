@@ -1,101 +1,115 @@
-const _deleted = Symbol("deleted item");
+const _deletedMark = Symbol("deleted item");
 
 export class InfQueue {
   constructor() {
-    this._output = [];
-    this._input = [];
-    this._emptyCellCount = 0;
+    this._factor = 2;
+    const capacity = 1 << this._factor;
+    this._indexMask = capacity - 1;
+    this._buffer = new Array(capacity);
+    this._popped = 0;
+    this._added = 0;
+    this._deleted = 0;
   }
 
   get size() {
-    return this._output.length + this._input.length - this._emptyCellCount;
+    return (this._added - this._popped >>> 0) - this._deleted;
   }
 
   add(value) {
-    const { _output, _input } = this;
-
-    if (_input.length === 0 && _output.length === 0) {
-      _output.unshift(value);
-      return true;
+    if ((this._added - this._popped >>> 0) === this._buffer.length) {
+      this._expand();
     }
 
-    _input.push(value);
+    this._buffer[this._added & this._indexMask] = value;
+    this._added = this._added + 1 >>> 0;
     return true;
   }
 
   pop() {
-    if (this._output.length === 0) {
-      this._refresh();
+    for (let i = this._popped; (this._added - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const value = this._buffer[i & this._indexMask];
+      this._buffer[i & this._indexMask] = void 0;
+
+      if (value !== _deletedMark) {
+        this._popped = i + 1 >>> 0;
+        return value;
+      }
+
+      this._deleted -= 1;
     }
-    return this._output.pop();
+
+    return void 0;
   }
 
   peek() {
-    if (this._output.length === 0) {
-      this._refresh();
+    const { _popped } = this;
+
+    for (let i = _popped; (this._added - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const value = this._buffer[i & this._indexMask];
+
+      if (value !== _deletedMark) {
+        return value;
+      }
+
+      this._buffer[i & this._indexMask] = void 0;
+      this._popped = i;
+      this._deleted -= 1;
     }
 
-    const { _output } = this;
-    const { length } = _output;
-    return length === 0 ? void 0 : _output[length - 1];
+    return void 0;
   }
 
   delete(value) {
-    const { _output } = this;
-    const nOut = _output.length;
-    for (let i = nOut - 1; i >= 0; --i) {
-      if (Object.is(_output[i], value)) {
-        _output.splice(i, 1);
+    for (let i = this._popped; (this._added - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const valueI = this._buffer[i & this._indexMask];
+      if (Object.is(value, valueI)) {
+        this._buffer[i & this._indexMask] = _deletedMark;
+        this._deleted += 1;
         return true;
       }
     }
-
-    const { _input } = this;
-    const nIn = _input.length;
-    for (let i = 0; i < nIn; ++i) {
-      if (Object.is(_input[i], value)) {
-        _input[i] = _deleted;
-        this._emptyCellCount += 1;
-        return true;
-      }
-    }
-
     return false;
   }
 
   clear() {
-    this._output.length = 0;
-    this._input.length = 0;
-    this._emptyCellCount = 0;
+    this._factor = 2;
+    const capacity = 1 << this._factor;
+    this._indexMask = capacity - 1;
+    this._buffer = new Array(capacity);
+    this._popped = 0;
+    this._added = 0;
+    this._deleted = 0;
   }
 
   forEach(callback, thisArg = void 0) {
-    const { _output, _input } = this;
-
-    const nOut = _output.length;
-    for (let i = nOut - 1; i >= 0; --i) {
-      callback.call(thisArg, _output[i]);
-    }
-
-    const nIn = _input.length;
-    for (let i = 0; i < nIn; ++i) {
-      if (_input[i] !== _deleted) {
-        callback.call(thisArg, _input[i]);
+    for (let i = this._popped; (this._added - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const valueI = this._buffer[i & this._indexMask];
+      if (valueI === _deletedMark) {
+        continue;
       }
+      callback.call(thisArg, valueI);
     }
   }
 
-  _refresh() {
-    const { _output, _input } = this;
-    const nIn = _input.length;
+  _expand() {
+    const newFactor = this._factor + 1;
+    const newCapacity = 1 << newFactor;
+    const newIndexMask = newCapacity - 1;
+    const newBuffer = new Array(newCapacity);
 
-    for (let i = nIn - 1; i >= 0; --i) {
-      if (_input[i] !== _deleted) {
-        _output.push(_input[i]);
+    let i, j;
+    for (i = 0, j = this._popped; (this._added - i >>> 0) > 0; j = j + 1 >>> 0) {
+      const value = this._buffer[j & this._indexMask];
+      if (value === _deletedMark) {
+        continue;
       }
+      newBuffer[i++] = value;
     }
 
-    this._input = [];
-    this._emptyCellCount = 0;
+    this._factor = newFactor;
+    this._indexMask = newIndexMask;
+    this._buffer = newBuffer;
+    this._popped = 0;
+    this._added = i;
   }
 }

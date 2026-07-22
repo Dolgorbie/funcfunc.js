@@ -64,18 +64,18 @@ class _RC {
   }
 }
 
-class _SigContainer {
+class _Children {
   constructor(listener) {
     this.__listener = listener;
-    this.__children = new Set();
+    this.__sigNodeSet = new Set();
   }
 
-  _children() {
-    return this.__children.values();
+  _nodes() {
+    return this.__sigNodeSet.values();
   }
 
   _regChild(sigNode) {
-    const { __children } = this;
+    const { __sigNodeSet: __children } = this;
     if (__children.has(sigNode)) {
       return;
     }
@@ -84,7 +84,7 @@ class _SigContainer {
   }
 
   _removeChild(sigNode) {
-    const { __children } = this;
+    const { __sigNodeSet: __children } = this;
     if (!__children.has(sigNode)) {
       return;
     }
@@ -93,7 +93,7 @@ class _SigContainer {
   }
 
   _clearChildren() {
-    forEach1((c) => this._removeChild(c), [...this.__children]);
+    forEach1((c) => this._removeChild(c), [...this.__sigNodeSet]);
   }
 }
 
@@ -182,9 +182,37 @@ class _Stm {
   }
 }
 
+class _Deps {
+  constructor(listener, depNodes) {
+    this.__listener = listener;
+    this._depNodes = depNodes;
+    this._values = [];
+  }
+
+  _collect() {
+    const values = map1((n) => n._deref(), this._depNodes);
+    this._values = values;
+    this.__listener._onCollect?.(...values)
+  }
+
+  _recollect() {
+    const values = map1((n) => n._deref(), this._depNodes);
+    const changed = !every2(Object.is, this._values, values);
+    if (changed) {
+      this._values = values;
+      this.__listener._onRecollect?.(...values);
+    }
+  }
+
+  _clear() {
+    this.__listener._onClear?.(...this._depNodes);
+    this._values = [];
+  }
+}
+
 export class Atom {
   constructor(init) {
-    this._sigContainer = new _SigContainer(this);
+    this._children = new _Children(this);
     this._value = init;
   }
 
@@ -202,9 +230,7 @@ export class Atom {
 
     this._value = next;
 
-    const { _sigContainer } = this;
-
-    const effs = new Set(_staleAndCollectEffects(_sigContainer._children()));
+    const effs = new Set(_staleAndCollectEffects(this._children._nodes()));
 
     effs.forEach((eff) => eff._invoke());
 
@@ -212,11 +238,11 @@ export class Atom {
   }
 
   _regChild(sigNode) {
-    return this._sigContainer._regChild(sigNode);
+    return this._children._regChild(sigNode);
   }
 
   _removeChild(sigNode) {
-    return this._sigContainer._removeChild(sigNode);
+    return this._children._removeChild(sigNode);
   }
 }
 
@@ -224,12 +250,10 @@ export class Track {
   constructor(handler, depNodes) {
     this._stm = new _Stm(this);
     this._rc = new _RC(this);
-    this._sigContainer = new _SigContainer(this);
+    this._children = new _Children(this);
+    this._deps = new _Deps(depNodes);
 
     this._handler = handler;
-    this._depNodes = depNodes;
-
-    this._depValues = [];
     this._value = void 0;
   }
 
@@ -250,36 +274,24 @@ export class Track {
   }
 
   _regChild(sigNode) {
-    this._sigContainer._regChild(sigNode);
+    this._children._regChild(sigNode);
   }
 
   _removeChild(sigNode) {
-    this._sigContainer._removeChild(sigNode);
+    this._children._removeChild(sigNode);
   }
 
   _onStart() {
-    forEach1((sigNode) => sigNode._regChild(this), this._depNodes);
+    forEach1((sigNode) => sigNode._regChild(this), this._deps._depNodes);
   }
 
   _onActivate() {
-    const depValues = map1(deref, this._depNodes);
-    const value = this._handler(...depValues);
-    this._depValues = depValues;
-    this._value = value;
-    return value;
+    this._deps._collect();
+    return this._value;
   }
 
   _onRefresh() {
-    const depValues = map1(deref, this._depNodes);
-
-    const changed = !every2(Object.is, this._depValues, depValues);
-    if (changed) {
-      this._depValues = depValues;
-      const next = this._handler(...depValues);
-      if (!Object.is(this._value, next)) {
-        this._value = next;
-      }
-    }
+    this._deps._recollect();
     return this._value;
   }
 
@@ -288,15 +300,16 @@ export class Track {
   }
 
   _onStale() {
-    return _staleAndCollectEffects(this._sigContainer._children());
+    return _staleAndCollectEffects(this._children._nodes());
   }
 
   *_onSkipStale() {
   }
 
   _onDispose() {
-    forEach1((sigNode) => sigNode._removeChild(this), this._depNodes);
-    this._depValues = [];
+    const { _deps } = this;
+    forEach1((sigNode) => sigNode._removeChild(this), _deps._depNodes);
+    _deps._clear();
     this._value = void 0;
   }
 
@@ -316,18 +329,27 @@ export class Track {
   _onRemoveChild() {
     this._release();
   }
+
+  _onCollect(...depValues) {
+    this._value = this._handler(...depValues);
+  }
+
+  _onRecollect(...depValues) {
+    const next = this._handler(...depValues);
+    if (!Object.is(this._value, next)) {
+      this._value = next;
+    }
+  }
 }
 
 export class Focus {
   constructor(lens, depNode) {
     this._stm = new _Stm(this);
     this._rc = new _RC(this);
-    this._sigContainer = new _SigContainer(this);
+    this._children = new _Children(this);
+    this._deps = new _Deps([depNode]);
 
     this._lens = lens;
-    this._depNode = depNode;
-
-    this._depValue = void 0;
     this._value = void 0;
   }
 
@@ -338,7 +360,7 @@ export class Focus {
 
   _swap(swapper) {
     const { _lens } = this;
-    const parentValue = this._depNode._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep))));
+    const parentValue = this._deps._depNodes[0]._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep))));
     return _lens.ref(parentValue);
   }
 
@@ -355,35 +377,24 @@ export class Focus {
   }
 
   _regChild(sigNode) {
-    this._sigContainer._regChild(sigNode);
+    this._children._regChild(sigNode);
   }
 
   _removeChild(sigNode) {
-    this._sigContainer._removeChild(sigNode);
+    this._children._removeChild(sigNode);
   }
 
   _onStart() {
-    this._depNode._regChild(this);
+    this._deps._depNodes[0]._regChild(this);
   }
 
   _onActivate() {
-    const depValue = this._depNode._deref();
-    const value = this._lens.ref(depValue);
-    this._depValue = depValue;
-    this._value = value;
-    return value;
+    this._deps._collect();
+    return this._value;
   }
 
   _onRefresh() {
-    const depValue = this._depNode._deref();
-
-    if (!Object.is(this._depValue, depValue)) {
-      this._depValue = depValue;
-      const next = this._lens.ref(depValue);
-      if (!Object.is(this._value, next)) {
-        this._value = next;
-      }
-    }
+    this._deps._recollect();
     return this._value;
   }
 
@@ -392,15 +403,15 @@ export class Focus {
   }
 
   _onStale() {
-    return _staleAndCollectEffects(this._sigContainer._children());
+    return _staleAndCollectEffects(this._children._nodes());
   }
 
   *_onSkipStale() {
   }
 
   _onDispose() {
-    this._depNode._removeChild(this);
-    this._depValue = void 0;
+    this._deps._depNodes[0]._removeChild(this);
+    this._deps._clear();
     this._value = void 0;
   }
 
@@ -419,17 +430,27 @@ export class Focus {
   _onRemoveChild() {
     this._release();
   }
+
+  _onCollect(depValue) {
+    this._value = this._lens.ref(depValue);
+  }
+
+  _onRecollect(depValue) {
+    const next = this._lens.ref(depValue);
+    if (!Object.is(this._value, next)) {
+      this._value = next;
+    }
+  }
 }
 
 export class Effect {
   constructor(handler, depNodes) {
     this._stm = new _Stm(this);
     this._rc = new _RC(this);
+    this._deps = new _Deps(depNodes);
 
     this._handler = handler;
-    this._depNodes = depNodes;
-
-    this._depValues = [];
+    this._cleanup = void 0;
   }
 
   _invoke() {
@@ -455,7 +476,7 @@ export class Effect {
   _onActivate() {
     const depValues = map1(deref, this._depNodes);
     this._depValues = depValues;
-    this._handler(...depValues);
+    this._cleanup = this._handler(...depValues);
   }
 
   _onRefresh() {
@@ -463,8 +484,9 @@ export class Effect {
 
     const changed = !every2(Object.is, this._depValues, depValues);
     if (changed) {
+      this._cleanup?.();
       this._depValues = depValues;
-      this._handler(...depValues);
+      this._cleanup = this._handler(...depValues);
     }
   }
 
