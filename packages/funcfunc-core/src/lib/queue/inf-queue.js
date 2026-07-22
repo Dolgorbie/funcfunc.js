@@ -1,14 +1,9 @@
 const _deletedMark = Symbol("deleted item");
 
 export class InfQueue {
-  constructor() {
-    this._factor = 2;
-    const capacity = 1 << this._factor;
-    this._indexMask = capacity - 1;
-    this._buffer = new Array(capacity);
-    this._popped = 0;
-    this._added = 0;
-    this._deleted = 0;
+  constructor(sizeFactor = 2) {
+    this._initFactor = sizeFactor;
+    this._reset(sizeFactor);
   }
 
   get size() {
@@ -20,15 +15,21 @@ export class InfQueue {
       this._expand();
     }
 
-    this._buffer[this._added & this._indexMask] = value;
-    this._added = this._added + 1 >>> 0;
+    const { _added } = this;
+
+    this._buffer[_added & this._mask] = value;
+    this._added = _added + 1 >>> 0;
     return true;
   }
 
   pop() {
-    for (let i = this._popped; (this._added - i >>> 0) > 0; i = i + 1 >>> 0) {
-      const value = this._buffer[i & this._indexMask];
-      this._buffer[i & this._indexMask] = void 0;
+    const { _mask, _buffer, _popped, _added } = this;
+
+    for (let i = _popped; (_added - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const index = i & _mask
+      const value = _buffer[index];
+
+      _buffer[index] = void 0;
 
       if (value !== _deletedMark) {
         this._popped = i + 1 >>> 0;
@@ -42,28 +43,26 @@ export class InfQueue {
   }
 
   peek() {
-    const { _popped } = this;
+    const { _mask, _buffer, _popped, _added } = this;
 
-    for (let i = _popped; (this._added - i >>> 0) > 0; i = i + 1 >>> 0) {
-      const value = this._buffer[i & this._indexMask];
-
+    for (let i = _popped; (_added - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const value = _buffer[i & _mask];
       if (value !== _deletedMark) {
         return value;
       }
-
-      this._buffer[i & this._indexMask] = void 0;
-      this._popped = i;
-      this._deleted -= 1;
     }
 
     return void 0;
   }
 
-  delete(value) {
-    for (let i = this._popped; (this._added - i >>> 0) > 0; i = i + 1 >>> 0) {
-      const valueI = this._buffer[i & this._indexMask];
-      if (Object.is(value, valueI)) {
-        this._buffer[i & this._indexMask] = _deletedMark;
+  delete(target) {
+    const { _mask, _buffer, _popped, _added } = this;
+
+    for (let i = _popped; (_added - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const index = i & _mask;
+      const value = _buffer[index];
+      if (Object.is(target, value)) {
+        _buffer[index] = _deletedMark;
         this._deleted += 1;
         return true;
       }
@@ -72,44 +71,37 @@ export class InfQueue {
   }
 
   clear() {
-    this._factor = 2;
-    const capacity = 1 << this._factor;
-    this._indexMask = capacity - 1;
+    this._reset(this._initFactor);
+  }
+
+  _reset(factor) {
+    const capacity = 1 << this.factor;
+
+    this._factor = factor;
+    this._mask = capacity - 1;
+
     this._buffer = new Array(capacity);
     this._popped = 0;
     this._added = 0;
     this._deleted = 0;
   }
 
-  forEach(callback, thisArg = void 0) {
-    for (let i = this._popped; (this._added - i >>> 0) > 0; i = i + 1 >>> 0) {
-      const valueI = this._buffer[i & this._indexMask];
-      if (valueI === _deletedMark) {
-        continue;
-      }
-      callback.call(thisArg, valueI);
-    }
-  }
-
   _expand() {
-    const newFactor = this._factor + 1;
-    const newCapacity = 1 << newFactor;
-    const newIndexMask = newCapacity - 1;
-    const newBuffer = new Array(newCapacity);
+    const { _factor, _mask, _buffer, _popped, _added } = this;
+
+    this._reset(_factor + 1);
+
+    const { _buffer: newBuffer } = this;
 
     let i, j;
-    for (i = 0, j = this._popped; (this._added - i >>> 0) > 0; j = j + 1 >>> 0) {
-      const value = this._buffer[j & this._indexMask];
+    for (i = _popped, j = 0; (_added - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const value = _buffer[i & _mask];
       if (value === _deletedMark) {
         continue;
       }
-      newBuffer[i++] = value;
+      newBuffer[j++] = value;
     }
 
-    this._factor = newFactor;
-    this._indexMask = newIndexMask;
-    this._buffer = newBuffer;
-    this._popped = 0;
-    this._added = i;
+    this._added = j;
   }
 }
