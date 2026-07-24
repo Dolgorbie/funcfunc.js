@@ -60,17 +60,15 @@ function _chainLensImpl(lenses) {
   }
 
   function _upd(target, value) {
-    const subTargets = new Array(length);
-    subTargets[0] = target;
-    for (let i = 0; i < length - 1; ++i) {
-      subTargets[i + 1] = lenses[i].ref(subTargets[i]);
-    }
+    return _updImpl(0, target, value);
+  }
 
-    for (let i = length - 1; i >= 0; --i) {
-      value = lenses[i].upd(subTargets[i], value);
+  function _updImpl(i, target, value) {
+    if (i === length) {
+      return value;
     }
-
-    return value;
+    const lensI = lenses[i];
+    return lensI.upd(target, _updImpl(i + 1, lensI.ref(target), value));
   }
 
   return lens(_ref, _upd);
@@ -148,11 +146,11 @@ export function xupd(target, lns, value) {
   return lns.upd(target, value);
 }
 
-export function swap(lns, target, swapper){
+export function swap(lns, target, swapper) {
   return lns.upd(target, swapper(lns.ref(target)));
 }
 
-export function xswap(target, lns, swapper){
+export function xswap(target, lns, swapper) {
   return lns.upd(target, swapper(lns.ref(target)));
 }
 

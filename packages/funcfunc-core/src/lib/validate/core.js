@@ -1,11 +1,11 @@
 import { fail, isFailed, isSuccess, reasons } from "../failable";
 
 export function all(...validators) {
-  return (target) => {
+  return (target, detail) => {
     let tmp = target;
 
     for (const v of validators) {
-      const res = v(tmp);
+      const res = v(tmp, detail);
       if (isFailed(res)) {
         return res;
       }
@@ -17,12 +17,12 @@ export function all(...validators) {
 }
 
 export function allSettled(...validators) {
-  return (target) => {
+  return (target, detail) => {
     let tmp = target;
     const allReasons = [];
 
     for (const v of validators) {
-      const res = v(tmp);
+      const res = v(tmp, detail);
       if (isFailed(res)) {
         allReasons.push(...reasons(res));
         continue;
@@ -38,11 +38,11 @@ export function allSettled(...validators) {
 }
 
 export function any(...validators) {
-  return (target) => {
+  return (target, detail) => {
     const allReasons = [];
 
     for (const v of validators) {
-      const res = v(target);
+      const res = v(target, detail);
       if (isSuccess(res)) {
         return res;
       }
@@ -54,8 +54,8 @@ export function any(...validators) {
 }
 
 export function isTypeof(type) {
-  return (target) => {
-    return typeof target === type ? target : fail(new ValidationError(target, `expects ${type}, but got ${typeof target}`));
+  return (target, detail) => {
+    return typeof target === type ? target : fail(new ValidationError(detail, `expects ${type}, but got ${typeof target}`));
   };
 }
 
@@ -66,44 +66,60 @@ export const isString = isTypeof("string");
 export const isSymbol = isTypeof("symbol");
 export const isFunction = isTypeof("function");
 
-export function isNull(target) {
-  return target === null ? target : fail(new ValidationError(target, "expects null"));
+export function isNull() {
+  return (target, detail) => {
+    return target === null ? target : fail(new ValidationError(detail, "expects null"));
+  };
 }
 
-export function nonNull(target) {
-  return target === null ? fail(new ValidationError(target, "expects non-null")) : target;
+export function nonNull() {
+  return (target, detail) => {
+    return target === null ? fail(new ValidationError(detail, "expects non-null")) : target;
+  };
 }
 
-export function isUndef(target) {
-  return target === void 0 ? target : fail(new ValidationError(target, "expects undefined"));
+export function isUndef() {
+  return (target, detail) => {
+    return target === void 0 ? target : fail(new ValidationError(detail, "expects undefined"));
+  };
 }
 
-export function nonUndef(target) {
-  return target === void 0 ? fail(new ValidationError(target, "expects non-undefined")) : target;
+export function nonUndef() {
+  return (target, detail) => {
+    return target === void 0 ? fail(new ValidationError(detail, "expects non-undefined")) : target;
+  };
 }
 
-export function isNullish(target) {
-  return target == null ? target : fail(new ValidationError(target, "expects null or undefined"));
+export function isNullish() {
+  return (target, detail) => {
+    return target == null ? target : fail(new ValidationError(detail, "expects null or undefined"));
+  };
 }
 
-export function nonNullish(target) {
-  return target == null ? fail(new ValidationError(target, "expects non-null nor non-undefined")) : target;
+export function nonNullish() {
+  return (target, detail) => {
+    return target == null ? fail(new ValidationError(detail, "expects non-null nor non-undefined")) : target;
+  };
 }
 
-export function isObject(target) {
-  return target != null && typeof target === "object" ? target : fail(new ValidationError(target, "expects object"));
+export function isObject() {
+  return (target, detail) => {
+    return target != null && typeof target === "object" ? target : fail(new ValidationError(detail, "expects object"));
+  };
 }
 
-export function isArray(target) {
-  return Array.isArray(target) ? target : fail(new ValidationError(target, "expects array"));
+export function isArray() {
+  return (target, detail) => {
+    return Array.isArray(target) ? target : fail(new ValidationError(detail, "expects array"));
+  };
 }
 
 export function isIterOf(validator) {
-  return (target) => {
+  return (target, detail) => {
     const allReasons = [];
     let i = 0;
     for (const e of target) {
-      const res = validator(e)
+      const res = validator(e, { ...detail, value: e, path: [...detail.path, i] })
       if (isFailed) {
         allReasons.push(...reasons(res));
       }
@@ -114,8 +130,8 @@ export function isIterOf(validator) {
 }
 
 export class ValidationError extends Error {
-  constructor(target, ...args) {
+  constructor(detail, ...args) {
     super(...args);
-    this.target = target;
+    this.detail = detail;
   }
 }
