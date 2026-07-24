@@ -1,5 +1,5 @@
 import { every1, map1 } from "../arrays";
-import { promiseFailable } from "../failable";
+import { asyncFailable } from "../failable";
 import { InfQueue } from "../queue/inf-queue";
 
 const _eoc = Symbol("end of chan");
@@ -283,7 +283,7 @@ export class Chan {
 
     (async () => {
       try {
-        await chan.post(await promiseFailable(promise));
+        await chan.post(await asyncFailable(promise));
       } catch (error) {
         console.error("failed to post the error-result to chan:", chan, "which error is:", error);
       } finally {

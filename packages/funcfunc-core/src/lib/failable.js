@@ -8,7 +8,24 @@ function _toFailure(reasons) {
   return { [_reasons]: _flatErrors(reasons) }
 }
 
-export function failable(thunk) {
+export function failable(proc, ...args) {
+  switch (args.length) {
+    case 0: {
+      return failable0(proc);
+    }
+    case 1: {
+      return failable1(proc, args[0]);
+    }
+    case 2: {
+      return failable2(proc, args[0], args[1]);
+    }
+    default: {
+      return _failableN(proc, ...args);
+    }
+  }
+}
+
+export function failable0(thunk) {
   try {
     return thunk();
   } catch (error) {
@@ -16,15 +33,31 @@ export function failable(thunk) {
   }
 }
 
-export async function asyncFailable(thunk) {
+export function failable1(proc, arg0) {
   try {
-    return await thunk();
+    return proc(arg0);
   } catch (error) {
     return fail(error);
   }
 }
 
-export async function promiseFailable(promise) {
+export function failable2(proc, arg0, arg1) {
+  try {
+    return proc(arg0, arg1);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+function _failableN(proc, ...args) {
+  try {
+    return proc(...args);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function asyncFailable(promise) {
   try {
     return await promise;
   } catch (error) {
@@ -46,6 +79,13 @@ export function force(failable) {
     throw reasons.length === 1 ? reasons[0] : new AggregateError(reasons);
   }
   return failable;
+}
+
+export function reasons(failure) {
+  if (isFailed(failure)) {
+    return failure[_reasons];
+  }
+  throw TypeError("expects failure");
 }
 
 export function map(proc, failable0, ...failables) {
