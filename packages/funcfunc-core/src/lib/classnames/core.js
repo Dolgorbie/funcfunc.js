@@ -6,16 +6,13 @@ export function createClassNamesCombinator({ transformers = [], aggregator = def
   }
 }
 
-function _loopNames(acc, transformers, offsetTs, names) {
+function _loopNames(acc, transformers, offsetTranses, names) {
   for (const name of names) {
-    if (name === false) {
-      continue;
-    }
     if (Array.isArray(name)) {
-      _loopNames(acc, transformers, offsetTs, name);
+      _loopNames(acc, transformers, offsetTranses, name);
       continue;
     }
-    _loopTranses(acc, transformers, offsetTs, name);
+    _loopTranses(acc, transformers, offsetTranses, name);
   }
 }
 

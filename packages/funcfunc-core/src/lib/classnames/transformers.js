@@ -1,5 +1,5 @@
 export function omitFalsy(name) {
-  return name || false;
+  return name || [];
 }
 
 export function collectActiveKeys(name) {

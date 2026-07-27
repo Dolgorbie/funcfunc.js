@@ -15,7 +15,7 @@ export function cprefix(prefix) {
 }
 
 export function cvariants(variantDefs) {
-  return createClassNamesCombinator({ transformers: [T.omitFalsy, T.mapVariants(variantDefs), T.omitFalsy] });
+  return createClassNamesCombinator({ transformers: [T.mapVariants(variantDefs), T.omitFalsy] });
 }
 
 export function cbem(prefix) {
