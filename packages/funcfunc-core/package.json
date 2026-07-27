@@ -13,8 +13,7 @@
     },
     "./*": {
       "default": "./dist/lib/*.js",
-      "import": "./dist/lib/*.js",
-      "types": "./src/lib/*.d.ts"
+      "import": "./dist/lib/*.js"
     }
   },
   "scripts": {
