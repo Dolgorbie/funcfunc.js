@@ -23,8 +23,8 @@ export class DStackQueue {
   push(value) {
     const { _leftBuffer, _rightBuffer } = this;
 
-    if (_rightBuffer.length === 0 && _leftBuffer.length <= 1) {
-      _leftBuffer.unshift(value);
+    if (_rightBuffer.length === 0 && _leftBuffer.length === 0) {
+      _leftBuffer.push(value);
     } else {
       _rightBuffer.push(value);
     }

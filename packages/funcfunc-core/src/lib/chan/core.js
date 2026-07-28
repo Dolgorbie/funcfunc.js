@@ -90,14 +90,14 @@ export async function alts(...chans) {
 }
 
 export class Chan {
+  _postContQueue = new InfQueue();
+  _takeContQueue = new InfQueue();
+
+  _isClosed = false;
+  _afterCloseHooks = new Set();
+
   constructor({ bufferQueue, signal } = {}) {
     this._bufferQueue = bufferQueue;
-
-    this._postContQueue = new InfQueue();
-    this._takeContQueue = new InfQueue();
-
-    this._isClosed = false;
-    this._afterCloseHooks = new Set();
     this._signal = signal;
 
     if (signal != null) {
@@ -121,16 +121,12 @@ export class Chan {
 
     const { _bufferQueue } = this;
     if (_bufferQueue != null) {
-      const success = _bufferQueue.add(value);
-      if (success) {
-        return true;
-      }
+      return _bufferQueue.push(value);
     }
-
     return false;
   }
 
-  async post(value, signal = void 0) {
+  post(value, signal = void 0) {
     if (signal !== void 0 && signal.aborted) {
       throw new PostError(this, value, "already aborted.", { cause: signal.reason });
     }
