@@ -51,13 +51,13 @@ export class RingQueue {
 
       if (value !== _deleteMark) {
         this._popped = i + 1 >>> 0;
-        return { value, success: true };
+        return value;
       }
 
       this._deleted -= 1;
     }
 
-    return { value: void 0, success: false };
+    return void 0;
   }
 
   peek() {
@@ -68,11 +68,11 @@ export class RingQueue {
       const value = _buffer[index];
 
       if (value !== _deleteMark) {
-        return { value, success: true };
+        return value;
       }
     }
 
-    return { value: void 0, success: false };
+    return void 0;
   }
 
   delete(target) {

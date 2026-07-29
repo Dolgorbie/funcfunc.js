@@ -32,12 +32,12 @@ export class DStackQueue {
   }
 
   pop() {
-    const res = this._tryPop();
-    if (res.success) {
-      return res;
+    const { value, success } = this._tryPop();
+    if (success) {
+      return value;
     }
     this.flush();
-    return this._tryPop();
+    return this._tryPop().value;
   }
 
   delete(target) {

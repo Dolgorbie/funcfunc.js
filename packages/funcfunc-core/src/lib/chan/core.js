@@ -175,11 +175,11 @@ export class Chan {
   tryTake() {
     const { _bufferQueue } = this;
     if (_bufferQueue != null && _bufferQueue.size > 0) {
-      const value = _bufferQueue.pop();
+      const { value } = _bufferQueue.pop();
 
       const { _postContQueue } = this;
       if (_postContQueue.size > 0) {
-        const [nextValue, resolve] = _postContQueue.pop();
+        const { value: [nextValue, resolve] } = _postContQueue.pop();
         _bufferQueue.add(nextValue);
         resolve();
       }

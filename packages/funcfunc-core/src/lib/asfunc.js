@@ -8,6 +8,19 @@ export const objectValues = Object.values;
 export const objectHasOwn = Object.hasOwn;
 export const objectPrototypeOf = Object.getPrototypeOf;
 
+
+export function eq(x, y) {
+  return x === y;
+}
+
+export function like(x, y) {
+  return x == y;
+}
+
+export function same(x, y) {
+  return x === y || x !== x && y !== y;
+}
+
 export function isNull(x) {
   return x === null;
 }
@@ -165,5 +178,5 @@ export function toBoolean(value) {
 }
 
 export function toString(value) {
-  return `${value}`;
+  return String(value);
 }
