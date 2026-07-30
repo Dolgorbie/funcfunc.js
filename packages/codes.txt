@@ -1,0 +1,6135 @@
+
+
+================ funcfunc-core/eslint.config.mjs ================
+import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
+import globals from "globals";
+
+export default defineConfig([
+  { files: ["**/*.{js,mjs,cjs}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
+]);
+
+
+================ funcfunc-core/jsconfig.json ================
+{
+  "extends": [
+    "../../jsconfig.base.json"
+  ]
+}
+
+
+================ funcfunc-core/package.json ================
+{
+  "name": "funcfunc",
+  "version": "0.0.1",
+  "description": "functional programing framework",
+  "author": "Kuwabiraki Yûki",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/main.js",
+  "exports": {
+    ".": {
+      "default": "./dist/main.js",
+      "import": "./dist/main.js"
+    },
+    "./*": {
+      "default": "./dist/lib/*.js",
+      "import": "./dist/lib/*.js"
+    }
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "test": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@rollup/plugin-multi-entry": "^7.1.0",
+    "@rollup/plugin-terser": "^1.0.0",
+    "eslint": "^10.4.0",
+    "globals": "^17.6.0",
+    "rollup": "^4.60.4",
+    "vitest": "^4.1.7"
+  }
+}
+
+
+================ funcfunc-core/rollup.config.mjs ================
+import terser from '@rollup/plugin-terser';
+import { defineConfig } from 'rollup';
+
+export default defineConfig([
+  {
+    input: "src/main.js",
+    output: [
+      {
+        dir: "dist",
+        format: "es",
+        preserveModules: true,
+      },
+      {
+        dir: "dist",
+        format: "es",
+        entryFileNames: "[name].min.js",
+        preserveModules: true,
+        sourcemap: true,
+        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })]
+      },
+      {
+        dir: "dist",
+        format: "es",
+        entryFileNames: "[name].bundle.min.js",
+        sourcemap: true,
+        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })]
+      },
+    ],
+  },
+]);
+
+
+================ funcfunc-core/src/lib/arrays.js ================
+import { toUInt } from "./asfunc";
+
+// helpers ================
+
+const _slice = Array.prototype.slice;
+
+const _join = Array.prototype.join;
+
+function _lengthMin(array0, arrays) {
+  const nArrays = arrays.length;
+
+  let { length } = array0;
+  for (let i = 0; i < nArrays; ++i) {
+    length = Math.min(length, arrays[i].length);
+  }
+
+  return length;
+}
+
+// creation ================
+
+export function arrayOf(...values) {
+  return values;
+}
+
+export function repeat(count, value) {
+  return new Array(toUInt(count)).fill(value);
+}
+
+export function iota(count, start = 0, step = 1) {
+  count = toUInt(count);
+  start = +start;
+  step = +step;
+
+  const result = new Array(count);
+  for (let i = 0; i < count; ++i) {
+    result[i] = step * i + start;
+  }
+
+  return result;
+}
+
+export function unfold(gen, seed, tailGen = void 0) {
+  const result = [];
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    result.push(value);
+    seed = "seed" in res ? res.seed : value;
+  }
+
+  if (tailGen !== void 0) {
+    const tail = tailGen(seed);
+    let { length } = tail;
+    for (let i = 0; i < length; ++i) {
+      result.push(tail[i]);
+    }
+  }
+
+  return result;
+}
+
+export function unfoldRight(gen, seed, tail = []) {
+  const result = [];
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    result.push(value);
+    seed = "seed" in res ? res.seed : value;
+  }
+
+  result.reverse();
+
+  const { length } = tail;
+  for (let i = 0; i < length; ++i) {
+    result.push(tail[i]);
+  }
+
+  return result;
+}
+
+// splicing ================
+
+export function take(count, array) {
+  count = toUInt(count);
+  if (count >= array.length) {
+    return array;
+  }
+  return _slice.call(array, 0, count);
+}
+
+export function drop(count, array) {
+  count = toUInt(count);
+  if (count === 0) {
+    return array;
+  }
+  return _slice.call(array, count);
+}
+
+export function takeRight(count, array) {
+  count = toUInt(count);
+  const { length } = array;
+  if (count >= length) {
+    return array;
+  }
+  return _slice.call(array, length - count);
+}
+
+export function dropRight(count, array) {
+  count = toUInt(count);
+  if (count === 0) {
+    return array;
+  }
+  return _slice.call(array, 0, array.length - count);
+}
+
+// composition ================
+
+export function flat(arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return arrays;
+    }
+    case 1: {
+      return arrays[0];
+    }
+    default: {
+      let length = 0;
+      const nOuter = arrays.length;
+      for (let i = 0; i < nOuter; ++i) {
+        length += arrays[i].length;
+      }
+
+      const result = new Array(length);
+      let jOffset = 0;
+      for (let i = 0; i < nOuter; ++i) {
+        const arrayI = arrays[i];
+        const nInner = arrayI.length;
+        for (let j = 0; j < nInner; ++j) {
+          result[j + jOffset] = arrayI[j];
+        }
+        jOffset += nInner;
+      }
+      return result;
+    }
+  }
+}
+
+export function concat(...arrays) {
+  return flat(arrays);
+}
+
+export function zip(array0, ...arrays) {
+  const nArrays = arrays.length;
+  const length = _lengthMin(array0, arrays);
+
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    const acc = new Array(nArrays + 1);
+    acc[0] = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      acc[j + 1] = arrays[j][i];
+    }
+    result[i] = acc;
+  }
+
+  return result;
+}
+
+export function entries(array0, ...arrays) {
+  const nArrays = arrays.length;
+  const length = _lengthMin(array0, arrays);
+
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    const acc = new Array(nArrays + 2);
+    acc[0] = i;
+    acc[1] = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      acc[j + 2] = arrays[j][i];
+    }
+    result[i] = acc;
+  }
+
+  return result;
+}
+
+// filtering ================
+
+export function filter(pred, array) {
+  const { length } = array;
+  const result = [];
+  for (let i = 0; i < length; ++i) {
+    const v = array[i];
+    if (pred(v)) {
+      result.push(v);
+    }
+  }
+  return result;
+}
+
+export function findTail(pred, array) {
+  const { length } = array;
+  let i;
+  for (i = 0; i < length; ++i) {
+    if (pred(array[i])) {
+      break;
+    }
+  }
+
+  if (i === 0) {
+    return array;
+  }
+  return _slice.call(array, i);
+}
+
+export function takeWhile(pred, array) {
+  const { length } = array;
+  let i;
+  for (i = 0; i < length; ++i) {
+    if (!pred(array[i])) {
+      break;
+    }
+  }
+  if (i === length) {
+    return array;
+  }
+  return _slice.call(array, 0, i);
+}
+
+export function dropWhile(pred, array) {
+  const { length } = array;
+  let i;
+  for (i = 0; i < length; ++i) {
+    if (!pred(array[i])) {
+      break;
+    }
+  }
+  if (i === 0) {
+    return array;
+  }
+  return _slice.call(array, i);
+}
+
+export function unique(array) {
+  const { length } = array;
+  const resultSet = new Set();
+
+  for (let i = 0; i < length; ++i) {
+    resultSet.add(array[i]);
+  }
+
+  return [...resultSet];
+}
+
+// mapping ================
+
+export function map(proc, array0, ...arrays) {
+  const nArrays = arrays.length;
+
+  switch (nArrays) {
+    case 0: {
+      return map1(proc, array0);
+    }
+    case 1: {
+      return map2(proc, array0, arrays[0]);
+    }
+    default: {
+      return _mapN(proc, array0, arrays);
+    }
+  }
+}
+
+export function map1(proc, array0) {
+  const { length } = array0;
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    result[i] = proc(array0[i]);
+  }
+  return result;
+}
+
+export function map2(proc, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    result[i] = proc(array0[i], array1[i]);
+  }
+  return result;
+}
+
+function _mapN(proc, array0, arrays) {
+  const nArrays = arrays.length;
+  const length = _lengthMin(array0, arrays);
+
+  const result = new Array(length);
+  const values = new Array(nArrays);
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+
+    result[i] = proc(value0, ...values);
+  }
+  return result;
+}
+
+export function flatMap(proc, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return flatMap1(proc, array0);
+    }
+    case 1: {
+      return flatMap2(proc, array0, arrays[0]);
+    }
+    default: {
+      return _flatMapN(proc, array0, arrays);
+    }
+  }
+}
+
+export function flatMap1(proc, array0) {
+  const result = [];
+  const { length } = array0;
+  for (let i = 0; i < length; ++i) {
+    const tmp = proc(array0[i]);
+    const n = tmp.length;
+    for (let j = 0; j < n; ++j) {
+      result.push(tmp[j]);
+    }
+  }
+  return result;
+}
+
+export function flatMap2(proc, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  const result = [];
+  for (let i = 0; i < length; ++i) {
+    const tmp = proc(array0[i], array1[i]);
+    const n = tmp.length;
+    for (let j = 0; j < n; ++j) {
+      result.push(tmp[j]);
+    }
+  }
+  return result;
+}
+
+function _flatMapN(proc, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  const result = [];
+  const values = new Array(nArrays);
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    const tmp = proc(value0, ...values);
+    const n = tmp.length;
+    for (let j = 0; j < n; ++j) {
+      result.push(tmp[j]);
+    }
+  }
+  return result;
+}
+
+// reduction ================
+
+export function reduce(proc, init, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return reduce1(proc, init, array0);
+    }
+    case 1: {
+      return reduce2(proc, init, array0, arrays[0]);
+    }
+    default: {
+      return _reduceN(proc, init, array0, arrays);
+    }
+  }
+}
+
+export function reduce1(proc, init, array0) {
+  const { length } = array0;
+
+  for (let i = 0; i < length; ++i) {
+    init = proc(init, array0[i]);
+  }
+
+  return init;
+}
+
+export function reduce2(proc, init, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+
+  for (let i = 0; i < length; ++i) {
+    init = proc(init, array0[i], array1[i]);
+  }
+
+  return init;
+}
+
+function _reduceN(proc, init, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  const values = new Array(nArrays);
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    init = proc(init, value0, ...values);
+  }
+  return init;
+}
+
+export function reduceRight(proc, init, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return reduceRight1(proc, init, array0);
+    }
+    case 1: {
+      return reduceRight2(proc, init, array0, arrays[0]);
+    }
+    default: {
+      return _reduceRightN(proc, init, array0, arrays);
+    }
+  }
+}
+
+export function reduceRight1(proc, init, array0) {
+  const { length } = array0;
+
+  for (let i = length - 1; i >= 0; --i) {
+    init = proc(init, array0[i]);
+  }
+
+  return init;
+}
+
+export function reduceRight2(proc, init, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+
+  for (let i = length - 1; i >= 0; --i) {
+    init = proc(init, array0[i], array1[i]);
+  }
+
+  return init;
+}
+
+function _reduceRightN(proc, init, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  const values = new Array(nArrays);
+  for (let i = length - 1; i >= 0; --i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    init = proc(init, value0, ...values);
+  }
+  return init;
+}
+
+export function forEach(proc, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return forEach1(proc, array0);
+    }
+    case 1: {
+      return forEach2(proc, array0, arrays[0]);
+    }
+    default: {
+      return _forEachN(proc, array0, arrays);
+    }
+  }
+}
+
+export function forEach1(proc, array0) {
+  const { length } = array0;
+  for (let i = 0; i < length; ++i) {
+    proc(array0[i]);
+  }
+}
+
+export function forEach2(proc, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  for (let i = 0; i < length; ++i) {
+    proc(array0[i], array1[i]);
+  }
+}
+
+function _forEachN(proc, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  const values = new Array(nArrays);
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    proc(value0, ...values);
+  }
+}
+
+export function every(pred, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return every1(pred, array0);
+    }
+    case 1: {
+      return every2(pred, array0, arrays[0]);
+    }
+    default: {
+      return _everyN(pred, array0, arrays);
+    }
+  }
+}
+
+export function every1(pred, array0) {
+  const { length } = array0;
+  let result = true;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i]);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function every2(pred, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  let result = true;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i], array1[i]);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+function _everyN(pred, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const nArrays = arrays.length;
+  const values = new Array(nArrays);
+  let result = true;
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    result = pred(value0, ...values);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function some(pred, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return some1(pred, array0);
+    }
+    case 1: {
+      return some2(pred, array0, arrays[0]);
+    }
+    default: {
+      return _someN(pred, array0, arrays);
+    }
+  }
+}
+
+export function some1(pred, array0) {
+  const { length } = array0;
+  let result = false;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i]);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function some2(pred, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  let result = false;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i], array1[i]);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+function _someN(pred, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const nArrays = arrays.length;
+  const values = new Array(nArrays);
+  let result = false;
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    result = pred(value0, ...values);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function join(sep, array) {
+  return _join.call(array, sep);
+}
+
+// misc ================
+
+export function reverse(array) {
+  const { length } = array;
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    result[i] = array[length - i - 1];
+  }
+  return result;
+}
+
+export function* reverseIter(array) {
+  const { length } = array;
+  for (let i = length - 1; i >= 0; --i) {
+    yield array[i];
+  }
+}
+
+
+================ funcfunc-core/src/lib/asfunc.js ================
+export const isArray = Array.isArray;
+
+export const is = Object.is;
+export const objectFromEntries = Object.fromEntries;
+export const objectEntries = Object.entries;
+export const objectKeys = Object.keys;
+export const objectValues = Object.values;
+export const objectHasOwn = Object.hasOwn;
+export const objectPrototypeOf = Object.getPrototypeOf;
+
+
+export function eq(x, y) {
+  return x === y;
+}
+
+export function like(x, y) {
+  return x == y;
+}
+
+export function same(x, y) {
+  return x === y || x !== x && y !== y;
+}
+
+export function isNull(x) {
+  return x === null;
+}
+
+export function isUndef(x) {
+  return x === void 0;
+}
+
+export function isBigint(x) {
+  return typeof x === "bigint";
+}
+
+export function isBoolean(x) {
+  return typeof x === "boolean";
+}
+
+export function isFunction(x) {
+  return typeof x === "function";
+}
+
+export function isNumber(x) {
+  return typeof x === "number";
+}
+
+export function isObject(x) {
+  return x !== null && typeof x === "object";
+}
+
+export function isString(x) {
+  return typeof x === "string";
+}
+
+export function isSymbol(x) {
+  return typeof x === "symbol";
+}
+
+export function isInstanceOf(obj, clazz) {
+  return obj instanceof clazz;
+}
+
+export function isAssignableFrom(clazz, obj) {
+  return obj instanceof clazz;
+}
+
+export function newInstance(clazz, ...args) {
+  return new clazz(...args);
+}
+
+export function newInstance0(clazz) {
+  return new clazz();
+}
+
+export function newInstance1(clazz, arg0) {
+  return new clazz(arg0);
+}
+
+export function newInstance2(clazz, arg0, arg1) {
+  return new clazz(arg0, arg1);
+}
+
+export function newInstance3(clazz, arg0, arg1, arg2) {
+  return new clazz(arg0, arg1, arg2);
+}
+
+export function newInstance4(clazz, arg0, arg1, arg2, arg3) {
+  return new clazz(arg0, arg1, arg2, arg3);
+}
+
+export function ref(obj, key) {
+  return obj[key];
+}
+
+export function xref(key, obj) {
+  return obj[key];
+}
+
+export function add(x0, ...xs) {
+  return xs.reduce(add2, x0);
+}
+
+export function add2(x0, x1) {
+  return x0 + x1;
+}
+
+export function sub(x0, ...xs) {
+  return xs.reduce(sub2, x0);
+}
+
+export function sub2(x0, x1) {
+  return x0 - x1;
+}
+
+export function mul(x0, ...xs) {
+  return xs.reduce(mul2, x0);
+}
+
+export function mul2(x0, x1) {
+  return x0 * x1;
+}
+
+export function div(x0, ...xs) {
+  return xs.reduce(div2, x0);
+}
+
+export function div2(x0, x1) {
+  return x0 / x1;
+}
+
+export function quot(x0, ...xs) {
+  return xs.reduce(quot2, x0);
+}
+
+export function quot2(x0, x1) {
+  return (x0 / x1) | 0;
+}
+
+export function rem(x0, ...xs) {
+  return xs.reduce(rem2, x0);
+}
+
+export function rem2(x0, x1) {
+  return x0 % x1;
+}
+
+export function idiv(x0, ...xs) {
+  return xs.reduce(idiv2, x0);
+}
+
+export function idiv2(x0, x1) {
+  return (x0 - mod2(x0, x1)) / x1;
+}
+
+export function mod(x0, ...xs) {
+  return xs.reduce(mod2, x0);
+}
+
+export function mod2(x0, x1) {
+  return ((x0 % x1) + x1) % x1
+}
+
+export function toNumber(value) {
+  return +value;
+}
+
+export function toInt(value) {
+  return value | 0;
+}
+
+export function toUInt(value) {
+  return (value >>> 0) & ~(value >> 31);
+}
+
+export function toBoolean(value) {
+  return !!value;
+}
+
+export function toString(value) {
+  return String(value);
+}
+
+
+================ funcfunc-core/src/lib/chan/core.js ================
+import { every1, map1 } from "../arrays";
+import { asyncFailable } from "../failable";
+import { InfQueue } from "../queue/inf-queue";
+
+const _eoc = Symbol("end of chan");
+
+export function isEndOfChan(value) {
+  return value === _eoc;
+}
+
+export function isChan(obj) {
+  return obj instanceof Chan;
+}
+
+export function tryPost(chan, value) {
+  return chan.tryPost(value);
+}
+
+export function xtryPost(value, chan) {
+  return chan.tryPost(value);
+}
+
+export function tryTake(chan) {
+  return chan.tryTake();
+}
+
+export function post(chan, value) {
+  return chan.post(value);
+}
+
+export function xpost(value, chan) {
+  return chan.post(value);
+}
+
+export function take(chan, signal = void 0) {
+  return chan.take(signal);
+}
+
+export function xtake(signal, chan) {
+  return chan.take(signal);
+}
+
+export async function alts(...chans) {
+  const { length } = chans;
+  if (length === 0) {
+    throw Error("expects at least a chan, but got none");
+  }
+
+  const offset = Math.random() * length | 0
+  let countEOC = 0;
+  for (let i = 0; i < length; ++i) {
+    const chan = chans[(i + offset) % length];
+
+    const res = chan.tryTake();
+    if (res.success) {
+      const { value } = res;
+      if (isEndOfChan(value)) {
+        countEOC += 1;
+      } else {
+        return { value: res.value, chan };
+      }
+    }
+  }
+
+  if (countEOC === length) {
+    return { value: _eoc, chan: chans[0] };
+  }
+
+  const abortCtrl = new AbortController();
+  const { signal } = abortCtrl;
+
+  try {
+    return await Promise.any(map1(async (chan) => {
+      const value = await chan.take(signal);
+      if (isEndOfChan(value)) {
+        throw chan;
+      }
+      abortCtrl.abort(Error("selected another chan by `alts`."));
+      return { value, chan };
+    }, chans));
+  } catch (error) {
+    if (error instanceof AggregateError) {
+      const { errors: contents } = error;
+      if (every1(isChan, contents)) {
+        return { value: _eoc, chan: chans[0] };
+      }
+    }
+    throw error;
+  }
+}
+
+export class Chan {
+  _postContQueue = new InfQueue();
+  _takeContQueue = new InfQueue();
+
+  _isClosed = false;
+  _afterCloseHooks = new Set();
+
+  constructor({ bufferQueue, signal } = {}) {
+    this._bufferQueue = bufferQueue;
+    this._signal = signal;
+
+    if (signal != null) {
+      this.close = this.close.bind(this);
+      signal.addEventListener("abort", this.close, { once: true });
+      this._afterCloseHooks.add(_removeAbortEventListener);
+    }
+  }
+
+  tryPost(value) {
+    if (this._isClosed) {
+      throw new ClosedPostError(this, value, "chan was already closed.");
+    }
+
+    const { _takeContQueue } = this;
+    if (_takeContQueue.size > 0) {
+      const resolve = _takeContQueue.pop();
+      resolve(value);
+      return true;
+    }
+
+    const { _bufferQueue } = this;
+    if (_bufferQueue != null) {
+      return _bufferQueue.push(value);
+    }
+    return false;
+  }
+
+  post(value, signal = void 0) {
+    if (signal !== void 0 && signal.aborted) {
+      throw new PostError(this, value, "already aborted.", { cause: signal.reason });
+    }
+
+    const success = this.tryPost(value);
+    if (success) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const _cancel = () => {
+        _postContQueue.delete(postContQueueItem);
+        signal.removeEventListener("abort", _cancel);
+        reject(new PostError(this, value, "aborted.", { cause: signal.reason }));
+      }
+
+      const _cleanAndResolve = () => {
+        signal.removeEventListener("abort", _cancel);
+        resolve();
+      }
+
+      const _cleanAndReject = (reason) => {
+        signal.removeEventListener("abort", _cancel);
+        reject(new PostError(this, value, "rejected.", { cause: reason }));
+      }
+
+      if (signal !== void 0 && signal.aborted) {
+        reject(new PostError(this, value, "aborted.", { cause: signal.reason }));
+        return;
+      }
+
+      const { _postContQueue } = this;
+      let postContQueueItem;
+
+      if (signal !== void 0) {
+        postContQueueItem = [value, _cleanAndResolve, _cleanAndReject];
+        signal.addEventListener("abort", _cancel, { once: true });
+      } else {
+        postContQueueItem = [value, resolve, reject];
+      }
+
+      _postContQueue.add(postContQueueItem);
+    });
+  }
+
+  tryTake() {
+    const { _bufferQueue } = this;
+    if (_bufferQueue != null && _bufferQueue.size > 0) {
+      const { value } = _bufferQueue.pop();
+
+      const { _postContQueue } = this;
+      if (_postContQueue.size > 0) {
+        const { value: [nextValue, resolve] } = _postContQueue.pop();
+        _bufferQueue.add(nextValue);
+        resolve();
+      }
+
+      return { value, success: true };
+    }
+
+    if (this._isClosed) {
+      return { value: _eoc, success: true };
+    }
+
+    const { _postContQueue } = this;
+    if (_postContQueue.size > 0) {
+      const [value, resolve] = _postContQueue.pop();
+      resolve();
+      return { value, success: true };
+    }
+
+    return { value: void 0, success: false };
+  }
+
+  async take(signal = void 0) {
+    if (signal !== void 0 && signal.aborted) {
+      throw new TakeError(this, "already aborted.", { cause: signal.reason });
+    }
+
+    const res = this.tryTake();
+    if (res.success) {
+      return res.value;
+    }
+
+    return new Promise((resolve, reject) => {
+      const _cancel = () => {
+        _takeContQueue.delete(_cleanAndResolve);
+        signal.removeEventListener("abort", _cancel);
+        reject(new TakeError(this, "aborted.", { cause: signal.reason }));
+      }
+
+      const _cleanAndResolve = (value) => {
+        signal.removeEventListener("abort", _cancel);
+        resolve(value);
+      }
+
+      if (signal !== void 0 && signal.aborted) {
+        reject(new TakeError(this, "aborted.", { cause: signal.reason }));
+        return;
+      }
+
+      const { _takeContQueue } = this;
+
+      if (signal !== void 0) {
+        signal.addEventListener("abort", _cancel, { once: true });
+        _takeContQueue.add(_cleanAndResolve);
+        return;
+      }
+
+      _takeContQueue.add(resolve);
+    });
+  }
+
+  get closed() {
+    return this._isClosed;
+  }
+
+  close() {
+    if (this._isClosed) {
+      return;
+    }
+
+    const { _postContQueue, _takeContQueue } = this;
+
+    while (_postContQueue.size > 0) {
+      const [value, , reject] = _postContQueue.pop();
+      reject(new ClosedPostError(this, value, "closed"));
+    }
+
+    while (_takeContQueue.size > 0) {
+      const resolve = _takeContQueue.pop();
+      resolve(_eoc);
+    }
+
+    this._isClosed = true;
+
+    this._afterCloseHooks.forEach((callback) => callback(this));
+  }
+
+  addCloseHook(callback) {
+    this._afterCloseHooks.add(callback);
+  }
+
+  deleteCloseHook(callback) {
+    this._afterCloseHooks.delete(callback);
+  }
+
+  static fromPromise(promise, signal = void 0) {
+    const chan = new Chan({ capacity: 0, signal });
+
+    (async () => {
+      try {
+        await chan.post(await asyncFailable(promise));
+      } catch (error) {
+        console.error("failed to post the error-result to chan:", chan, "which error is:", error);
+      } finally {
+        chan.close();
+      }
+    })();
+
+    return chan;
+  }
+}
+
+export class ChanError extends Error {
+  constructor(chan, ...args) {
+    super(...args);
+    this.chan = chan;
+  }
+}
+
+export class PostError extends ChanError {
+  constructor(chan, value, ...args) {
+    super(chan, ...args);
+    this.value = value;
+  }
+}
+
+export class ClosedPostError extends PostError {
+  constructor(...args) {
+    super(...args);
+  }
+}
+
+export class TakeError extends ChanError {
+  constructor(chan, ...args) {
+    super(chan, ...args);
+  }
+}
+
+function _removeAbortEventListener(chan) {
+  chan._signal.removeEventListener("abort", chan.close);
+}
+
+
+================ funcfunc-core/src/lib/chan/utils.js ================
+import { flatMap1, forEach1, map1 } from "../arrays";
+import { isEndOfChan } from "./core";
+
+export function merge(output, options = {}, ...inputs) {
+  const {
+    closeOutput = false,
+    closeInputs = false,
+    earlyStop = false,
+  } = options;
+
+  const abortTakeController = new AbortController();
+  const { signal: abortTakeSignal } = abortTakeController;
+  const abortPostController = new AbortController();
+  const { signal: abortPostSignal } = abortPostController;
+
+  (async () => {
+    try {
+      await Promise.all(map1(async (chan) => {
+        for (; ;) {
+          const value = await chan.take(abortTakeSignal);
+          if (isEndOfChan(value)) {
+            if (earlyStop) {
+              throw Error("an input chan was closed.");
+            }
+            return;
+          }
+
+          await output.post({ value, chan }, abortPostSignal);
+        }
+      }, inputs));
+    } catch (error) {
+      abortTakeController.abort(error);
+      abortPostController.abort(error);
+    } finally {
+      if (closeInputs) {
+        if (closeInputs instanceof AbortController) {
+          closeInputs.abort(Error("the output chan was closed."));
+        } else {
+          forEach1((chan) => chan.close(), inputs);
+        }
+      }
+      if (closeOutput) {
+        if (closeOutput instanceof AbortController) {
+          closeOutput.abort(Error("all input chans was closed."));
+        } else {
+          output.close();
+        }
+      }
+    }
+  })();
+
+  return output;
+}
+
+export function mult(input, options = {}, ...outputs) {
+  const {
+    closeInput = false,
+    closeOutputs = false,
+    earlyStop = false,
+  } = options;
+
+  const abortTakeController = new AbortController();
+  const { signal: abortTakeSignal } = abortTakeController;
+  const abortPostController = new AbortController();
+  const { signal: abortPostSignal } = abortPostController;
+
+  (async () => {
+    try {
+      for (; ;) {
+        const value = await input.take(abortTakeSignal);
+        if (isEndOfChan(value)) {
+          return;
+        }
+
+        const res = await Promise.allSettled(map1(async (chan) => {
+          await chan.post(value, abortPostSignal);
+        }, outputs));
+
+        const errors = flatMap1((({ status, reason }) => status === "fulfilled" ? [] : [reason], res));
+        if (earlyStop && errors.length > 0) {
+          throw new AggregateError(errors);
+        }
+        if (errors.length === outputs.length) {
+          throw new AggregateError(errors);
+        }
+      }
+    } catch (error) {
+      abortTakeController.abort(error);
+      abortPostController.abort(error);
+    } finally {
+      if (closeInput) {
+        if (closeInput instanceof AbortController) {
+          closeInput.abort(Error("all output chans was closed."));
+        } else {
+          input.close();
+        }
+      }
+      if (closeOutputs) {
+        if (closeOutputs instanceof AbortController) {
+          closeOutputs.abort(Error("the input chan was closed."));
+        } else {
+          forEach1((chan) => chan.close(), outputs);
+        }
+      }
+    }
+  })();
+
+  return input;
+}
+
+
+================ funcfunc-core/src/lib/classnames/aggregators.js ================
+export function autoBem(names) {
+  const { length } = names;
+  if (length === 0) {
+    return "";
+  }
+  const [block] = names;
+  const acc = new Array(length);
+  acc[0] = block;
+  for (let i = 1; i < length; ++i) {
+    const name = names[i];
+    const isTarget = typeof name === "string" && name.match(/^(?:--|__)/);
+    acc[i] = isTarget ? `${block}${name}` : name;
+  }
+  return acc.join(" ");
+}
+
+export { defaultAggregator as joinWithSpaces } from "./core";
+
+
+================ funcfunc-core/src/lib/classnames/core.js ================
+export function createClassNamesCombinator({ transformers = [], aggregator = defaultAggregator } = {}) {
+  return (...names) => {
+    const acc = [];
+    _loopNames(acc, transformers, 0, names);
+    return aggregator(acc);
+  }
+}
+
+function _loopNames(acc, transformers, offsetTranses, names) {
+  for (const name of names) {
+    if (Array.isArray(name)) {
+      _loopNames(acc, transformers, offsetTranses, name);
+      continue;
+    }
+    _loopTranses(acc, transformers, offsetTranses, name);
+  }
+}
+
+function _loopTranses(acc, transformers, offsetTranses, name) {
+  const { length } = transformers;
+  for (let i = offsetTranses; i < length; ++i) {
+    const trans = transformers[i];
+    name = trans(name);
+    if (name === false) {
+      return;
+    }
+    if (Array.isArray(name)) {
+      _loopNames(acc, transformers, i + 1, name);
+      return;
+    }
+  }
+  acc.push(name);
+}
+
+export function defaultAggregator(names) {
+  return names.join(" ");
+}
+
+
+================ funcfunc-core/src/lib/classnames/presets.js ================
+import * as A from "./aggregators";
+import { createClassNamesCombinator } from "./core";
+import * as T from "./transformers";
+
+export const c = createClassNamesCombinator({ transformers: [T.omitFalsy] });
+
+export const clegacy = createClassNamesCombinator({ transformers: [T.omitFalsy, T.collectActiveKeys] });
+
+export function cprops(styles) {
+  return createClassNamesCombinator({ transformers: [T.mapObject(styles), T.omitFalsy] });
+}
+
+export function cprefix(prefix) {
+  return createClassNamesCombinator({ transformers: [T.omitFalsy, T.addPrefix(prefix)] });
+}
+
+export function cvariants(variantDefs) {
+  return createClassNamesCombinator({ transformers: [T.mapVariants(variantDefs), T.omitFalsy] });
+}
+
+export function cbem(prefix) {
+  return createClassNamesCombinator({ transformers: [T.addBemBlock(prefix), T.omitFalsy] });
+}
+
+export const cautoBem = createClassNamesCombinator({ transformers: [T.omitFalsy], aggregator: A.autoBem });
+
+export const craw = createClassNamesCombinator();
+
+
+================ funcfunc-core/src/lib/classnames/transformers.js ================
+export function omitFalsy(name) {
+  return name || [];
+}
+
+export function collectActiveKeys(name) {
+  if (name === null || typeof name !== "object") {
+    return name;
+  }
+
+  const keys = Object.keys(name)
+  const acc = new Array(keys.length);
+  let i = 0;
+  for (const k of keys) {
+    if (k !== "" && name[k]) {
+      acc[i++] = k;
+    }
+  }
+  acc.length = i;
+  return acc;
+}
+
+export function mapObject(styles) {
+  return (prop) => styles[prop] ?? prop;
+}
+
+export function addPrefix(prefix) {
+  return (name) => `${prefix}${name}`;
+}
+
+export function mapVariants(variantDefs) {
+  return (variants) => {
+    if (variants == null || typeof variants !== "object") {
+      return variants;
+    }
+
+    const keys = Object.keys(variants);
+    const { length } = keys;
+    for (let i = 0; i < length; ++i) {
+      const keyI = keys[i];
+      if (!(keyI in variantDefs)) {
+        console.warn("unrecognized key", keyI);
+        continue;
+      }
+
+      const defK = variantDefs[keyI];
+      const varI = variants[keyI];
+      if (!(varI in defK)) {
+        console.warn("unrecognized variant", defK, varI);
+        continue;
+      }
+
+      keys[i] = defK[varI];
+    }
+    return keys;
+  };
+}
+
+export function addBemBlock(block) {
+  return (name) => {
+    if (typeof name !== "string" || !name.match(/^(?:--|__)/)) {
+      return name;
+    }
+    return `${block}${name}`;
+  };
+}
+
+export function replaceRegex(regex, replace) {
+  return (name) => {
+    if (typeof name !== "string") {
+      return name;
+    }
+    return name.replace(regex, replace);
+  };
+}
+
+
+================ funcfunc-core/src/lib/core.js ================
+export function doNothing() {
+}
+
+export function itself(x) {
+  return x;
+}
+
+export function constant(x) {
+  return () => x;
+}
+
+export function call(proc, ...args) {
+  return proc(...args);
+}
+
+export function call1(proc, arg0) {
+  return proc(arg0);
+}
+
+export function call2(proc, arg0, arg1) {
+  return proc(arg0, arg1);
+}
+
+export function call3(proc, arg0, arg1, arg2) {
+  return proc(arg0, arg1, arg2);
+}
+
+export function call4(proc, arg0, arg1, arg2, arg3) {
+  return proc(arg0, arg1, arg2, arg3);
+}
+
+export function xcall(arg0, proc, ...args) {
+  return proc(arg0, ...args);
+}
+
+export function xcall1(arg0, proc) {
+  return proc(arg0);
+}
+
+export function xcall2(arg0, proc, arg1) {
+  return proc(arg0, arg1);
+}
+
+export function xcall3(arg0, proc, arg1, arg2) {
+  return proc(arg0, arg1, arg2);
+}
+
+export function xcall4(arg0, proc, arg1, arg2, arg3) {
+  return proc(arg0, arg1, arg2, arg3);
+}
+
+export function apply(proc, args) {
+  return proc(...args);
+}
+
+export function xapply(args, proc) {
+  return proc(...args);
+}
+
+export function methodF(method) {
+  return (self, ...args) => method.call(self, ...args);
+}
+
+export function methodF0(method) {
+  return (self) => method.call(self);
+}
+
+export function methodF1(method) {
+  return (self, arg0) => method.call(self, arg0);
+}
+
+export function methodF2(method) {
+  return (self, arg0, arg1) => method.call(self, arg0, arg1);
+}
+
+export function methodF3(method) {
+  return (self, arg0, arg1, arg2) => method.call(self, arg0, arg1, arg2);
+}
+
+export function methodF4(method) {
+  return (self, arg0, arg1, arg2, arg3) => method.call(self, arg0, arg1, arg2, arg3);
+}
+
+export function refF(methodName) {
+  return (self, ...args) => self[methodName](...args);
+}
+
+export function refF0(methodName) {
+  return (self) => self[methodName]();
+}
+
+export function refF1(methodName) {
+  return (self, arg0) => self[methodName](arg0);
+}
+
+export function refF2(methodName) {
+  return (self, arg0, arg1) => self[methodName](arg0, arg1);
+}
+
+export function refF3(methodName) {
+  return (self, arg0, arg1, arg2) => self[methodName](arg0, arg1, arg2);
+}
+
+export function refF4(methodName) {
+  return (self, arg0, arg1, arg2, arg3) => self[methodName](arg0, arg1, arg2, arg3);
+}
+
+export function newF(clazz) {
+  return (...args) => new clazz(...args);
+}
+
+export function newF0(clazz) {
+  return () => new clazz();
+}
+
+export function newF1(clazz) {
+  return (arg0) => new clazz(arg0);
+}
+
+export function newF2(clazz) {
+  return (arg0, arg1) => new clazz(arg0, arg1);
+}
+
+export function newF3(clazz) {
+  return (arg0, arg1, arg2) => new clazz(arg0, arg1, arg2);
+}
+
+export function newF4(clazz) {
+  return (arg0, arg1, arg2, arg3) => new clazz(arg0, arg1, arg2, arg3);
+}
+
+export function curry2(proc) {
+  return (arg0) => (...args) => proc(arg0, ...args);
+}
+
+export function curry3(proc) {
+  return (arg0) => (arg1) => (...args) => proc(arg0, arg1, ...args);
+}
+
+export function curry4(proc) {
+  return (arg0) => (arg1) => (arg2) => (...args) => proc(arg0, arg1, arg2, ...args);
+}
+
+export function uncurry2(proc) {
+  return (arg0, ...args) => proc(arg0)(...args);
+}
+
+export function uncurry3(proc) {
+  return (arg0, arg1, ...args) => proc(arg0)(arg1)(...args);
+}
+
+export function uncurry4(proc) {
+  return (arg0, arg1, arg2, ...args) => proc(arg0)(arg1)(arg2)(...args);
+}
+
+export function pa(proc, ...args) {
+  return (...params) => proc(...args, ...params);
+}
+
+export function pa1(proc, ...args) {
+  return (param0) => proc(...args, param0);
+}
+
+export function pa2(proc, ...args) {
+  return (param0, param1) => proc(...args, param0, param1);
+}
+
+export function pa3(proc, ...args) {
+  return (param0, param1, param2) => proc(...args, param0, param1, param2);
+}
+
+export function pa4(proc, ...args) {
+  return (param0, param1, param2, param3) => proc(...args, param0, param1, param2, param3);
+}
+
+export function xpa(proc, ...args) {
+  return (...params) => proc(...params, ...args);
+}
+
+export function xpa1(proc, ...args) {
+  return (param0) => proc(param0, ...args);
+}
+
+export function xpa2(proc, ...args) {
+  return (param0, params1) => proc(param0, params1, ...args);
+}
+
+export function xpa3(proc, ...args) {
+  return (param0, params1, param2) => proc(param0, params1, param2, ...args);
+}
+
+export function xpa4(proc, ...args) {
+  return (param0, params1, param2, param3) => proc(param0, params1, param2, param3, ...args);
+}
+
+export function pipe(...procs) {
+  const { length } = procs;
+  if (length === 0) {
+    return itself;
+  }
+  return (...args) => {
+    let res = procs[0](...args);
+    for (let i = 1; i < length; ++i) {
+      res = procs[i](res);
+    }
+    return res;
+  };
+}
+
+export function cmp(...procs) {
+  const { length } = procs;
+  if (length === 0) {
+    return itself;
+  }
+  return (...args) => {
+    let res = procs[length - 1](...args);
+    for (let i = length - 2; i >= 0; --i) {
+      res = procs[i](res);
+    }
+    return res;
+  };
+}
+
+export function not(pred) {
+  return (...args) => !pred(...args);
+}
+
+export function not1(pred) {
+  return (arg0) => !pred(arg0);
+}
+
+export function not2(pred) {
+  return (arg0, arg1) => !pred(arg0, arg1);
+}
+
+export function not3(pred) {
+  return (arg0, arg1, arg2) => !pred(arg0, arg1, arg2);
+}
+
+export function not4(pred) {
+  return (arg0, arg1, arg2, arg3) => !pred(arg0, arg1, arg2, arg3);
+}
+
+export function and(...preds) {
+  const n = preds.length;
+
+  return (...args) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](...args);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function and1(...preds) {
+  const n = preds.length;
+
+  return (arg0) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function and2(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function and3(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1, arg2) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function and4(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1, arg2, arg3) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2, arg3);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function or(...preds) {
+  const n = preds.length;
+
+  return (...args) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](...args);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function or1(...preds) {
+  const n = preds.length;
+
+  return (arg0) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function or2(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function or3(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1, arg2) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function or4(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1, arg2, arg3) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2, arg3);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+
+================ funcfunc-core/src/lib/delay-list-reduce-right.js ================
+import { delayForce } from "./delay";
+import { car, cdr, isPair } from "./list";
+
+export function delayReduceRight(proc, delayedInit, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return delayReduceRight1(proc, delayedInit, list0);
+    }
+    case 1: {
+      return delayReduceRight2(proc, delayedInit, list0, lists[0]);
+    }
+    default: {
+      return _delayReduceRightN(proc, delayedInit, list0, lists);
+    }
+  }
+}
+
+export function delayReduceRight1(proc, delayedInit, list0) {
+  return delayForce(() => {
+    if (!isPair(list0)) {
+      return delayedInit;
+    }
+    return proc(delayReduceRight1(proc, delayedInit, cdr(list0)), car(list0));
+  });
+}
+
+export function delayReduceRight2(proc, delayedInit, list0, list1) {
+  return delayForce(() => {
+    if (!isPair(list0) || !isPair(list1)) {
+      return delayedInit;
+    }
+    return proc(delayReduceRight2(proc, delayedInit, cdr(list0), cdr(list1)), car(list0), car(list1));
+  });
+}
+
+function _delayReduceRightN(proc, delayedInit, list0, lists) {
+  return delayForce(() => {
+    if (!isPair(list0)) {
+      return delayedInit;
+    }
+
+    const value0 = car(list0);
+    const rest0 = cdr(list0);
+
+    const nLists = lists.length;
+
+    const values = new Array(nLists);
+    const rests = new Array(nLists);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        return delayedInit;
+      }
+
+      values[i] = car(tmpI);
+      rests[i] = cdr(tmpI);
+    }
+
+    return proc(_delayReduceRightN(proc, delayedInit, rest0, rests), value0, ...values);
+  });
+}
+
+
+================ funcfunc-core/src/lib/delay.js ================
+import { constant } from "./core";
+
+export class Delayed {
+  constructor(content) {
+    this._content = content;
+  }
+
+  static resolve(value) {
+    return new Delayed({ _isLazy: false, _thunk: constant(value), _value: value });
+  }
+}
+
+export function isDelayed(x) {
+  return x instanceof Delayed;
+}
+
+export function force(delayed) {
+  while (delayed._content._isLazy) {
+    const delayedInner = delayed._content._thunk();
+    if (delayed._content._isLazy) {
+      delayed._content._isLazy = delayedInner._content._isLazy;
+      delayed._content._thunk = delayedInner._content._thunk;
+      delayed._content._value = delayedInner._content._value;
+      delayedInner._content = delayed._content;
+    }
+  }
+
+  return delayed._content._value;
+}
+
+export function delayForce(thunk) {
+  return _delayForce(() => {
+    const result = thunk();
+    if (isDelayed(result)) {
+      return result;
+    }
+    throw TypeError(`expects delayed, but got: ${result}`);
+  });
+}
+
+export function delay(thunk) {
+  return _delayForce(() => Delayed.resolve(thunk()));
+}
+
+export function map(proc, delayed0, ...delayeds) {
+  switch (delayeds.length) {
+    case 0: {
+      return map1(proc, delayed0);
+    }
+    case 1: {
+      return map2(proc, delayed0, delayeds[0]);
+    }
+    default: {
+      return _mapN(proc, delayed0, delayeds);
+    }
+  }
+}
+
+export function map1(proc, delayed0) {
+  return delay(() => proc(force(delayed0)));
+}
+
+export function map2(proc, delayed0, delayed1) {
+  return delay(() => proc(force(delayed0), force(delayed1)));
+}
+
+function _mapN(proc, delayed0, delayeds) {
+  return delay(() => {
+    const { length } = delayeds;
+    const value0 = force(delayed0);
+    const values = new Array(length);
+    for (let i = 0; i < length; ++i) {
+      values[i] = force(delayeds[i]);
+    }
+    return proc(value0, ...values);
+  });
+}
+
+export function flatMap(proc, delayed0, ...delayeds) {
+  switch (delayeds.length) {
+    case 0: {
+      return flatMap1(proc, delayed0);
+    }
+    case 1: {
+      return flatMap2(proc, delayed0, delayeds[0]);
+    }
+    default: {
+      return _flatMapN(proc, delayed0, delayeds);
+    }
+  }
+}
+
+export function flatMap1(proc, delayed0) {
+  return delayForce(() => proc(force(delayed0)));
+}
+
+export function flatMap2(proc, delayed0, delayed1) {
+  return delayForce(() => proc(force(delayed0), force(delayed1)));
+}
+
+function _flatMapN(proc, delayed0, delayeds) {
+  return delayForce(() => {
+    const { length } = delayeds;
+    const value0 = force(delayed0);
+    const values = new Array(length);
+    for (let i = 0; i < length; ++i) {
+      values[i] = force(delayeds[i]);
+    }
+    return proc(value0, ...values);
+  });
+}
+
+export function forEach(proc, delayed0, ...delayeds) {
+  switch (delayeds.length) {
+    case 0: {
+      forEach1(proc, delayed0);
+      break;
+    }
+    case 1: {
+      forEach2(proc, delayed0, delayeds[0]);
+      break;
+    }
+    default: {
+      _forEachN(proc, delayed0, delayeds);
+      break;
+    }
+  }
+}
+
+export function forEach1(proc, delayed0) {
+  proc(force(delayed0));
+}
+
+export function forEach2(proc, delayed0, delayed1) {
+  proc(force(delayed0), force(delayed1));
+}
+
+function _forEachN(proc, delayed0, delayeds) {
+  const { length } = delayeds;
+  const value0 = force(delayed0);
+  const values = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    values[i] = force(delayeds[i]);
+  }
+  proc(value0, ...values);
+}
+
+function _delayForce(thunk) {
+  return new Delayed({ _isLazy: true, _thunk: thunk, _value: void 0 });
+}
+
+
+================ funcfunc-core/src/lib/delegate.js ================
+export function delegate(principalClass, agentName, methodNames) {
+  const { length } = methodNames;
+  for (let i = 0; i < length; ++i) {
+    const nameI = methodNames[i];
+    if (nameI == null) {
+      continue;
+    }
+
+    switch (typeof nameI) {
+      case "number":
+      case "string":
+      case "symbol": {
+        principalClass.prototype[nameI] = function (...args) {
+          return this[agentName][nameI](...args);
+        }
+        break;
+      }
+      case "object": {
+        const fromNameArray = Object.keys(nameI)
+        const nFromNames = fromNameArray.length;
+        for (let j = 0; j < nFromNames; ++j) {
+          const fromName = fromNameArray[j];
+          const toName = nameI[fromName];
+          principalClass.prototype[fromName] = function (...args) {
+            return this[agentName][toName](...args);
+          }
+        }
+        break;
+      }
+      default: {
+        throw Error("unsupported name type.");
+      }
+    }
+  }
+}
+
+
+================ funcfunc-core/src/lib/failable.js ================
+const _reasons = Symbol("reasons");
+
+export function fail(...reasons) {
+  return _toFailure(reasons);
+}
+
+function _toFailure(reasons) {
+  return { [_reasons]: _flatErrors(reasons) }
+}
+
+export function failable(proc, ...args) {
+  switch (args.length) {
+    case 0: {
+      return failable0(proc);
+    }
+    case 1: {
+      return failable1(proc, args[0]);
+    }
+    case 2: {
+      return failable2(proc, args[0], args[1]);
+    }
+    default: {
+      return _failableN(proc, ...args);
+    }
+  }
+}
+
+export function failable0(thunk) {
+  try {
+    return thunk();
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export function failable1(proc, arg0) {
+  try {
+    return proc(arg0);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export function failable2(proc, arg0, arg1) {
+  try {
+    return proc(arg0, arg1);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+function _failableN(proc, ...args) {
+  try {
+    return proc(...args);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function asyncFailable(promise) {
+  try {
+    return await promise;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export function isFailed(failable) {
+  return failable != null && typeof failable === "object" && _reasons in failable;
+}
+
+export function isSuccess(failable) {
+  return !isFailed(failable);
+}
+
+export function force(failable) {
+  if (isFailed(failable)) {
+    const reasons = failable[_reasons];
+    throw reasons.length === 1 ? reasons[0] : new AggregateError(reasons);
+  }
+  return failable;
+}
+
+export function reasons(failure) {
+  if (isFailed(failure)) {
+    return failure[_reasons];
+  }
+  throw TypeError("expects failure");
+}
+
+export function map(proc, failable0, ...failables) {
+  switch (failables.length) {
+    case 0: {
+      return map1(proc, failable0);
+    }
+    case 1: {
+      return map2(proc, failable0, failables[0]);
+    }
+    default: {
+      return _mapN(proc, failable0, failables);
+    }
+  }
+}
+
+export function map1(proc, failable0) {
+  return isFailed(failable0) ? failable0 : proc(failable0);
+}
+
+export function map2(proc, failable0, failable1) {
+  if (isFailed(failable0)) {
+    if (isFailed(failable1)) {
+      return _toFailure([...failable0[_reasons], ...failable1[_reasons]]);
+    }
+    return failable0;
+  }
+
+  if (isFailed(failable1)) {
+    return failable1;
+  }
+
+  return proc(failable0, failable1);
+}
+
+function _mapN(proc, failable0, failables) {
+  if (isFailed(failable0)) {
+    const reasons = [...failable0[_reasons]];
+    _collectReasons(reasons, failables);
+    return _toFailure(reasons);
+  }
+  const reasons = [];
+  _collectReasons(reasons, failables);
+  if (reasons.length === 0) {
+    return proc(failable0, ...failables);
+  }
+  return _toFailure(reasons);
+}
+
+export function tryMap(proc, failable0, ...failables) {
+  switch (failables.length) {
+    case 0: {
+      return tryMap1(proc, failable0);
+    }
+    case 1: {
+      return tryMap2(proc, failable0, failables[0]);
+    }
+    default: {
+      return _tryMapN(proc, failable0, failables);
+    }
+  }
+}
+
+export function tryMap1(proc, failable0) {
+  try {
+    return map1(proc, failable0);
+  } catch (error) {
+    return fail(error)
+  }
+}
+
+export function tryMap2(proc, failable0, failable1) {
+  try {
+    return map2(proc, failable0, failable1);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+function _tryMapN(proc, failable0, failables) {
+  try {
+    return _mapN(proc, failable0, failables);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export function all(failables) {
+  const reasons = [];
+
+  _collectReasons(reasons, failables);
+
+  if (reasons.length === 0) {
+    return failables;
+  }
+
+  return _toFailure(reasons);
+}
+
+export function any(failables) {
+  const { length } = failables;
+  const reasons = [];
+  for (let i = 0; i < length; ++i) {
+    const failableI = failables[i];
+    if (isSuccess(failableI)) {
+      return failableI;
+    }
+
+    const reasonsI = failableI[_reasons];
+    const nReasonsI = reasonsI.length;
+    for (let j = 0; j < nReasonsI; ++j) {
+      reasons.push(reasonsI[j]);
+    }
+  }
+  return _toFailure(reasons);
+}
+
+function _collectReasons(acc, failables) {
+  const { length } = failables;
+  for (let i = 0; i < length; ++i) {
+    const failableI = failables[i];
+    if (isFailed(failableI)) {
+      const reasonsI = failableI[_reasons];
+      const nReasons = reasonsI.length;
+      for (let j = 0; j < nReasons; ++j) {
+        acc.push(reasonsI[j]);
+      }
+    }
+  }
+}
+
+function _flatErrors(errors) {
+  function _loop(acc, errors) {
+    const { length } = errors;
+    for (let i = 0; i < length; ++i) {
+      const errorI = errors[i];
+      if (errorI instanceof AggregateError) {
+        _loop(acc, errorI.errors);
+        continue;
+      }
+      acc.push(errorI);
+    }
+  }
+
+  const acc = [];
+  _loop(acc, errors);
+  return acc;
+}
+
+
+================ funcfunc-core/src/lib/generators.js ================
+import { toUInt } from "./asfunc";
+
+// helpers ================
+
+function _safeReturn(iter) {
+  if (typeof iter.return === "function") {
+    iter.return();
+  }
+}
+
+// creation ================
+
+export function* iterableOf(...values) {
+  for (const v of values) {
+    yield v;
+  }
+}
+
+export function repeat(count, value) {
+  if (count === void 0 || count === Number.POSITIVE_INFINITY) {
+    return _repeatInf(value);
+  }
+  return _repeatFinite(toUInt(count), value);
+}
+
+function* _repeatInf(value) {
+  for (; ;) {
+    yield value;
+  }
+}
+
+function* _repeatFinite(count, value) {
+  for (let i = 0; i < count; ++i) {
+    yield value;
+  }
+}
+
+export function iota(count, start = 0, step = 1) {
+  if (count === void 0 || count === Number.POSITIVE_INFINITY) {
+    return _iotaInf(+start, +step);
+  }
+  return _iotaFinite(toUInt(count), +start, +step);
+}
+
+function* _iotaInf(start, step) {
+  for (let i = 0; ; ++i) {
+    yield step * i + start;
+  }
+}
+
+function* _iotaFinite(count, start, step) {
+  for (let i = 0; i < count; ++i) {
+    yield step * i + start;
+  }
+}
+
+
+export function* unfold(gen, seed, tailGen = void 0) {
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    yield value;
+    seed = "seed" in res ? res.seed : value;
+  }
+  if (tailGen !== void 0) {
+    yield* tailGen(seed);
+  }
+}
+
+// splicing ================
+
+export function* take(count, iter) {
+  count = toUInt(count);
+  iter = iter[Symbol.iterator]();
+
+  try {
+    let res;
+    for (let i = 0; i < count; ++i) {
+      res = iter.next()
+      if (res.done) {
+        return;
+      }
+      yield res.value;
+    }
+  } finally {
+    _safeReturn(iter);
+  }
+}
+
+export function* drop(count, iter) {
+  count = toUInt(count);
+  iter = iter[Symbol.iterator]();
+
+  try {
+    let res;
+    for (let i = 0; i < count; ++i) {
+      res = iter.next()
+      if (res.done) {
+        return;
+      }
+    }
+
+    while ((res = iter.next()), !res.done) {
+      yield res.value;
+    }
+  } finally {
+    _safeReturn(iter);
+  }
+}
+
+// composition ================
+
+export function* flat(iters) {
+  for (const iter of iters) {
+    yield* iter;
+  }
+}
+
+export function concat(...iters) {
+  return flat(iters);
+}
+
+export function* zip(iter0, ...iters) {
+  const nIters = iters.length;
+
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
+  }
+
+  try {
+    for (const value0 of iter0) {
+      const values = new Array(nIters + 1);
+
+      values[0] = value0;
+      for (let i = 0; i < nIters; ++i) {
+        const res = iters[i].next();
+        if (res.done) {
+          return;
+        }
+        values[i + 1] = res.value;
+      }
+
+      yield values;
+    }
+  } finally {
+    for (const it of iters) {
+      _safeReturn(it);
+    }
+  }
+}
+
+export function entries(...iters) {
+  return zip(iota(), ...iters);
+}
+
+// filtering ================
+
+export function* filter(pred, iter) {
+  for (const v of iter) {
+    if (pred(v)) {
+      yield v;
+    }
+  }
+}
+
+export function* findTail(pred, iter) {
+  iter = iter[Symbol.iterator]();
+
+  try {
+    let res;
+    while ((res = iter.next()), !res.done) {
+      const { value } = res;
+      if (pred(value)) {
+        yield value;
+        break;
+      }
+    }
+
+    while ((res = iter.next()), !res.done) {
+      yield res.value;
+    }
+  } finally {
+    _safeReturn(iter);
+  }
+}
+
+export function* takeWhile(pred, iter) {
+  for (const v of iter) {
+    if (!pred(v)) {
+      break;
+    }
+    yield v;
+  }
+}
+
+export function* dropWhile(pred, iter) {
+  iter = iter[Symbol.iterator]();
+
+  try {
+    let res;
+    while ((res = iter.next()), !res.done) {
+      const { value } = res;
+      if (!pred(value)) {
+        yield value;
+        break;
+      }
+    }
+
+    while ((res = iter.next()), !res.done) {
+      yield res.value;
+    }
+  } finally {
+    _safeReturn(iter);
+  }
+}
+
+export function* unique(iter) {
+  const appeared = new Set();
+
+  for (const v of iter) {
+    if (appeared.has(v)) {
+      continue;
+    }
+    appeared.add(v);
+    yield v;
+  }
+}
+
+// mapping ================
+
+export function map(proc, iter0, ...iters) {
+  switch (iters.length) {
+    case 0: {
+      return map1(proc, iter0);
+    }
+    case 1: {
+      return map2(proc, iter0, iters[0]);
+    }
+    default: {
+      return _mapN(proc, iter0, iters);
+    }
+  }
+}
+
+export function* map1(proc, iter0) {
+  for (const value0 of iter0) {
+    yield proc(value0);
+  }
+}
+
+export function* map2(proc, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
+
+  try {
+    for (const value0 of iter0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        return;
+      }
+      yield proc(value0, res1.value);
+    }
+  } finally {
+    _safeReturn(iter1);
+  }
+}
+
+function* _mapN(proc, iter0, iters) {
+  const nIters = iters.length;
+
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
+  }
+
+  const values = new Array(nIters);
+  try {
+    for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
+        const res = iters[i].next();
+        if (res.done) {
+          return;
+        }
+        values[i] = res.value;
+      }
+      yield proc(value0, ...values);
+    }
+  } finally {
+    for (const iter of iters) {
+      _safeReturn(iter);
+    }
+  }
+}
+
+export function flatMap(proc, iter0, ...iters) {
+  switch (iters.length) {
+    case 0: {
+      return flatMap1(proc, iter0);
+    }
+    case 1: {
+      return flatMap2(proc, iter0, iters[0]);
+    }
+    default: {
+      return _flatMapN(proc, iter0, iters);
+    }
+  }
+}
+
+export function* flatMap1(proc, iter0) {
+  for (const value0 of iter0) {
+    yield* proc(value0);
+  }
+}
+
+export function* flatMap2(proc, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
+
+  try {
+    for (const value0 of iter0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        return;
+      }
+      yield* proc(value0, res1.value);
+    }
+  } finally {
+    _safeReturn(iter1);
+  }
+}
+
+function* _flatMapN(proc, iter0, iters) {
+  const nIters = iters.length;
+
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
+  }
+
+  const values = new Array(nIters);
+  try {
+    for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
+        const res = iters[i].next();
+        if (res.done) {
+          return;
+        }
+        values[i] = res.value;
+      }
+      yield* proc(value0, ...values);
+    }
+  } finally {
+    for (const iter of iters) {
+      _safeReturn(iter);
+    }
+  }
+}
+
+// reduction ================
+
+export function reduce(proc, init, iter0, ...iters) {
+  switch (iters.length) {
+    case 0: {
+      return reduce1(proc, init, iter0);
+    }
+    case 1: {
+      return reduce2(proc, init, iter0, iters[0]);
+    }
+    default: {
+      return _reduceN(proc, init, iter0, iters);
+    }
+  }
+}
+
+export function reduce1(proc, init, iter0) {
+  for (const value0 of iter0) {
+    init = proc(init, value0);
+  }
+  return init;
+}
+
+export function reduce2(proc, init, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
+
+  try {
+    for (const value0 of iter0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        return init;
+      }
+      init = proc(init, value0, res1.value);
+    }
+    return init;
+  } finally {
+    _safeReturn(iter1);
+  }
+}
+
+function _reduceN(proc, init, iter0, iters) {
+  const nIters = iters.length;
+
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
+  }
+
+  const values = new Array(nIters);
+  try {
+    for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
+        const res = iters[i].next();
+        if (res.done) {
+          return init;
+        }
+        values[i] = res.value;
+      }
+      init = proc(init, value0, ...values);
+    }
+    return init;
+  } finally {
+    for (const iter of iters) {
+      _safeReturn(iter);
+    }
+  }
+}
+
+export function forEach(proc, iter0, ...iters) {
+  switch (iters.length) {
+    case 0: {
+      forEach1(proc, iter0);
+      break;
+    }
+    case 1: {
+      forEach2(proc, iter0, iters[0]);
+      break;
+    }
+    default: {
+      _forEachN(proc, iter0, iters);
+    }
+  }
+}
+
+export function forEach1(proc, iter0) {
+  for (const value0 of iter0) {
+    proc(value0);
+  }
+}
+
+export function forEach2(proc, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
+
+  try {
+    for (const value0 of iter0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        return;
+      }
+      proc(value0, res1.value);
+    }
+  } finally {
+    _safeReturn(iter1);
+  }
+}
+
+function _forEachN(proc, iter0, iters) {
+  const nIters = iters.length;
+
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
+  }
+
+  const values = new Array(nIters);
+  try {
+    for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
+        const res = iters[i].next();
+        if (res.done) {
+          return;
+        }
+        values[i] = res.value;
+      }
+      proc(value0, ...values);
+    }
+  } finally {
+    for (const iter of iters) {
+      _safeReturn(iter);
+    }
+  }
+}
+
+export function every(pred, iter0, ...iters) {
+  switch (iters.length) {
+    case 0: {
+      return every1(pred, iter0);
+    }
+    case 1: {
+      return every2(pred, iter0, iters[0]);
+    }
+    default: {
+      return _everyN(pred, iter0, iters);
+    }
+  }
+}
+
+export function every1(pred, iter0) {
+  let result = true;
+  for (const value0 of iter0) {
+    result = pred(value0);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function every2(pred, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
+
+  let result = true;
+  try {
+    for (const value0 of iter0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        break;
+      }
+      result = pred(value0, res1.value);
+      if (!result) {
+        break;
+      }
+    }
+    return result;
+  } finally {
+    _safeReturn(iter1);
+  }
+}
+
+function _everyN(pred, iter0, iters) {
+  const nIters = iters.length;
+
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
+  }
+
+
+  let result = true;
+  const values = new Array(nIters);
+  try {
+    Outer: for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
+        const res = iters[i].next();
+        if (res.done) {
+          break Outer;
+        }
+        values[i] = res.value;
+      }
+      result = pred(value0, ...values);
+      if (!result) {
+        break;
+      }
+    }
+    return result;
+  } finally {
+    for (const iter of iters) {
+      _safeReturn(iter);
+    }
+  }
+}
+
+export function some(pred, iter0, ...iters) {
+  switch (iters.length) {
+    case 0: {
+      return some1(pred, iter0);
+    }
+    case 1: {
+      return some2(pred, iter0, iters[0]);
+    }
+    default: {
+      return _someN(pred, iter0, iters);
+    }
+  }
+}
+
+export function some1(pred, iter0) {
+  let result = false;
+  for (const value0 of iter0) {
+    result = pred(value0);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function some2(pred, iter0, iter1) {
+  iter1 = iter1[Symbol.iterator]();
+
+  let result = false;
+  try {
+    for (const value0 of iter0) {
+      const res1 = iter1.next();
+      if (res1.done) {
+        break;
+      }
+      result = pred(value0, res1.value);
+      if (result) {
+        break;
+      }
+    }
+    return result;
+  } finally {
+    _safeReturn(iter1);
+  }
+}
+
+function _someN(pred, iter0, iters) {
+  const nIters = iters.length;
+
+  for (let i = 0; i < nIters; ++i) {
+    iters[i] = iters[i][Symbol.iterator]();
+  }
+
+  let result = false;
+  const values = new Array(nIters);
+  try {
+    Outer: for (const value0 of iter0) {
+      for (let i = 0; i < nIters; ++i) {
+        const res = iters[i].next();
+        if (res.done) {
+          break Outer;
+        }
+        values[i] = res.value;
+      }
+      result = pred(value0, ...values);
+      if (result) {
+        break;
+      }
+    }
+    return result;
+  } finally {
+    for (const iter of iters) {
+      _safeReturn(iter);
+    }
+  }
+}
+
+const _join_buffer_size = 10000;
+
+export function join(sep, iter) {
+  const result = [];
+  const buffer = new Array(_join_buffer_size);
+  let i = 0;
+  for (const v of iter) {
+    if (i >= _join_buffer_size) {
+      result.push(buffer.join(sep));
+      i = 0;
+    }
+    buffer[i] = v;
+    i += 1;
+  }
+  buffer.length = i;
+  result.push(buffer.join(sep));
+  return result.join(sep);
+}
+
+
+================ funcfunc-core/src/lib/lazylist.js ================
+import { toUInt } from "./asfunc";
+import { car, cdr, cons, isPair, lcons, listOf, nil } from "./list";
+
+// creation ================
+
+export { listOf as llistOf } from "./list";
+
+export function lrepeat(count, value) {
+  if (count === void 0 || count === Number.POSITIVE_INFINITY) {
+    return lrepeatInf(value);
+  }
+  return _lrepeatFinite(toUInt(count), value);
+}
+
+export function lrepeatInf(value) {
+  return lcons(value, () => lrepeatInf(value));
+}
+
+function _lrepeatFinite(count, value) {
+  if (count === 0) {
+    return null;
+  }
+  return lcons(value, () => _lrepeatFinite(count - 1, value));
+}
+
+export function liota(count, start = 0, step = 1) {
+  if (count === void 0 || count === Number.POSITIVE_INFINITY) {
+    return liotaInf(start, step);
+  }
+  return _liotaFinite(toUInt(count), +start, +step);
+}
+
+export function liotaInf(start, step) {
+  const _start = +start;
+  const _step = +step;
+
+  function _loop(i) {
+    return lcons(i * _step + _start, () => _loop(i + 1));
+  }
+
+  return _loop(0);
+}
+
+function _liotaFinite(count, start, step) {
+  function _loop(i) {
+    if (i === count) {
+      return null;
+    }
+    return lcons(i * step + start, () => _loop(i + 1));
+  }
+
+  return _loop(0);
+}
+
+export function iterableToLazyList(iterable) {
+  const iter = iterable[Symbol.iterator]();
+
+  function _loop() {
+    const res = iter.next();
+    if (res.done) {
+      return null;
+    }
+    return lcons(res.value, _loop);
+  }
+
+  return _loop();
+}
+
+export function lunfold(gen, seed, tailGen = void 0) {
+  const res = gen(seed);
+  const { value, done } = res;
+  if (done) {
+    return tailGen === void 0 ? nil() : tailGen(seed);
+  }
+  return lcons(value, () => lunfold(gen, "seed" in res ? res.seed : value, tailGen));
+}
+
+// splicing ================
+
+export function ltake(count, list) {
+  if (count === 0 || !isPair(list)) {
+    return null;
+  }
+  return lcons(car(list), () => ltake(count - 1, cdr(list)));
+}
+
+export { drop as ldrop } from "./list";
+
+// composition ================
+
+export function lflat(listOfList) {
+  if (!isPair(listOfList)) {
+    return null;
+  }
+
+  return lconcat2(car(listOfList), () => lflat(cdr(listOfList)));
+}
+
+export function lconcat(list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return list0;
+    }
+    case 1: {
+      return lconcat2(list0, () => lists[0]);
+    }
+    default: {
+      return lconcat2(list0, () => _lconcatN(0, lists));
+    }
+  }
+}
+
+export function lconcat2(list0, thunk) {
+  if (!isPair(list0)) {
+    return thunk();
+  }
+  return lcons(car(list0), () => lconcat2(cdr(list0), thunk));
+}
+
+function _lconcatN(offset, lists) {
+  if (offset === lists.length) {
+    return null;
+  }
+  return lconcat2(lists[offset], () => _lconcatN(offset + 1, lists));
+}
+
+export function lzip(list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return _lzip1(list0);
+    }
+    case 1: {
+      return _lzip2(list0, lists[0]);
+    }
+    default: {
+      return _lzipN(list0, lists);
+    }
+  }
+}
+
+function _lzip1(list0) {
+  if (!isPair(list0)) {
+    return null;
+  }
+  return lcons(listOf(car(list0)), () => _lzip1(cdr(list0)));
+}
+
+function _lzip2(list0, list1) {
+  if (!isPair(list0) || !isPair(list1)) {
+    return null;
+  }
+  return lcons(listOf(car(list0), car(list1)), () => _lzip2(cdr(list0), cdr(list1)));
+}
+
+function _lzipN(list0, lists) {
+  const nLists = lists.length;
+  let elem = null;
+  for (let i = nLists - 1; i >= 0; --i) {
+    const listI = lists[i];
+    if (!isPair(listI)) {
+      return null;
+    }
+    elem = cons(car(listI), elem);
+  }
+
+  if (!isPair(list0)) {
+    return null;
+  }
+  elem = cons(car(list0), elem);
+
+  return lcons(elem, () => {
+    const next0 = cdr(list0);
+    const nexts = new Array(nLists);
+    for (let i = 0; i < nLists; ++i) {
+      nexts[i] = cdr(lists[i]);
+    }
+    return _lzipN(next0, nexts);
+  });
+}
+
+// filtering ================
+
+export function lfilter(pred, list) {
+  for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
+    const x = car(tmp);
+    if (pred(x)) {
+      return lcons(x, () => lfilter(pred, cdr(tmp)));
+    }
+  }
+  return null;
+}
+
+export function ltakeWhile(pred, list) {
+  if (!isPair(list)) {
+    return null;
+  }
+  const x = car(list);
+  if (pred(x)) {
+    return lcons(x, () => ltakeWhile(pred, cdr(list)));
+  }
+  return null;
+}
+
+export function lunique(list) {
+  if (!isPair(list)) {
+    return null;
+  }
+
+  const cache = new Set();
+
+  function loop(list) {
+    if (!isPair(list)) {
+      return null;
+    }
+    const x = car(list);
+    if (cache.has(x)) {
+      return loop(cdr(list));
+    }
+    cache.add(x);
+    return lcons(x, () => loop(cdr(list)));
+  }
+
+  return loop(list);
+}
+
+export {
+  dropWhile as ldropWhile,
+  findTail as lfindTail
+} from "./list";
+
+// mapping ================
+
+export function lmap(proc, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return lmap1(proc, list0);
+    }
+    case 1: {
+      return lmap2(proc, list0, lists[0]);
+    }
+    default: {
+      return _lmapN(proc, list0, lists);
+    }
+  }
+}
+
+export function lmap1(proc, list0) {
+  if (!isPair(list0)) {
+    return null;
+  }
+  return lcons(proc(car(list0)), () => lmap1(proc, cdr(list0)));
+}
+
+export function lmap2(proc, list0, list1) {
+  if (!isPair(list0) || !isPair(list1)) {
+    return null;
+  }
+  return lcons(proc(car(list0), car(list1)), () => lmap2(proc, cdr(list0), cdr(list1)));
+}
+
+function _lmapN(proc, list0, lists) {
+  if (!isPair(list0)) {
+    return null;
+  }
+
+  const value0 = car(list0);
+
+  const nLists = lists.length;
+  const values = new Array(nLists);
+  for (let i = 0; i < nLists; ++i) {
+    const listI = lists[i];
+    if (!isPair(listI)) {
+      return null;
+    }
+    values[i] = car(listI);
+  }
+
+  return lcons(proc(value0, ...values), () => {
+    const rest0 = cdr(list0);
+    const rests = new Array(nLists);
+    for (let i = 0; i < nLists; ++i) {
+      rests[i] = cdr(lists[i]);
+    }
+    return _lmapN(proc, rest0, rests);
+  });
+}
+
+export function lflatMap(proc, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return lflatMap1(proc, list0);
+    }
+    case 1: {
+      return lflatMap2(proc, list0, lists[0]);
+    }
+    default: {
+      return _lflatMapN(proc, list0, lists);
+    }
+  }
+}
+
+export function lflatMap1(proc, list0) {
+  if (!isPair(list0)) {
+    return null;
+  }
+  return lconcat2(proc(car(list0)), () => lflatMap1(proc, cdr(list0)));
+}
+
+export function lflatMap2(proc, list0, list1) {
+  if (!isPair(list0) || !isPair(list1)) {
+    return null;
+  }
+  return lconcat2(proc(car(list0), car(list1)), () => lflatMap2(proc, cdr(list0), cdr(list1)));
+}
+
+function _lflatMapN(proc, list0, lists) {
+  if (!isPair(list0)) {
+    return null;
+  }
+
+  const value0 = car(list0);
+
+  const nLists = lists.length;
+  const values = new Array(nLists);
+  for (let i = 0; i < nLists; ++i) {
+    const listI = lists[i];
+    if (!isPair(listI)) {
+      return null;
+    }
+    values[i] = car(listI);
+  }
+
+  return lconcat2(proc(value0, ...values), () => {
+    const rest0 = cdr(list0);
+    const rests = new Array(nLists);
+    for (let i = 0; i < nLists; ++i) {
+      rests[i] = cdr(lists[i]);
+    }
+    return _lflatMapN(proc, rest0, rests);
+  });
+}
+
+
+================ funcfunc-core/src/lib/lens.js ================
+import { toUInt } from "./asfunc";
+
+export const idlens = lens((target) => target, (_target, value) => value);
+
+export function lens(ref, upd, thisArg = void 0) {
+  if (thisArg === void 0) {
+    return { ref, upd };
+  }
+  return { ref: ref.bind(thisArg), upd: upd.bind(thisArg) };
+}
+
+export function isLens(lns) {
+  return lns != null && typeof lns === "object" && typeof lns.ref === "function" && typeof lns.upd === "function";
+}
+
+export function ref(lns, target) {
+  return lns.ref(target);
+}
+
+export function xref(target, lns) {
+  return lns.ref(target);
+}
+
+export function upd(lns, target, value) {
+  return lns.upd(target, value);
+}
+
+export function xupd(target, lns, value) {
+  return lns.upd(target, value);
+}
+
+export function swap(lns, target, swapper) {
+  return lns.upd(target, swapper(lns.ref(target)));
+}
+
+export function xswap(target, lns, swapper) {
+  return lns.upd(target, swapper(lns.ref(target)));
+}
+
+export function chain(...lenses) {
+  return _chainLens(lenses);
+}
+
+export function pathLens(...propOrIndex) {
+  const { length } = propOrIndex;
+  for (let i = 0; i < length; ++i) {
+    const segment = propOrIndex[i];
+    switch (typeof segment) {
+      case "string":
+      case "symbol": {
+        propOrIndex[i] = new _PropLens(segment);
+        break;
+      }
+      case "number": {
+        propOrIndex[i] = new _IndexLens(segment);
+        break;
+      }
+      default: {
+        throw TypeError(`expects string, symbol, or number, but got: ${segment}`);
+      }
+    }
+  }
+
+  return _chainLens(propOrIndex);
+}
+
+function _chainLens(lenses) {
+  const { length } = lenses;
+  switch (length) {
+    case 0: {
+      return idlens;
+    }
+    case 1: {
+      return lenses[0];
+    }
+    default: {
+      return new _ChainLens(lenses);
+    }
+  }
+}
+
+class _ChainLens {
+  _lenses;
+
+  constructor(lenses) {
+    this._lenses = lenses;
+  }
+
+  ref(target) {
+    const { _lenses } = this;
+    const { length } = _lenses
+
+    let t = target;
+    for (let i = 0; i < length; ++i) {
+      t = _lenses[i].ref(t);
+    }
+    return t;
+  }
+
+  upd(target, value) {
+    const { _lenses } = this;
+    const { length } = _lenses
+    return _chainUpd(_lenses, length, value, 0, target);
+  }
+}
+
+function _chainUpd(lenses, length, value, i, target) {
+  if (i === length) {
+    return value;
+  }
+  const lensI = lenses[i];
+  return lensI.upd(target, _chainUpd(lenses, length, value, i + 1, lensI.ref(target)));
+}
+
+class _PropLens {
+  _prop;
+
+  constructor(prop) {
+    this._prop = prop;
+  }
+
+  ref(target) {
+    if (target == null || typeof target !== "object") {
+      return void 0;
+    }
+    return target[this._prop];
+  }
+
+  upd(target, value) {
+    const { _prop } = this;
+
+    if (target == null || typeof target !== "object") {
+      return { [_prop]: value };
+    }
+
+    if (_prop in target && Object.is(target[_prop], value)) {
+      return target;
+    }
+
+    return { ...target, [_prop]: value };
+  }
+}
+
+class _IndexLens {
+  _index;
+
+  constructor(index) {
+    this._index = toUInt(index);
+  }
+
+  ref(target) {
+    if (!Array.isArray(target)) {
+      return void 0;
+    }
+    return target[this._index];
+  }
+
+  upd(target, value) {
+    const { _index } = this;
+
+    if (!Array.isArray(target)) {
+      const res = new Array(_index + 1);
+      res[_index] = value;
+      return res;
+    }
+
+    const { length } = target;
+    if (_index in target && Object.is(target[_index], value)) {
+      return target;
+    }
+
+    const res = [...target];
+    if (length <= _index) {
+      res.length = _index + 1;
+    }
+    res[_index] = value;
+    return res;
+
+  }
+}
+
+
+================ funcfunc-core/src/lib/list.js ================
+import { toUInt } from "./asfunc";
+
+// core ================
+
+const _nil = {
+  [Symbol.iterator]() {
+    return new _ListIter(this);
+  }
+}
+
+export function nil() {
+  return _nil;
+}
+
+export function isNil(x) {
+  return x === _nil;
+}
+
+export class Pair {
+  constructor(car, cdr, lazy) {
+    this._car = car;
+    this._cdr = cdr;
+    this._lazy = lazy;
+  }
+
+  [Symbol.iterator]() {
+    return new _ListIter(this);
+  }
+}
+
+class _ListIter extends Iterator {
+  constructor(list) {
+    super();
+    this._list = list;
+  }
+
+  next() {
+    const { _list } = this;
+
+    if (isPair(_list)) {
+      const value = car(_list);
+      this._list = cdr(_list);
+      return { value, done: false };
+    }
+
+    return { value: void 0, done: true };
+  }
+
+  return(value) {
+    this._list = _nil;
+    return { value, done: true };
+  }
+}
+
+class _IListIter extends Iterator {
+  constructor(list) {
+    super();
+    this._list = list;
+    this._done = false;
+  }
+
+  next() {
+    const { _list } = this;
+
+    if (isPair(_list)) {
+      const value = car(_list);
+      this._list = cdr(_list);
+      return { value, done: false };
+    }
+
+    if (this._done) {
+      return { value: void 0, done: true };
+    }
+
+    this._done = true;
+    this._list = void 0;
+    return { value: _list, done: false };
+  }
+
+  return(value) {
+    this._done = true;
+    this._list = void 0;
+    return { value, done: true };
+  }
+}
+
+export function isPair(x) {
+  return x instanceof Pair;
+}
+
+export function cons(x, y) {
+  return new Pair(x, y, false);
+}
+
+export function lcons(x, thunk) {
+  return new Pair(x, thunk, true);
+}
+
+export function car(pair) {
+  return pair._car;
+}
+
+export function cdr(pair) {
+  const { _cdr, _lazy } = pair;
+  if (_lazy) {
+    const v = _cdr();
+    pair._cdr = v;
+    pair._lazy = false;
+    return v;
+  }
+  return _cdr;
+}
+
+export function setCar(pair, value) {
+  return pair._car = value;
+}
+
+export function setCdr(pair, value) {
+  pair._lazy = false;
+  return pair._cdr = value;
+}
+
+export function lastPair(pair) {
+  while (isPair(cdr(pair))) {
+    pair = cdr(pair);
+  }
+  return pair;
+}
+
+export function iter(list) {
+  return new _ListIter(list);
+}
+
+export function improperIter(improperList) {
+  return new _IListIter(improperList);
+}
+
+export function at(list, index) {
+  for (let i = 0; i < index; ++i) {
+    if (!isPair(list)) {
+      return void 0;
+    }
+    list = cdr(list);
+  }
+  return isPair(list) ? car(list) : void 0;
+}
+
+export function xat(index, list) {
+  return at(list, index);
+}
+
+export function length(list) {
+  let count = 0;
+  for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
+    count += 1;
+  }
+  return count;
+}
+
+// creation ================
+
+export function listOf(...values) {
+  const { length } = values;
+  let result = _nil;
+  for (let i = length - 1; i >= 0; --i) {
+    result = cons(values[i], result);
+  }
+  return result;
+}
+
+export function repeat(count, value) {
+  count = toUInt(count);
+  let result = _nil;
+  for (let i = 0; i < count; ++i) {
+    result = cons(value, result);
+  }
+  return result;
+}
+
+export function iota(count, start = 0, step = 1) {
+  count = toUInt(count);
+  start = +start;
+  step = +step;
+
+  let result = _nil;
+  for (let i = count - 1; i >= 0; --i) {
+    result = cons(step * i + start, result);
+  }
+
+  return result;
+}
+
+export function unfold(gen, seed, tailGen = void 0) {
+  let acc = _nil;
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    acc = cons(value, acc);
+    seed = "seed" in res ? res.seed : value;
+  }
+  return reverseI(acc, tailGen === void 0 ? _nil : tailGen(seed));
+}
+
+export function unfoldRight(gen, seed, tail = _nil) {
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    tail = cons(value, tail);
+    seed = "seed" in res ? res.seed : value;
+  }
+  return tail;
+}
+
+// splicing ================
+
+export function take(count, list) {
+  count = toUInt(count);
+  let tmp = list;
+  let result = _nil;
+  for (let i = 0; i < count; ++i) {
+    if (tmp === _nil) {
+      return list;
+    }
+    if (!isPair(tmp)) {
+      return reverseI(result);
+    }
+    result = cons(car(tmp), result);
+    tmp = cdr(tmp);
+  }
+  return tmp === _nil ? list : reverseI(result);
+}
+
+export function takeI(count, list) {
+  count = toUInt(count);
+
+  if (count === 0) {
+    return _nil;
+  }
+
+  let tmp = list;
+  for (let i = 0; i < count - 1; ++i) {
+    if (!isPair(tmp)) {
+      return list;
+    }
+    tmp = cdr(tmp);
+  }
+  if (isPair(tmp)) {
+    setCdr(tmp, _nil);
+  }
+  return list;
+}
+
+export function drop(count, list) {
+  count = toUInt(count);
+  for (let i = 0; i < count; ++i) {
+    if (!isPair(list)) {
+      return list;
+    }
+    list = cdr(list);
+  }
+  return list;
+}
+
+export function takeRight(count, list) {
+  return reverseI(takeI(count, reverse(list)));
+}
+
+export function takeRightI(count, list) {
+  return reverseI(takeI(count, reverseI(list)));
+}
+
+export function dropRight(count, list) {
+  return reverseI(drop(count, reverse(list)));
+}
+
+export function dropRightI(count, list) {
+  return reverseI(drop(count, reverseI(list)));
+}
+
+// composition ================
+
+export function flat(listOfList) {
+  let result = _nil;
+  for (let tmp = listOfList; isPair(tmp); tmp = cdr(tmp)) {
+    result = reverse(car(tmp), result);
+  }
+  return reverseI(result);
+}
+
+export function flatI(lists) {
+  let acc = _nil;
+  let tmp;
+  for (tmp = lists; isPair(tmp); tmp = cdr(tmp)) {
+    const x = car(tmp);
+    if (isPair(x)) {
+      acc = x;
+      break;
+    }
+  }
+
+  if (!isPair(acc)) {
+    return acc;
+  }
+
+  let result = acc;
+  for (; isPair(tmp); tmp = cdr(tmp)) {
+    acc = lastPair(acc);
+    setCdr(acc, car(tmp));
+  }
+
+  return result;
+}
+
+export function concat(list0, ...lists) {
+  const nLists = lists.length;
+  if (nLists === 0) {
+    return list0;
+  }
+
+  let acc = lists[nLists - 1];
+  for (let i = nLists - 2; i >= 0; --i) {
+    acc = reverseI(reverse(lists[i]), acc);
+  }
+
+  return reverseI(reverse(list0), acc);
+}
+
+export function concatI(list0, ...lists) {
+  const nLists = lists.length;
+  if (nLists === 0) {
+    return list0;
+  }
+
+  let acc = list0;
+  let i;
+  for (i = 0; i < nLists; ++i) {
+    if (isPair(acc)) {
+      break;
+    }
+    acc = lists[i];
+  }
+
+  const result = acc;
+
+  for (; i < nLists; ++i) {
+    acc = lastPair(acc);
+    setCdr(acc, lists[i]);
+  }
+
+  return result;
+}
+
+export function zip(list0, ...lists) {
+  const nLists = lists.length;
+  const values = new Array(nLists + 1);
+  let result = _nil;
+  Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
+    values[0] = car(tmp0);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        break Outer;
+      }
+      values[i + 1] = car(tmpI);
+      lists[i] = cdr(tmpI);
+    }
+    result = cons(listOf(...values), result);
+  }
+  return reverseI(result);
+}
+
+export function entries(list0, ...lists) {
+  const nLists = lists.length;
+  const values = new Array(nLists + 2);
+  let index = 0;
+  let result = _nil;
+  Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
+    values[0] = index;
+    values[1] = car(tmp0);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        break Outer;
+      }
+      values[i + 2] = car(tmpI);
+      lists[i] = cdr(tmpI);
+    }
+    result = cons(listOf(...values), result);
+    index += 1;
+  }
+  return reverseI(result);
+}
+
+// filtering ================
+
+export function reverseFilter(pred, list) {
+  let result = _nil;
+  for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
+    const x = car(tmp);
+    if (pred(x)) {
+      result = cons(x, result);
+    }
+  }
+  return result;
+}
+
+export function filter(pred, list) {
+  return reverseI(reverseFilter(pred, list));
+}
+
+export function filterI(pred, list) {
+  let result;
+  for (result = list; isPair(result); result = cdr(result)) {
+    if (pred(car(result))) {
+      break;
+    }
+  }
+
+  if (!isPair(result)) {
+    return _nil;
+  }
+
+  let accepted = result;
+  for (let tmp = cdr(accepted); isPair(tmp); tmp = cdr(tmp)) {
+    if (pred(car(tmp))) {
+      setCdr(accepted, tmp);
+      accepted = tmp;
+    }
+  }
+
+  setCdr(accepted, _nil);
+  return result;
+}
+
+export function findTail(pred, list) {
+  for (let result = list; isPair(result); result = cdr(result)) {
+    if (pred(car(result))) {
+      return result;
+    }
+  }
+  return _nil;
+}
+
+export function reverseTakeWhile(pred, list) {
+  let result = _nil;
+  for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
+    const x = car(tmp);
+    if (!pred(x)) {
+      break;
+    }
+    result = cons(x, result);
+  }
+  return result;
+}
+
+export function takeWhile(pred, list) {
+  return reverseI(reverseTakeWhile(pred, list));
+}
+
+export function takeWhileI(pred, list) {
+  if (!isPair(list) || !pred(car(list))) {
+    return _nil;
+  }
+
+  let accepted = list;
+  for (let tmp = cdr(list); isPair(tmp); tmp = cdr(tmp)) {
+    if (!pred(car(tmp))) {
+      break;
+    }
+    accepted = tmp;
+  }
+  setCdr(accepted, _nil);
+  return list;
+}
+
+export function dropWhile(pred, list) {
+  for (let result = list; isPair(result); result = cdr(result)) {
+    if (!pred(car(result))) {
+      return result;
+    }
+  }
+  return _nil;
+}
+
+export function remove(target, list) {
+  let head = _nil;
+  let tail;
+  for (tail = list; isPair(tail); tail = cdr(tail)) {
+    const x = car(tail);
+    if (Object.is(x, target)) {
+      break;
+    }
+    head = cons(x, head);
+  }
+
+  if (isPair(tail)) {
+    return reverseI(head, cdr(tail));
+  }
+
+  return reverseI(head);
+}
+
+export function removeI(target, list) {
+  if (!isPair(list)) {
+    return list;
+  }
+
+  if (Object.is(car(list), target)) {
+    return cdr(list);
+  }
+
+  let tmp = list;
+  for (let cursor = cdr(list); isPair(cursor); cursor = cdr(cursor)) {
+    const x = car(cursor);
+    if (Object.is(x, target)) {
+      setCdr(tmp, cdr(cursor));
+      continue;
+    }
+    tmp = cursor;
+  }
+  return list;
+}
+
+export function unique(list) {
+  const appeared = new Set();
+  let result = _nil;
+  for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
+    const x = car(tmp);
+    if (appeared.has(x)) {
+      continue;
+    }
+    appeared.add(x);
+    result = cons(x, result);
+  }
+  return reverseI(result);
+}
+
+// mapping ================
+
+export function map(proc, list0, ...lists) {
+  return reverseI(reverseMap(proc, list0, ...lists));
+}
+
+export function map1(proc, list0) {
+  return reverseI(reverseMap1(proc, list0));
+}
+
+export function map2(proc, list0, list1) {
+  return reverseI(reverseMap2(proc, list0, list1));
+}
+
+export function reverseMap(proc, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return reverseMap1(proc, list0);
+    }
+    case 1: {
+      return reverseMap2(proc, list0, lists[0]);
+    }
+    default: {
+      return _reverseMapN(proc, list0, lists);
+    }
+  }
+}
+
+export function reverseMap1(proc, list0) {
+  let result = _nil;
+  for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
+    result = cons(proc(car(tmp)), result);
+  }
+  return result;
+}
+
+export function reverseMap2(proc, list0, list1) {
+  let result = _nil;
+  for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
+    result = cons(proc(car(tmp0), car(tmp1)), result);
+  }
+  return result;
+}
+
+function _reverseMapN(proc, list0, lists) {
+  const nLists = lists.length;
+
+  let result = _nil;
+  const values = new Array(nLists);
+  Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
+    const value0 = car(tmp0);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        break Outer;
+      }
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
+    }
+    result = cons(proc(value0, ...values), result);
+  }
+  return result;
+}
+
+export function mapI(proc, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return map1I(proc, list0);
+    }
+    case 1: {
+      return map2I(proc, list0, lists[0]);
+    }
+    default: {
+      return _mapNI(proc, list0, lists);
+    }
+  }
+}
+
+export function map1I(proc, list0) {
+  for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
+    setCar(tmp, proc(car(tmp)));
+  }
+  return list0;
+}
+
+export function map2I(proc, list0, list1) {
+  if (!isPair(list0) || !isPair(list1)) {
+    return _nil;
+  }
+
+  let last;
+  for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
+    setCar(tmp0, proc(car(tmp0), car(tmp1)));
+    last = tmp0;
+  }
+  setCdr(last, _nil);
+  return list0;
+}
+
+function _mapNI(proc, list0, lists) {
+  if (!isPair(list0)) {
+    return _nil;
+  }
+
+  const nLists = lists.length;
+
+  for (let i = 0; i < nLists; ++i) {
+    if (!isPair(lists[i])) {
+      return _nil;
+    }
+  }
+
+  let last;
+  const values = new Array(nLists);
+
+  Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
+    const value0 = car(tmp0);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        break Outer;
+      }
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
+    }
+    setCar(tmp0, proc(value0, ...values));
+    last = tmp0;
+  }
+
+  setCdr(last, _nil);
+  return list0;
+}
+
+export function flatMap(proc, list0, ...lists) {
+  return reverseI(reverseFlatMap(proc, list0, ...lists));
+}
+
+export function flatMap1(proc, list0) {
+  return reverseI(reverseFlatMap1(proc, list0));
+}
+
+export function flatMap2(proc, list0, list1) {
+  return reverseI(reverseFlatMap2(proc, list0, list1));
+}
+
+export function reverseFlatMap(proc, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return reverseFlatMap1(proc, list0);
+    }
+    case 1: {
+      return reverseFlatMap2(proc, list0, lists[0]);
+    }
+    default: {
+      return _reverseFlatMapN(proc, list0, lists);
+    }
+  }
+}
+
+export function reverseFlatMap1(proc, list0) {
+  let result = _nil;
+  for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
+    result = reverse(proc(car(tmp)), result);
+  }
+  return result;
+}
+
+export function reverseFlatMap2(proc, list0, list1) {
+  let result = _nil;
+  for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
+    result = reverse(proc(car(tmp0), car(tmp1)), result);
+  }
+  return result;
+}
+
+function _reverseFlatMapN(proc, list0, lists) {
+  const nLists = lists.length;
+
+  let result = _nil;
+  const values = new Array(nLists);
+  Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
+    const value0 = car(tmp0);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        break Outer;
+      }
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
+    }
+    result = reverse(proc(value0, ...values), result);
+  }
+  return result;
+}
+
+export function flatMapI(proc, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return flatMap1I(proc, list0);
+    }
+    case 1: {
+      return flatMap2I(proc, list0, lists[0]);
+    }
+    default: {
+      return _flatMapNI(proc, list0, lists);
+    }
+  }
+}
+
+export function flatMap1I(proc, list0) {
+  let result = _nil;
+  let last;
+
+  for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
+    const res = proc(car(tmp));
+    if (!isPair(result)) {
+      if (isPair(res)) {
+        last = result = res;
+      }
+      continue;
+    }
+    last = lastPair(last);
+    setCdr(last, res);
+  }
+  return result;
+}
+
+export function flatMap2I(proc, list0, list1) {
+  let result = _nil;
+  let last;
+
+  for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
+    const res = proc(car(tmp0), car(tmp1));
+    if (!isPair(result)) {
+      if (isPair(res)) {
+        last = result = res;
+      }
+      continue;
+    }
+    last = lastPair(last);
+    setCdr(last, res);
+  }
+  return result;
+}
+
+function _flatMapNI(proc, list0, lists) {
+  const nLists = lists.length;
+  let result = _nil;
+  let last;
+  const values = new Array(nLists);
+
+  Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
+    const value0 = car(tmp0);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        break Outer;
+      }
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
+    }
+
+    const res = proc(value0, ...values);
+    if (!isPair(result)) {
+      if (isPair(res)) {
+        last = result = res;
+      }
+      continue;
+    }
+    last = lastPair(last);
+    setCdr(last, res);
+  }
+  return result;
+}
+
+// reduction ================
+
+export function reduce(proc, init, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return reduce1(proc, init, list0);
+    }
+    case 1: {
+      return reduce2(proc, init, list0, lists[0]);
+    }
+    default: {
+      return _reduceN(proc, init, list0, lists);
+    }
+  }
+}
+
+export function reduce1(proc, init, list0) {
+  for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
+    init = proc(init, car(tmp));
+  }
+  return init;
+}
+
+export function reduce2(proc, init, list0, list1) {
+  for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
+    init = proc(init, car(tmp0), car(tmp1));
+  }
+  return init;
+}
+
+function _reduceN(proc, init, list0, lists) {
+  const nLists = lists.length;
+
+  const values = new Array(nLists);
+  Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
+    const value0 = car(tmp0);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        break Outer;
+      }
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
+    }
+    init = proc(init, value0, ...values);
+  }
+  return init;
+}
+
+export function reduceRight(proc, init, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return reduceRight1(proc, init, list0);
+    }
+    case 1: {
+      return reduceRight2(proc, init, list0, lists[0]);
+    }
+    default: {
+      return _reduceRightN(proc, init, list0, lists);
+    }
+  }
+}
+
+export function reduceRight1(proc, init, list0) {
+  if (isPair(list0)) {
+    return proc(reduceRight1(proc, init, cdr(list0)), car(list0));
+  }
+  return init;
+}
+
+export function reduceRight2(proc, init, list0, list1) {
+  if (isPair(list0) && isPair(list1)) {
+    return proc(reduceRight2(proc, init, cdr(list0), cdr(list1)), car(list0), car(list1));
+  }
+  return init;
+}
+
+function _reduceRightN(proc, init, list0, lists) {
+  const nLists = lists.length;
+
+  if (!isPair(list0)) {
+    return init;
+  }
+
+  const value0 = car(list0);
+  const values = new Array(nLists);
+
+  const rest0 = cdr(list0);
+  const rests = new Array(nLists);
+  for (let i = 0; i < nLists; ++i) {
+    const tmpI = lists[i];
+    if (!isPair(tmpI)) {
+      return init;
+    }
+    values[i] = car(tmpI);
+    rests[i] = cdr(tmpI);
+  }
+
+  return proc(_reduceRightN(proc, init, rest0, rests), value0, ...values);
+}
+
+export function forEach(proc, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return forEach1(proc, list0);
+    }
+    case 1: {
+      return forEach2(proc, list0, lists[0]);
+    }
+    default: {
+      return _forEachN(proc, list0, lists);
+    }
+  }
+}
+
+export function forEach1(proc, list0) {
+  for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
+    proc(car(tmp));
+  }
+}
+
+export function forEach2(proc, list0, list1) {
+  for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
+    proc(car(tmp0), car(tmp1));
+  }
+}
+
+function _forEachN(proc, list0, lists) {
+  const nLists = lists.length;
+
+  const values = new Array(nLists);
+
+  for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
+    const value0 = car(tmp0);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        return;
+      }
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
+    }
+    proc(value0, ...values);
+  }
+}
+
+export function every(pred, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return every1(pred, list0);
+    }
+    case 1: {
+      return every2(pred, list0, lists[0]);
+    }
+    default: {
+      return _everyN(pred, list0, lists);
+    }
+  }
+}
+
+export function every1(pred, list0) {
+  let result = true;
+  for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
+    result = pred(car(tmp));
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function every2(pred, list0, list1) {
+  let result = true;
+
+  for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
+    result = pred(car(tmp0), car(tmp1));
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+function _everyN(pred, list0, lists) {
+  const nLists = lists.length;
+  const values = new Array(nLists);
+
+  let result = true;
+  Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
+    const value0 = car(tmp0);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        break Outer;
+      }
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
+    }
+
+    result = pred(value0, ...values);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function some(pred, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return some1(pred, list0);
+    }
+    case 1: {
+      return some2(pred, list0, lists[0]);
+    }
+    default: {
+      return _someN(pred, list0, lists);
+    }
+  }
+}
+
+export function some1(pred, list0) {
+  let result = false;
+  for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
+    result = pred(car(tmp));
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function some2(pred, list0, list1) {
+  let result = false;
+
+  for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
+    result = pred(car(tmp0), car(tmp1));
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+function _someN(pred, list0, lists) {
+  const nLists = lists.length;
+  const values = new Array(nLists);
+
+  let result = false;
+  Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
+    const value0 = car(tmp0);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        break Outer;
+      }
+      values[i] = car(tmpI);
+      lists[i] = cdr(tmpI);
+    }
+
+    result = pred(value0, ...values);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function join(sep, list) {
+  const acc = [];
+  for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
+    acc.push(car(tmp));
+  }
+  return acc.join(sep);
+}
+
+// misc ================
+
+export function reverse(list, last = _nil) {
+  let acc = last;
+  for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
+    acc = cons(car(tmp), acc);
+  }
+  return acc;
+}
+
+export function reverseI(list, last = _nil) {
+  let acc = last;
+  let tmp = list;
+
+  while (isPair(tmp)) {
+    const next = cdr(tmp);
+    setCdr(tmp, acc);
+    acc = tmp;
+    tmp = next;
+  }
+
+  return acc;
+}
+
+
+================ funcfunc-core/src/lib/multi.js ================
+import { is } from "./asfunc";
+import { car, cdr, flatMap1, isPair, lastPair, listOf, map1, setCdr, some1 } from "./list";
+
+export function multi({ dispatch, defaultImpl = _defaultImpl }) {
+  const implMap = new Map();
+
+  function _doMethod(...args) {
+    const keys = traverseHierarchy(dispatch(...args));
+    for (const k of keys) {
+      const impl = implMap.get(k);
+      if (impl != null) {
+        return impl(...args);
+      }
+    }
+    return defaultImpl(...args);
+  }
+
+  _doMethod.reg = (key, impl) => {
+    implMap.set(key, impl);
+    return _doMethod;
+  };
+
+  return _doMethod;
+}
+
+export function derive(child, parent) {
+  let hier = _hierarchy.get(child);
+  if (hier == null) {
+    _hierarchy.set(child, (hier = listOf(child)));
+  }
+
+  const parents = map1(car, cdr(hier));
+
+  if (some1((p) => is(p, parent), parents)) {
+    return;
+  }
+
+  let parentHier = _hierarchy.get(parent);
+  if (parentHier == null) {
+    _hierarchy.set(parent, (parentHier = listOf(parent)));
+  }
+
+  setCdr(lastPair(hier), listOf(parentHier));
+}
+
+/*
+{
+  superA1: (superA1 (superA1a) (superA1b)),
+  superA1a: (superA1a)
+  superA1b: (superA1b)
+  superA2: (superA2 (superA2a) (superA2b)),
+  superA2a: (superA2a),
+  superA2b: (superA2b),
+  superB1: (superB1),
+  superB2: (superB2),
+  classA: (classA (superA1 (superA1a) (superA1b)) (superA2 (superA2a) (superA2b))),
+  classB: (classB (superB1) (superB2)),
+}
+*/
+const _hierarchy = new Map();
+
+export function* traverseHierarchy(hierarchy) {
+  const current = car(hierarchy);
+  yield current;
+  for (let ancestors = cdr(hierarchy); isPair(ancestors); ancestors = flatMap1(cdr, ancestors)) {
+    const parents = map1(car, ancestors);
+    yield* parents;
+  }
+}
+
+export function isa(target, type) {
+  const hierarchy = _hierarchy.get(target) ?? listOf(target);
+  for (const t of traverseHierarchy(hierarchy)) {
+    if (is(t, type)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function _defaultImpl() {
+  throw TypeError("Not implemented");
+}
+
+
+================ funcfunc-core/src/lib/nullable.js ================
+import { isNull, isUndef } from "./asfunc";
+
+export { isNull, isUndef };
+
+export function isNullish(x) {
+  return x == null;
+}
+
+export function isFalsy(x) {
+  return !x;
+}
+
+export function nullMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return nullMap1(proc, x0);
+    }
+    case 1: {
+      return nullMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _nullMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function nullMap1(proc, x0) {
+  if (x0 === null) {
+    return null;
+  }
+  return proc(x0);
+}
+
+export function nullMap2(proc, x0, x1) {
+  if (x0 === null || x1 === null) {
+    return null;
+  }
+  return proc(x0, x1);
+}
+
+function _nullMapN(proc, x0, xs) {
+  if (x0 === null) {
+    return null;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] === null) {
+      return null;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+export function undefMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return undefMap1(proc, x0);
+    }
+    case 1: {
+      return undefMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _undefMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function undefMap1(proc, x0) {
+  if (x0 === void 0) {
+    return void 0;
+  }
+  return proc(x0);
+}
+
+export function undefMap2(proc, x0, x1) {
+  if (x0 === void 0 || x1 === void 0) {
+    return void 0;
+  }
+  return proc(x0, x1);
+}
+
+function _undefMapN(proc, x0, xs) {
+  if (x0 === void 0) {
+    return void 0;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] === void 0) {
+      return void 0;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+export function nullishMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return nullishMap1(proc, x0);
+    }
+    case 1: {
+      return nullishMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _nullishMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function nullishMap1(proc, x0) {
+  if (x0 == null) {
+    return void 0;
+  }
+  return proc(x0);
+}
+
+export function nullishMap2(proc, x0, x1) {
+  if (x0 == null || x1 == null) {
+    return void 0;
+  }
+  return proc(x0, x1);
+}
+
+function _nullishMapN(proc, x0, xs) {
+  if (x0 == null) {
+    return void 0;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] == null) {
+      return void 0;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+export function falsyMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return falsyMap1(proc, x0);
+    }
+    case 1: {
+      return falsyMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _falsyMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function falsyMap1(proc, x0) {
+  if (!x0) {
+    return false;
+  }
+  return proc(x0);
+}
+
+export function falsyMap2(proc, x0, x1) {
+  if (!x0 || !x1) {
+    return false;
+  }
+  return proc(x0, x1);
+}
+
+function _falsyMapN(proc, x0, xs) {
+  if (!x0) {
+    return false;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (!xs[i]) {
+      return false;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+export function falseMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return falseMap1(proc, x0);
+    }
+    case 1: {
+      return falseMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _falseMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function falseMap1(proc, x0) {
+  if (x0 === false) {
+    return false;
+  }
+  return proc(x0);
+}
+
+export function falseMap2(proc, x0, x1) {
+  if (x0 === false || x1 === false) {
+    return false;
+  }
+  return proc(x0, x1);
+}
+
+function _falseMapN(proc, x0, xs) {
+  if (x0 === false) {
+    return false;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] === false) {
+      return false;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+
+================ funcfunc-core/src/lib/queue/double-stack-queue.js ================
+const _deleteMark = Symbol("delete mark");
+
+export class DStackQueue {
+  _leftBuffer = [];
+  _rightBuffer = [];
+  _deleted = 0;
+
+  constructor() {
+  }
+
+  get capacity() {
+    return Number.POSITIVE_INFINITY
+  }
+
+  get filled() {
+    return this._leftBuffer.length + this._rightBuffer.length;
+  }
+
+  get size() {
+    return this.filled - this._deleted;
+  }
+
+  push(value) {
+    const { _leftBuffer, _rightBuffer } = this;
+
+    if (_rightBuffer.length === 0 && _leftBuffer.length === 0) {
+      _leftBuffer.push(value);
+    } else {
+      _rightBuffer.push(value);
+    }
+    return true;
+  }
+
+  pop() {
+    const { value, success } = this._tryPop();
+    if (success) {
+      return value;
+    }
+    this.flush();
+    return this._tryPop().value;
+  }
+
+  delete(target) {
+    const { _leftBuffer, _rightBuffer } = this;
+    const leftLength = _leftBuffer.length;
+    const rightLength = _rightBuffer.length;
+
+    for (let i = rightLength - 1; i >= 0; --i) {
+      const value = _rightBuffer[i];
+      if (Object.is(value, target)) {
+        _rightBuffer[i] = _deleteMark;
+        this._deleted += 1;
+        return true;
+      }
+    }
+
+    for (let i = 0; i < leftLength; ++i) {
+      const value = _leftBuffer[i];
+      if (Object.is(value, target)) {
+        _leftBuffer[i] = _deleteMark;
+        this._deleted += 1;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  flush() {
+    const { _leftBuffer, _rightBuffer } = this;
+    const leftLength = _leftBuffer.length;
+    const rightLength = _rightBuffer.length;
+
+    const buffer = [];
+
+    for (let i = rightLength - 1; i >= 0; --i) {
+      const value = _rightBuffer[i];
+      if (value === _deleteMark) {
+        this._deleted -= 1;
+        continue;
+      }
+      buffer.push(value);
+    }
+
+    for (let i = 0; i < leftLength; ++i) {
+      const value = _leftBuffer[i];
+      if (value === _deleteMark) {
+        this._deleted -= 1;
+        continue;
+      }
+      buffer.push(value);
+    }
+
+    this._leftBuffer = buffer;
+    this._rightBuffer = [];
+  }
+
+  _tryPop() {
+    const { _leftBuffer } = this;
+    while (_leftBuffer.length > 0) {
+      const value = _leftBuffer.pop();
+
+      if (value !== _deleteMark) {
+        return { value, success: true };
+      }
+      this._deleted -= 1;
+    }
+
+    return { value: void 0, success: false };
+  }
+}
+
+
+================ funcfunc-core/src/lib/queue/ring-queue.js ================
+const _deleteMark = Symbol("delete mark");
+
+export class RingQueue {
+  _drop = false;
+  _factor = 0;
+  _mask = 0;
+  _buffer = null;
+  _pushed = 0;
+  _popped = 0;
+  _deleted = 0;
+
+  constructor(capacityHint = 4, drop = false) {
+    this._drop = drop;
+    this._reset(_factorFromHint(capacityHint));
+  }
+
+  get capacity() {
+    return this._buffer.length;
+  }
+
+  get filled() {
+    return this._pushed - this._popped >>> 0;
+  }
+
+  get size() {
+    return this.filled - this._deleted;
+  }
+
+  push(value) {
+    if (this.filled === this.capacity) {
+      if (!this._drop) {
+        return false;
+      }
+      this.pop();
+    }
+
+    const { _mask, _buffer, _pushed } = this;
+    _buffer[_pushed & _mask] = value;
+    this._pushed = _pushed + 1 >>> 0;
+    return true;
+  }
+
+  pop() {
+    const { _mask, _buffer, _pushed, _popped } = this;
+
+    for (let i = _popped; (_pushed - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const index = i & _mask;
+      const value = _buffer[index];
+
+      _buffer[index] = void 0;
+
+      if (value !== _deleteMark) {
+        this._popped = i + 1 >>> 0;
+        return value;
+      }
+
+      this._deleted -= 1;
+    }
+
+    return void 0;
+  }
+
+  peek() {
+    const { _mask, _buffer, _pushed, _popped } = this;
+
+    for (let i = _popped; (_pushed - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const index = i & _mask;
+      const value = _buffer[index];
+
+      if (value !== _deleteMark) {
+        return value;
+      }
+    }
+
+    return void 0;
+  }
+
+  delete(target) {
+    const { _mask, _buffer, _pushed, _popped } = this;
+
+    for (let i = _popped; (_pushed - i >>> 0) > 0; i = i + 1 >>> 0) {
+      const index = i & _mask;
+      const value = _buffer[index];
+
+      if (Object.is(value, target)) {
+        _buffer[index] = _deleteMark;
+        this._deleted += 1;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  extend(capacityHint) {
+    const { _factor, _mask, _buffer, _pushed, _popped } = this;
+    const newFactor = Math.max(_factor + 1, _factorFromHint(capacityHint));
+
+    this._reset(newFactor);
+
+    for (let i = _popped; (_pushed - i >>> 0) > 0; ++i) {
+      const index = i & _mask;
+      const value = _buffer[index];
+
+      if (value === _deleteMark) {
+        continue;
+      }
+
+      this.push(value);
+    }
+  }
+
+  _reset(factor) {
+    const capacity = 1 << factor;
+
+    this._factor = factor;
+    this._mask = capacity - 1;
+    this._buffer = new Array(capacity);
+    this._pushed = 0;
+    this._popped = 0;
+    this._deleted = 0;
+  }
+}
+
+function _factorFromHint(hint) {
+  if (hint <= 0) {
+    throw Error(`expects hint be larger than 0, but got ${hint}`);
+  }
+  return 32 - Math.clz32(hint - 1);
+}
+
+
+================ funcfunc-core/src/lib/sigtree.js ================
+import { every2, forEach1, map1 } from "./arrays";
+
+export function atom(init) {
+  return new Atom(init);
+}
+
+export function track(handler, ...nodes) {
+  return new Track(handler, nodes);
+}
+
+export function focus(lns, node) {
+  return new Focus(lns, node);
+}
+
+export function effect(handler, ...nodes) {
+  return new Effect(handler, nodes);
+}
+
+export function deref(node) {
+  node._retain?.();
+  const res = node._deref();
+  node._release?.();
+  return res;
+}
+
+export function swap(node, swapper, ...args) {
+  node._retain?.();
+  const res = node._swap(swapper, ...args);
+  node._release?.();
+  return res;
+}
+
+export function xswap(swapper, node, ...args) {
+  return swap(node, swapper, ...args);
+}
+
+export function reset(node, value) {
+  return swap(node, () => value);
+}
+
+export function retain(node) {
+  return node._retain();
+}
+
+export function release(node) {
+  return node._release();
+}
+
+class _RC {
+  constructor(listener) {
+    this.__listener = listener;
+    this.__count = 0;
+  }
+
+  _retain() {
+    if (this.__count++ === 0) {
+      this.__listener._onInit?.();
+    }
+  }
+
+  _release() {
+    if (this.__count === 0) {
+      throw Error("too many release");
+    }
+    if (--this.__count === 0) {
+      this.__listener._onFinal?.();
+    }
+  }
+}
+
+class _Children {
+  constructor(listener) {
+    this.__listener = listener;
+    this.__sigNodeSet = new Set();
+  }
+
+  _nodes() {
+    return this.__sigNodeSet.values();
+  }
+
+  _regChild(sigNode) {
+    const { __sigNodeSet: __children } = this;
+    if (__children.has(sigNode)) {
+      return;
+    }
+    __children.add(sigNode);
+    this.__listener._onRegChild?.(sigNode);
+  }
+
+  _removeChild(sigNode) {
+    const { __sigNodeSet: __children } = this;
+    if (!__children.has(sigNode)) {
+      return;
+    }
+    this.__listener._onRemoveChild?.(sigNode);
+    __children.delete(sigNode);
+  }
+
+  _clearChildren() {
+    forEach1((c) => this._removeChild(c), [...this.__sigNodeSet]);
+  }
+}
+
+const _st_disabled = 0;
+const _st_fresh = 1;
+const _st_stale = 2;
+const _st_new = 3;
+
+class _Stm {
+  constructor(listener) {
+    this.__state = _st_disabled;
+    this.__listener = listener;
+  }
+
+  _start() {
+    switch (this.__state) {
+      case _st_disabled: {
+        this.__state = _st_new;
+        this.__listener._onStart?.();
+        break;
+      }
+      case _st_fresh:
+      case _st_stale:
+      case _st_new: {
+        throw Error("expects disabled state");
+      }
+      default: {
+        throw Error("Unrecognized state");
+      }
+    }
+  }
+
+  _refresh() {
+    switch (this.__state) {
+      case _st_disabled: {
+        throw Error("disabled");
+      }
+      case _st_fresh: {
+        return this.__listener._onSkipRefresh?.();
+      }
+      case _st_stale: {
+        this.__state = _st_fresh;
+        return this.__listener._onRefresh?.();
+      }
+      case _st_new: {
+        this.__state = _st_fresh;
+        return this.__listener._onActivate?.();
+      }
+      default: {
+        throw Error("Unrecognized state");
+      }
+    }
+  }
+
+  _stale() {
+    switch (this.__state) {
+      case _st_disabled: {
+        throw Error("disabled");
+      }
+      case _st_fresh: {
+        this.__state = _st_stale;
+        return this.__listener._onStale?.();
+      }
+      case _st_stale:
+      case _st_new: {
+        return this.__listener._onSkipStale?.();
+      }
+      default: {
+        throw Error("Unrecognized state");
+      }
+    }
+  }
+
+  _dispose() {
+    switch (this.__state) {
+      case _st_disabled: {
+        throw Error("disabled");
+      }
+      case _st_fresh:
+      case _st_stale:
+      case _st_new: {
+        this.__state = _st_disabled;
+        this.__listener._onDispose?.();
+      }
+    }
+  }
+}
+
+class _Deps {
+  constructor(listener, depNodes) {
+    this.__listener = listener;
+    this._depNodes = depNodes;
+    this._values = [];
+  }
+
+  _collect() {
+    const values = map1((n) => n._deref(), this._depNodes);
+    this._values = values;
+    return values;
+  }
+
+  _recollect() {
+    const values = map1((n) => n._deref(), this._depNodes);
+    const changed = !every2(Object.is, this._values, values);
+    if (changed) {
+      this._values = values;
+      return true;
+    }
+    return false;
+  }
+
+  _clearValues() {
+    this._values = [];
+  }
+}
+
+export class Atom {
+  constructor(init) {
+    this._children = new _Children(this);
+    this._value = init;
+  }
+
+  _deref() {
+    return this._value;
+  }
+
+  _swap(swapper, ...args) {
+    const { _value } = this;
+    const next = swapper(_value, ...args);
+
+    if (Object.is(_value, next)) {
+      return _value;
+    }
+
+    this._value = next;
+
+    const effs = new Set(_staleAndCollectEffects(this._children._nodes()));
+
+    effs.forEach((eff) => eff._invoke());
+
+    return this._value;
+  }
+
+  _regChild(sigNode) {
+    return this._children._regChild(sigNode);
+  }
+
+  _removeChild(sigNode) {
+    return this._children._removeChild(sigNode);
+  }
+}
+
+export class Track {
+  constructor(handler, depNodes) {
+    this._stm = new _Stm(this);
+    this._rc = new _RC(this);
+    this._children = new _Children(this);
+    this._deps = new _Deps(depNodes);
+
+    this._handler = handler;
+    this._value = void 0;
+  }
+
+  _deref() {
+    return this._stm._refresh();
+  }
+
+  _stale() {
+    return this._stm._stale();
+  }
+
+  _retain() {
+    this._rc._retain();
+  }
+
+  _release() {
+    this._rc._release();
+  }
+
+  _regChild(sigNode) {
+    this._children._regChild(sigNode);
+  }
+
+  _removeChild(sigNode) {
+    this._children._removeChild(sigNode);
+  }
+
+  _onStart() {
+    forEach1((sigNode) => sigNode._regChild(this), this._deps._depNodes);
+  }
+
+  _onActivate() {
+    this._value = this._handler(...this._deps._collect());
+    return this._value;
+  }
+
+  _onRefresh() {
+    const { _deps } = this;
+    if (_deps._recollect()) {
+      const next = this._handler(..._deps._values);
+      if (!Object.is(this._value, next)) {
+        this._value = next;
+      }
+    }
+    return this._value;
+  }
+
+  _onSkipRefresh() {
+    return this._value;
+  }
+
+  _onStale() {
+    return _staleAndCollectEffects(this._children._nodes());
+  }
+
+  *_onSkipStale() {
+  }
+
+  _onDispose() {
+    const { _deps } = this;
+    forEach1((sigNode) => sigNode._removeChild(this), _deps._depNodes);
+    _deps._clearValues();
+    this._value = void 0;
+  }
+
+  _onInit() {
+    this._stm._start();
+  }
+
+  _onFinal() {
+    this._stm._dispose();
+  }
+
+  _onRegChild() {
+    this._retain();
+
+  }
+
+  _onRemoveChild() {
+    this._release();
+  }
+
+}
+
+export class Focus {
+  constructor(lens, depNode) {
+    this._stm = new _Stm(this);
+    this._rc = new _RC(this);
+    this._children = new _Children(this);
+    this._deps = new _Deps([depNode]);
+
+    this._lens = lens;
+    this._value = void 0;
+  }
+
+  _deref() {
+    this._stm._refresh();
+    return this._value;
+  }
+
+  _swap(swapper, ...args) {
+    const { _lens } = this;
+    const parentValue = this._deps._depNodes[0]._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep), ...args)));
+    return _lens.ref(parentValue);
+  }
+
+  _stale() {
+    return this._stm._stale();
+  }
+
+  _retain() {
+    this._rc._retain();
+  }
+
+  _release() {
+    this._rc._release();
+  }
+
+  _regChild(sigNode) {
+    this._children._regChild(sigNode);
+  }
+
+  _removeChild(sigNode) {
+    this._children._removeChild(sigNode);
+  }
+
+  _onStart() {
+    this._deps._depNodes[0]._regChild(this);
+  }
+
+  _onActivate() {
+    this._value = this._lens.ref(this._deps._collect()[0]);
+    return this._value;
+  }
+
+  _onRefresh() {
+    const { _deps } = this;
+    if (_deps._recollect()) {
+      const next = this._lens.ref(_deps._values[0]);
+      if (!Object.is(this._value, next)) {
+        this._value = this._lens.ref(_deps._values[0]);
+      }
+    }
+    return this._value;
+  }
+
+  _onSkipRefresh() {
+    return this._value;
+  }
+
+  _onStale() {
+    return _staleAndCollectEffects(this._children._nodes());
+  }
+
+  *_onSkipStale() {
+  }
+
+  _onDispose() {
+    const { _deps } = this;
+    _deps._depNodes[0]._removeChild(this);
+    _deps._clearValues();
+    this._value = void 0;
+  }
+
+  _onInit() {
+    this._stm._start();
+  }
+
+  _onFinal() {
+    this._stm._dispose();
+  }
+
+  _onRegChild() {
+    this._retain();
+  }
+
+  _onRemoveChild() {
+    this._release();
+  }
+}
+
+export class Effect {
+  constructor(handler, depNodes) {
+    this._stm = new _Stm(this);
+    this._rc = new _RC(this);
+    this._deps = new _Deps(depNodes);
+
+    this._handler = handler;
+    this._cleanup = void 0;
+  }
+
+  _invoke() {
+    this._stm._refresh();
+  }
+
+  _stale() {
+    return this._stm._stale();
+  }
+
+  _retain() {
+    this._rc._retain();
+  }
+
+  _release() {
+    this._rc._release();
+  }
+
+  _onStart() {
+    forEach1((sigNode) => sigNode._regChild(this), this._deps._depNodes);
+  }
+
+  _onActivate() {
+    this._cleanup = this._handler(...this._deps._collect());
+  }
+
+  _onRefresh() {
+    const { _deps } = this;
+    if (_deps._recollect()) {
+      this._cleanup?.();
+      this._cleanup = this._handler(..._deps._values);
+    }
+  }
+
+  *_onStale() {
+    yield this;
+  }
+
+  *_onSkipStale() {
+  }
+
+  _onDispose() {
+    this._cleanup?.();
+    const { _deps } = this;
+    forEach1((sigNode) => sigNode._removeChild(this), _deps._depNodes);
+    _deps._clearValues();
+  }
+
+  _onInit() {
+    this._stm._start();
+  }
+
+  _onFinal() {
+    this._stm._dispose();
+  }
+}
+
+function* _staleAndCollectEffects(sigNodes) {
+  for (const n of sigNodes) {
+    yield* n._stale();
+  }
+}
+
+
+================ funcfunc-core/src/lib/transducer.js ================
+// core ================
+
+const _end = Symbol("end of transducing");
+
+export function stop() {
+  return _end;
+}
+
+export function isStopped(value) {
+  return _end === value;
+}
+
+// runner ================
+
+export function transduce(xform, rf, init, iter) {
+  const proc = xform(rf);
+  for (const v of iter) {
+    const res = proc(init, v);
+    if (isStopped(res)) {
+      break;
+    }
+    init = res;
+  }
+  return init;
+}
+
+// splicing ================
+
+export function takeTS(count) {
+  return (rf) => {
+    let i = 0;
+
+    return (acc, value) => {
+      if (i >= count) {
+        return _end;
+      }
+      i += 1;
+      return rf(acc, value);
+    };
+  };
+}
+
+export function dropTS(count) {
+  return (rf) => {
+    let i = 0;
+
+    return (acc, value) => {
+      if (i < count) {
+        i += 1;
+        return acc;
+      }
+      return rf(acc, value);
+    };
+  };
+}
+
+// composition ================
+
+export function flatT() {
+  return (rf) => (acc, iter) => {
+    for (const value of iter) {
+      if (isStopped(value)) {
+        return _end;
+      }
+      acc = rf(acc, value);
+    }
+    return acc;
+  };
+}
+
+export function entriesTS() {
+  return (rf) => {
+    let i = 0;
+
+    return (acc, value) => {
+      return rf(acc, [i++, value]);
+    };
+  };
+}
+
+// filtering ================
+
+export function filterT(pred) {
+  return (rf) => (acc, value) => {
+    if (pred(value)) {
+      return rf(acc, value);
+    }
+    return acc;
+  };
+}
+
+export function findTailTS(pred) {
+  return (rf) => {
+    let found = false;
+
+    return (acc, value) => {
+      if (found) {
+        return rf(acc, value);
+      }
+      if (pred(value)) {
+        found = true;
+        return rf(acc, value);
+      }
+      return acc;
+    };
+  };
+}
+
+export function takeWhileT(pred) {
+  return (rf) => (acc, value) => {
+    if (pred(value)) {
+      return rf(acc, value);
+    }
+    return _end;
+  };
+}
+
+export function dropWhileTS(pred) {
+  return (rf) => {
+    let unmatched = false;
+
+    return (acc, value) => {
+      if (unmatched) {
+        return rf(acc, value);
+      }
+      if (pred(value)) {
+        return acc;
+      }
+      unmatched = true;
+      return rf(acc, value);
+    };
+  };
+}
+
+export function uniqueTS() {
+  return (rf) => {
+    const appeared = new Set();
+
+    return (acc, value) => {
+      if (appeared.has(value)) {
+        return acc;
+      }
+      appeared.add(value);
+      return rf(acc, value);
+    };
+  };
+}
+
+// mapping ================
+
+export function mapT(proc) {
+  return (rf) => (acc, value) => {
+    return rf(acc, proc(value));
+  };
+}
+
+export function flatMapT(proc) {
+  return (rf) => (acc, value) => {
+    for (const v of proc(value)) {
+      acc = rf(acc, v);
+    }
+    return acc;
+  }
+}
+
+
+================ funcfunc-core/src/lib/validate/core.js ================
+import { fail, isFailed, isSuccess, reasons } from "../failable";
+
+export function all(...validators) {
+  return (target, detail) => {
+    let tmp = target;
+
+    for (const v of validators) {
+      const res = v(tmp, detail);
+      if (isFailed(res)) {
+        return res;
+      }
+      tmp = res;
+    }
+
+    return tmp;
+  };
+}
+
+export function allSettled(...validators) {
+  return (target, detail) => {
+    let tmp = target;
+    const allReasons = [];
+
+    for (const v of validators) {
+      const res = v(tmp, detail);
+      if (isFailed(res)) {
+        allReasons.push(...reasons(res));
+        continue;
+      }
+      tmp = res;
+    }
+
+    if (allReasons.length === 0) {
+      return tmp;
+    }
+    return fail(...allReasons);
+  };
+}
+
+export function any(...validators) {
+  return (target, detail) => {
+    const allReasons = [];
+
+    for (const v of validators) {
+      const res = v(target, detail);
+      if (isSuccess(res)) {
+        return res;
+      }
+      allReasons.push(...reasons(res));
+    }
+
+    return fail(...allReasons);
+  };
+}
+
+export function isTypeof(type) {
+  return (target, detail) => {
+    return typeof target === type ? target : fail(new ValidationError(detail, `expects ${type}, but got ${typeof target}`));
+  };
+}
+
+export const isBoolean = isTypeof("boolean");
+export const isNumber = isTypeof("number");
+export const isBigint = isTypeof("bigint");
+export const isString = isTypeof("string");
+export const isSymbol = isTypeof("symbol");
+export const isFunction = isTypeof("function");
+
+export function isNull() {
+  return (target, detail) => {
+    return target === null ? target : fail(new ValidationError(detail, "expects null"));
+  };
+}
+
+export function nonNull() {
+  return (target, detail) => {
+    return target === null ? fail(new ValidationError(detail, "expects non-null")) : target;
+  };
+}
+
+export function isUndef() {
+  return (target, detail) => {
+    return target === void 0 ? target : fail(new ValidationError(detail, "expects undefined"));
+  };
+}
+
+export function nonUndef() {
+  return (target, detail) => {
+    return target === void 0 ? fail(new ValidationError(detail, "expects non-undefined")) : target;
+  };
+}
+
+export function isNullish() {
+  return (target, detail) => {
+    return target == null ? target : fail(new ValidationError(detail, "expects null or undefined"));
+  };
+}
+
+export function nonNullish() {
+  return (target, detail) => {
+    return target == null ? fail(new ValidationError(detail, "expects non-null nor non-undefined")) : target;
+  };
+}
+
+export function isObject() {
+  return (target, detail) => {
+    return target != null && typeof target === "object" ? target : fail(new ValidationError(detail, "expects object"));
+  };
+}
+
+export function isArray() {
+  return (target, detail) => {
+    return Array.isArray(target) ? target : fail(new ValidationError(detail, "expects array"));
+  };
+}
+
+export function isIterOf(validator) {
+  return (target, detail) => {
+    const allReasons = [];
+    let i = 0;
+    for (const e of target) {
+      const res = validator(e, { ...detail, value: e, path: [...detail.path, i] })
+      if (isFailed) {
+        allReasons.push(...reasons(res));
+      }
+      i += 1;
+    }
+    return allReasons.length === 0 ? target : fail(...allReasons);
+  };
+}
+
+export class ValidationError extends Error {
+  constructor(detail, ...args) {
+    super(...args);
+    this.detail = detail;
+  }
+}
+
+
+================ funcfunc-core/src/main.js ================
+export * as Arrays from "./lib/arrays";
+export * from "./lib/core";
+export * as Delay from "./lib/delay";
+export * as Lens from "./lib/lens";
+export * as Multi from "./lib/multi";
+export * as Nullable from "./lib/nullable";
+export * as Signal from "./lib/sigtree";
+
+
+================ funcfunc-core/src/main.test.ts ================
+import { expect, test } from 'vitest';
+
+test("some", () => {
+  expect(2).toBe(2);
+})
+
+
+================ funcfunc-core/vitest.config.js ================
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    typecheck: {
+      include: ["**/*.{test,spec}.?(c|m)js?(x)"]
+    }
+  },
+})

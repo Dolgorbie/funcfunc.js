@@ -23,11 +23,15 @@ export function deref(node) {
   return res;
 }
 
-export function swap(node, swapper) {
+export function swap(node, swapper, ...args) {
   node._retain?.();
-  const res = node._swap(swapper);
+  const res = node._swap(swapper, ...args);
   node._release?.();
   return res;
+}
+
+export function xswap(swapper, node, ...args) {
+  return swap(node, swapper, ...args);
 }
 
 export function reset(node, value) {
@@ -220,9 +224,9 @@ export class Atom {
     return this._value;
   }
 
-  _swap(swapper) {
+  _swap(swapper, ...args) {
     const { _value } = this;
-    const next = swapper(_value);
+    const next = swapper(_value, ...args);
 
     if (Object.is(_value, next)) {
       return _value;
@@ -354,9 +358,9 @@ export class Focus {
     return this._value;
   }
 
-  _swap(swapper) {
+  _swap(swapper, ...args) {
     const { _lens } = this;
-    const parentValue = this._deps._depNodes[0]._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep))));
+    const parentValue = this._deps._depNodes[0]._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep), ...args)));
     return _lens.ref(parentValue);
   }
 
