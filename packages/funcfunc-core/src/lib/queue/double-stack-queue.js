@@ -1,3 +1,5 @@
+import { fail, isSuccess, orValue } from "../failable";
+
 const _deleteMark = Symbol("delete mark");
 
 export class DStackQueue {
@@ -32,12 +34,12 @@ export class DStackQueue {
   }
 
   pop() {
-    const { value, success } = this._tryPop();
-    if (success) {
+    const value = this._tryPop();
+    if (isSuccess(value)) {
       return value;
     }
     this.flush();
-    return this._tryPop().value;
+    return orValue(this._tryPop(), void 0);
   }
 
   delete(target) {
@@ -101,11 +103,11 @@ export class DStackQueue {
       const value = _leftBuffer.pop();
 
       if (value !== _deleteMark) {
-        return { value, success: true };
+        return value;
       }
       this._deleted -= 1;
     }
 
-    return { value: void 0, success: false };
+    return fail();
   }
 }

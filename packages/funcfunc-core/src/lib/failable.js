@@ -173,6 +173,20 @@ function _tryMapN(proc, failable0, failables) {
   }
 }
 
+export function orValue(failable, defaultValue) {
+  if (isFailed(failable)) {
+    return defaultValue;
+  }
+  return failable;
+}
+
+export function orCalc(failable, ifFailed) {
+  if (isFailed(failable)) {
+    return ifFailed();
+  }
+  return failable;
+}
+
 export function all(failables) {
   const reasons = [];
 
@@ -218,19 +232,19 @@ function _collectReasons(acc, failables) {
 }
 
 function _flatErrors(errors) {
-  function _loop(acc, errors) {
-    const { length } = errors;
-    for (let i = 0; i < length; ++i) {
-      const errorI = errors[i];
-      if (errorI instanceof AggregateError) {
-        _loop(acc, errorI.errors);
-        continue;
-      }
-      acc.push(errorI);
-    }
-  }
-
   const acc = [];
-  _loop(acc, errors);
+  _flatErrorsLoop(acc, errors);
   return acc;
+}
+
+function _flatErrorsLoop(acc, errors) {
+  const { length } = errors;
+  for (let i = 0; i < length; ++i) {
+    const errorI = errors[i];
+    if (errorI instanceof AggregateError) {
+      _flatErrorsLoop(acc, errorI.errors);
+      continue;
+    }
+    acc.push(errorI);
+  }
 }

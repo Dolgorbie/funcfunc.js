@@ -1,5 +1,5 @@
 import { every1, map1 } from "../arrays";
-import { asyncFailable } from "../failable";
+import { asyncFailable, fail, isSuccess } from "../failable";
 import { InfQueue } from "../queue/inf-queue";
 
 const _eoc = Symbol("end of chan");
@@ -51,13 +51,12 @@ export async function alts(...chans) {
   for (let i = 0; i < length; ++i) {
     const chan = chans[(i + offset) % length];
 
-    const res = chan.tryTake();
-    if (res.success) {
-      const { value } = res;
+    const value = chan.tryTake();
+    if (isSuccess(value)) {
       if (isEndOfChan(value)) {
         countEOC += 1;
       } else {
-        return { value: res.value, chan };
+        return { value, chan };
       }
     }
   }
@@ -82,7 +81,7 @@ export async function alts(...chans) {
     if (error instanceof AggregateError) {
       const { errors: contents } = error;
       if (every1(isChan, contents)) {
-        return { value: _eoc, chan: chans[0] };
+        return { value: _eoc, chan: contents[0] };
       }
     }
     throw error;
@@ -126,79 +125,78 @@ export class Chan {
     return false;
   }
 
-  post(value, signal = void 0) {
+  async post(value, signal = void 0) {
     if (signal !== void 0 && signal.aborted) {
       throw new PostError(this, value, "already aborted.", { cause: signal.reason });
     }
 
     const success = this.tryPost(value);
     if (success) {
-      return;
+      return void 0;
     }
 
-    return new Promise((resolve, reject) => {
+    const { _postContQueue } = this;
+
+    if (signal === void 0) {
+      return await new Promise((resolve, reject) => {
+        _postContQueue.push([value, resolve, reject]);
+      });
+    }
+
+    return await new Promise((resolve, reject) => {
+      if (signal.aborted) {
+        throw new PostError(this, value, "aborted.", { cause: signal.reason });
+      }
+
       const _cancel = () => {
         _postContQueue.delete(postContQueueItem);
         signal.removeEventListener("abort", _cancel);
         reject(new PostError(this, value, "aborted.", { cause: signal.reason }));
       }
 
-      const _cleanAndResolve = () => {
+      const _customResolve = () => {
         signal.removeEventListener("abort", _cancel);
         resolve();
       }
 
-      const _cleanAndReject = (reason) => {
+      const _customReject = (reason) => {
         signal.removeEventListener("abort", _cancel);
         reject(new PostError(this, value, "rejected.", { cause: reason }));
       }
 
-      if (signal !== void 0 && signal.aborted) {
-        reject(new PostError(this, value, "aborted.", { cause: signal.reason }));
-        return;
-      }
-
-      const { _postContQueue } = this;
-      let postContQueueItem;
-
-      if (signal !== void 0) {
-        postContQueueItem = [value, _cleanAndResolve, _cleanAndReject];
-        signal.addEventListener("abort", _cancel, { once: true });
-      } else {
-        postContQueueItem = [value, resolve, reject];
-      }
-
-      _postContQueue.add(postContQueueItem);
+      const postContQueueItem = [value, _customResolve, _customReject];
+      signal.addEventListener("abort", _cancel, { once: true });
+      _postContQueue.push(postContQueueItem);
     });
   }
 
   tryTake() {
     const { _bufferQueue } = this;
     if (_bufferQueue != null && _bufferQueue.size > 0) {
-      const { value } = _bufferQueue.pop();
+      const value = _bufferQueue.pop();
 
       const { _postContQueue } = this;
       if (_postContQueue.size > 0) {
-        const { value: [nextValue, resolve] } = _postContQueue.pop();
-        _bufferQueue.add(nextValue);
+        const [nextValue, resolve] = _postContQueue.pop();
+        _bufferQueue.push(nextValue);
         resolve();
       }
 
-      return { value, success: true };
+      return value;
     }
 
     if (this._isClosed) {
-      return { value: _eoc, success: true };
+      return _eoc;
     }
 
     const { _postContQueue } = this;
     if (_postContQueue.size > 0) {
       const [value, resolve] = _postContQueue.pop();
       resolve();
-      return { value, success: true };
+      return value;
     }
 
-    return { value: void 0, success: false };
+    return fail();
   }
 
   async take(signal = void 0) {
@@ -206,37 +204,37 @@ export class Chan {
       throw new TakeError(this, "already aborted.", { cause: signal.reason });
     }
 
-    const res = this.tryTake();
-    if (res.success) {
-      return res.value;
+    const value = this.tryTake();
+    if (isSuccess(value)) {
+      return value;
     }
 
-    return new Promise((resolve, reject) => {
+    const { _takeContQueue } = this;
+
+    if (signal === void 0) {
+      return await new Promise((resolve) => {
+        _takeContQueue.push(resolve);
+      });
+    }
+
+    return await new Promise((resolve, reject) => {
+      if (signal.aborted) {
+        throw new TakeError(this, "aborted.", { cause: signal.reason });
+      }
+
       const _cancel = () => {
-        _takeContQueue.delete(_cleanAndResolve);
+        _takeContQueue.delete(_customResolve);
         signal.removeEventListener("abort", _cancel);
         reject(new TakeError(this, "aborted.", { cause: signal.reason }));
       }
 
-      const _cleanAndResolve = (value) => {
+      const _customResolve = (value) => {
         signal.removeEventListener("abort", _cancel);
         resolve(value);
       }
 
-      if (signal !== void 0 && signal.aborted) {
-        reject(new TakeError(this, "aborted.", { cause: signal.reason }));
-        return;
-      }
-
-      const { _takeContQueue } = this;
-
-      if (signal !== void 0) {
-        signal.addEventListener("abort", _cancel, { once: true });
-        _takeContQueue.add(_cleanAndResolve);
-        return;
-      }
-
-      _takeContQueue.add(resolve);
+      signal.addEventListener("abort", _cancel, { once: true });
+      _takeContQueue.add(_customResolve);
     });
   }
 
@@ -262,7 +260,6 @@ export class Chan {
     }
 
     this._isClosed = true;
-
     this._afterCloseHooks.forEach((callback) => callback(this));
   }
 
@@ -275,7 +272,7 @@ export class Chan {
   }
 
   static fromPromise(promise, signal = void 0) {
-    const chan = new Chan({ capacity: 0, signal });
+    const chan = new Chan({ signal });
 
     (async () => {
       try {
