@@ -1,6 +1,6 @@
 import { every1, map1 } from "../arrays";
 import { asyncFailable, fail, isSuccess } from "../failable";
-import { InfQueue } from "../queue/inf-queue";
+import { DStackQueue } from "../queue/double-stack-queue";
 
 const _eoc = Symbol("end of chan");
 
@@ -89,8 +89,8 @@ export async function alts(...chans) {
 }
 
 export class Chan {
-  _postContQueue = new InfQueue();
-  _takeContQueue = new InfQueue();
+  _postContQueue = new DStackQueue();
+  _takeContQueue = new DStackQueue();
 
   _isClosed = false;
   _afterCloseHooks = new Set();
