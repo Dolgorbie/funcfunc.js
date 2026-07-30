@@ -1,4 +1,4 @@
-import { every1, map1 } from "../arrays";
+import { every1, map1 } from "../array-utils";
 import { asyncFailable, fail, isSuccess } from "../failable";
 import { DStackQueue } from "../queue/double-stack-queue";
 
@@ -95,6 +95,9 @@ export class Chan {
   _isClosed = false;
   _afterCloseHooks = new Set();
 
+  _bufferQueue = null;
+  _signal = null;
+
   constructor({ bufferQueue, signal } = {}) {
     this._bufferQueue = bufferQueue;
     this._signal = signal;
@@ -161,12 +164,23 @@ export class Chan {
 
       const _customReject = (reason) => {
         signal.removeEventListener("abort", _cancel);
-        reject(new PostError(this, value, "rejected.", { cause: reason }));
+        reject(reason);
       }
 
       const postContQueueItem = [value, _customResolve, _customReject];
       signal.addEventListener("abort", _cancel, { once: true });
       _postContQueue.push(postContQueueItem);
+    });
+  }
+
+  _postNoSig(value) {
+    const success = this.tryPost(value);
+    if (success) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      this._postContQueue.add([value, resolve, reject]);
     });
   }
 

@@ -159,13 +159,17 @@ export function length(list) {
 
 // creation ================
 
-export function listOf(...values) {
-  const { length } = values;
+export function arrayToList(array) {
+  const { length } = array;
   let result = _nil;
   for (let i = length - 1; i >= 0; --i) {
-    result = cons(values[i], result);
+    result = cons(array[i], result);
   }
   return result;
+}
+
+export function listOf(...values) {
+  return arrayToList(values);
 }
 
 export function repeat(count, value) {

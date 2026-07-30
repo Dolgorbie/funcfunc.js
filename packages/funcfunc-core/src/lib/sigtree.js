@@ -1,4 +1,4 @@
-import { every2, forEach1, map1 } from "./arrays";
+import { every2, forEach1, map1 } from "./array-utils";
 
 export function atom(init) {
   return new Atom(init);

@@ -5,7 +5,7 @@ export function fail(...reasons) {
 }
 
 function _toFailure(reasons) {
-  return { [_reasons]: _flatErrors(reasons) }
+  return { [_reasons]: reasons }
 }
 
 export function failable(proc, ...args) {
@@ -76,7 +76,7 @@ export function isSuccess(failable) {
 export function force(failable) {
   if (isFailed(failable)) {
     const reasons = failable[_reasons];
-    throw reasons.length === 1 ? reasons[0] : new AggregateError(reasons);
+    throw reasons.length === 1 ? reasons[0] : _buildError(reasons);
   }
   return failable;
 }
@@ -231,18 +231,18 @@ function _collectReasons(acc, failables) {
   }
 }
 
-function _flatErrors(errors) {
+function _buildError(errors) {
   const acc = [];
-  _flatErrorsLoop(acc, errors);
+  _buildErrorLoop(acc, errors);
   return acc;
 }
 
-function _flatErrorsLoop(acc, errors) {
+function _buildErrorLoop(acc, errors) {
   const { length } = errors;
   for (let i = 0; i < length; ++i) {
     const errorI = errors[i];
     if (errorI instanceof AggregateError) {
-      _flatErrorsLoop(acc, errorI.errors);
+      _buildErrorLoop(acc, errorI.errors);
       continue;
     }
     acc.push(errorI);

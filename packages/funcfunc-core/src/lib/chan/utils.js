@@ -1,15 +1,11 @@
-import { flatMap1, forEach1, map1 } from "../arrays";
-import { isEndOfChan } from "./core";
+import { flatMap1, forEach1, map1 } from "../array-utils";
+import { asyncFailable, force, isFailed, reasons } from "../failable";
+import { isEndOfChan, TakeError } from "./core";
 
-export function merge(output, options = {}, ...inputs) {
-  const {
-    closeOutput = false,
-    closeInputs = false,
-    earlyStop = false,
-  } = options;
-
+export function merge(output, ...inputs) {
   const abortTakeController = new AbortController();
   const { signal: abortTakeSignal } = abortTakeController;
+
   const abortPostController = new AbortController();
   const { signal: abortPostSignal } = abortPostController;
 
@@ -17,14 +13,17 @@ export function merge(output, options = {}, ...inputs) {
     try {
       await Promise.all(map1(async (chan) => {
         for (; ;) {
-          const value = await chan.take(abortTakeSignal);
-          if (isEndOfChan(value)) {
-            if (earlyStop) {
-              throw Error("an input chan was closed.");
+          const value = await asyncFailable(chan.take(abortTakeSignal));
+          if (isFailed(value)) {
+            const rss = reasons(value);
+            if (rss.length === 1 && rss[0] instanceof TakeError) {
+              return;
             }
+            force(value);
+          }
+          if (isEndOfChan(value)) {
             return;
           }
-
           await output.post({ value, chan }, abortPostSignal);
         }
       }, inputs));
@@ -32,21 +31,9 @@ export function merge(output, options = {}, ...inputs) {
       abortTakeController.abort(error);
       abortPostController.abort(error);
     } finally {
-      if (closeInputs) {
-        if (closeInputs instanceof AbortController) {
-          closeInputs.abort(Error("the output chan was closed."));
-        } else {
-          forEach1((chan) => chan.close(), inputs);
-        }
-      }
-      if (closeOutput) {
-        if (closeOutput instanceof AbortController) {
-          closeOutput.abort(Error("all input chans was closed."));
-        } else {
-          output.close();
-        }
-      }
+      forEach1((chan) => chan.close(), inputs);
     }
+    output.close();
   })();
 
   return output;

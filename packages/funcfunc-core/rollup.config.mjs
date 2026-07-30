@@ -1,5 +1,13 @@
-import terser from '@rollup/plugin-terser';
-import { defineConfig } from 'rollup';
+import terser from "@rollup/plugin-terser";
+import { globSync } from "node:fs";
+import { defineConfig } from "rollup";
+
+const libbasedir = `${import.meta.dirname}/src/lib`;
+const libfiles = globSync(`${libbasedir}/**/*.js`);
+const libentries = Object.fromEntries(
+  libfiles.map((path) => [
+    path.substring(libbasedir.length + 1, path.length - 3),
+    path]));
 
 export default defineConfig([
   {
@@ -8,22 +16,29 @@ export default defineConfig([
       {
         dir: "dist",
         format: "es",
-        preserveModules: true,
       },
       {
         dir: "dist",
         format: "es",
         entryFileNames: "[name].min.js",
-        preserveModules: true,
         sourcemap: true,
-        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })]
+        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })],
+      },
+    ],
+  },
+  {
+    input: libentries,
+    output: [
+      {
+        dir: "dist/lib",
+        format: "es",
       },
       {
-        dir: "dist",
+        dir: "dist/lib",
         format: "es",
-        entryFileNames: "[name].bundle.min.js",
+        entryFileNames: "[name].min.js",
         sourcemap: true,
-        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })]
+        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })],
       },
     ],
   },

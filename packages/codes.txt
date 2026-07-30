@@ -1,16 +1,7 @@
 
 
-================ funcfunc-core/eslint.config.mjs ================
-import js from "@eslint/js";
-import { defineConfig } from "eslint/config";
-import globals from "globals";
+## FILE: funcfunc-core/jsconfig.json ================================
 
-export default defineConfig([
-  { files: ["**/*.{js,mjs,cjs}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
-]);
-
-
-================ funcfunc-core/jsconfig.json ================
 {
   "extends": [
     "../../jsconfig.base.json"
@@ -18,7 +9,70 @@ export default defineConfig([
 }
 
 
-================ funcfunc-core/package.json ================
+## FILE: funcfunc-core/rollup.config.mjs ================================
+
+import terser from "@rollup/plugin-terser";
+import { globSync } from "node:fs";
+import { defineConfig } from "rollup";
+
+const libbasedir = `${import.meta.dirname}/src/lib`;
+const libfiles = globSync(`${libbasedir}/**/*.js`);
+const libentries = Object.fromEntries(
+  libfiles.map((path) => [
+    path.substring(libbasedir.length + 1, path.length - 3),
+    path]));
+
+export default defineConfig([
+  {
+    input: "src/main.js",
+    output: [
+      {
+        dir: "dist",
+        format: "es",
+      },
+      {
+        dir: "dist",
+        format: "es",
+        entryFileNames: "[name].min.js",
+        sourcemap: true,
+        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })],
+      },
+    ],
+  },
+  {
+    input: libentries,
+    output: [
+      {
+        dir: "dist/lib",
+        format: "es",
+      },
+      {
+        dir: "dist/lib",
+        format: "es",
+        entryFileNames: "[name].min.js",
+        sourcemap: true,
+        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })],
+      },
+    ],
+  },
+]);
+
+
+## FILE: funcfunc-core/vitest.config.js ================================
+
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    typecheck: {
+      include: ["**/*.{test,spec}.?(c|m)js?(x)"]
+    }
+  },
+})
+
+
+## FILE: funcfunc-core/package.json ================================
+
 {
   "name": "funcfunc",
   "version": "0.0.1",
@@ -54,872 +108,276 @@ export default defineConfig([
 }
 
 
-================ funcfunc-core/rollup.config.mjs ================
-import terser from '@rollup/plugin-terser';
-import { defineConfig } from 'rollup';
+## FILE: funcfunc-core/eslint.config.mjs ================================
+
+import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
+import globals from "globals";
 
 export default defineConfig([
-  {
-    input: "src/main.js",
-    output: [
-      {
-        dir: "dist",
-        format: "es",
-        preserveModules: true,
-      },
-      {
-        dir: "dist",
-        format: "es",
-        entryFileNames: "[name].min.js",
-        preserveModules: true,
-        sourcemap: true,
-        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })]
-      },
-      {
-        dir: "dist",
-        format: "es",
-        entryFileNames: "[name].bundle.min.js",
-        sourcemap: true,
-        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })]
-      },
-    ],
-  },
+  { files: ["**/*.{js,mjs,cjs}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
 ]);
 
 
-================ funcfunc-core/src/lib/arrays.js ================
-import { toUInt } from "./asfunc";
+## FILE: funcfunc-core/src/main.js ================================
 
-// helpers ================
+export * as ArrayUtils from "./lib/array-utils";
+export * as Asfunc from "./lib/asfunc";
+export * as Chan from "./lib/chan/core";
+export * as ChanUtils from "./lib/chan/utils";
+export * as ClassnamesAggregators from "./lib/classnames/aggregators";
+export * as Classnames from "./lib/classnames/core";
+export * as ClassnamesPresets from "./lib/classnames/presets";
+export * as ClassnamesTransformers from "./lib/classnames/transformers";
+export * from "./lib/core";
+export * as Delay from "./lib/delay";
+export * as DelayListReduceRight from "./lib/delay-list-reduce-right";
+export * as Delegate from "./lib/delegate";
+export * as Failable from "./lib/failable";
+export * as IteratorUtils from "./lib/iterator-utils";
+export * as LazyList from "./lib/lazylist";
+export * as Lens from "./lib/lens";
+export * as List from "./lib/list";
+export * as Multi from "./lib/multi";
+export * as Nullable from "./lib/nullable";
+export * as DoubleStackQueue from "./lib/queue/double-stack-queue";
+export * as RingQueue from "./lib/queue/ring-queue";
+export * as Sigtree from "./lib/sigtree";
+export * as Transducer from "./lib/transducer";
+export * as Validate from "./lib/validate/core";
 
-const _slice = Array.prototype.slice;
 
-const _join = Array.prototype.join;
+## FILE: funcfunc-core/src/lib/multi.js ================================
 
-function _lengthMin(array0, arrays) {
-  const nArrays = arrays.length;
+import { is } from "./asfunc";
+import { car, cdr, flatMap1, isPair, lastPair, listOf, map1, setCdr, some1 } from "./list";
 
-  let { length } = array0;
-  for (let i = 0; i < nArrays; ++i) {
-    length = Math.min(length, arrays[i].length);
-  }
+export function multi({ dispatch, defaultImpl = _defaultImpl }) {
+  const implMap = new Map();
 
-  return length;
-}
-
-// creation ================
-
-export function arrayOf(...values) {
-  return values;
-}
-
-export function repeat(count, value) {
-  return new Array(toUInt(count)).fill(value);
-}
-
-export function iota(count, start = 0, step = 1) {
-  count = toUInt(count);
-  start = +start;
-  step = +step;
-
-  const result = new Array(count);
-  for (let i = 0; i < count; ++i) {
-    result[i] = step * i + start;
-  }
-
-  return result;
-}
-
-export function unfold(gen, seed, tailGen = void 0) {
-  const result = [];
-  let res;
-  while ((res = gen(seed)), !res.done) {
-    const { value } = res;
-    result.push(value);
-    seed = "seed" in res ? res.seed : value;
-  }
-
-  if (tailGen !== void 0) {
-    const tail = tailGen(seed);
-    let { length } = tail;
-    for (let i = 0; i < length; ++i) {
-      result.push(tail[i]);
-    }
-  }
-
-  return result;
-}
-
-export function unfoldRight(gen, seed, tail = []) {
-  const result = [];
-  let res;
-  while ((res = gen(seed)), !res.done) {
-    const { value } = res;
-    result.push(value);
-    seed = "seed" in res ? res.seed : value;
-  }
-
-  result.reverse();
-
-  const { length } = tail;
-  for (let i = 0; i < length; ++i) {
-    result.push(tail[i]);
-  }
-
-  return result;
-}
-
-// splicing ================
-
-export function take(count, array) {
-  count = toUInt(count);
-  if (count >= array.length) {
-    return array;
-  }
-  return _slice.call(array, 0, count);
-}
-
-export function drop(count, array) {
-  count = toUInt(count);
-  if (count === 0) {
-    return array;
-  }
-  return _slice.call(array, count);
-}
-
-export function takeRight(count, array) {
-  count = toUInt(count);
-  const { length } = array;
-  if (count >= length) {
-    return array;
-  }
-  return _slice.call(array, length - count);
-}
-
-export function dropRight(count, array) {
-  count = toUInt(count);
-  if (count === 0) {
-    return array;
-  }
-  return _slice.call(array, 0, array.length - count);
-}
-
-// composition ================
-
-export function flat(arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return arrays;
-    }
-    case 1: {
-      return arrays[0];
-    }
-    default: {
-      let length = 0;
-      const nOuter = arrays.length;
-      for (let i = 0; i < nOuter; ++i) {
-        length += arrays[i].length;
+  function _doMethod(...args) {
+    const keys = traverseHierarchy(dispatch(...args));
+    for (const k of keys) {
+      const impl = implMap.get(k);
+      if (impl != null) {
+        return impl(...args);
       }
+    }
+    return defaultImpl(...args);
+  }
 
-      const result = new Array(length);
-      let jOffset = 0;
-      for (let i = 0; i < nOuter; ++i) {
-        const arrayI = arrays[i];
-        const nInner = arrayI.length;
-        for (let j = 0; j < nInner; ++j) {
-          result[j + jOffset] = arrayI[j];
-        }
-        jOffset += nInner;
+  _doMethod.reg = (key, impl) => {
+    implMap.set(key, impl);
+    return _doMethod;
+  };
+
+  return _doMethod;
+}
+
+export function derive(child, parent) {
+  let hier = _hierarchy.get(child);
+  if (hier == null) {
+    _hierarchy.set(child, (hier = listOf(child)));
+  }
+
+  const parents = map1(car, cdr(hier));
+
+  if (some1((p) => is(p, parent), parents)) {
+    return;
+  }
+
+  let parentHier = _hierarchy.get(parent);
+  if (parentHier == null) {
+    _hierarchy.set(parent, (parentHier = listOf(parent)));
+  }
+
+  setCdr(lastPair(hier), listOf(parentHier));
+}
+
+/*
+{
+  superA1: (superA1 (superA1a) (superA1b)),
+  superA1a: (superA1a)
+  superA1b: (superA1b)
+  superA2: (superA2 (superA2a) (superA2b)),
+  superA2a: (superA2a),
+  superA2b: (superA2b),
+  superB1: (superB1),
+  superB2: (superB2),
+  classA: (classA (superA1 (superA1a) (superA1b)) (superA2 (superA2a) (superA2b))),
+  classB: (classB (superB1) (superB2)),
+}
+*/
+const _hierarchy = new Map();
+
+export function* traverseHierarchy(hierarchy) {
+  const current = car(hierarchy);
+  yield current;
+  for (let ancestors = cdr(hierarchy); isPair(ancestors); ancestors = flatMap1(cdr, ancestors)) {
+    const parents = map1(car, ancestors);
+    yield* parents;
+  }
+}
+
+export function isa(target, type) {
+  const hierarchy = _hierarchy.get(target) ?? listOf(target);
+  for (const t of traverseHierarchy(hierarchy)) {
+    if (is(t, type)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function _defaultImpl() {
+  throw TypeError("Not implemented");
+}
+
+
+## FILE: funcfunc-core/src/lib/validate/core.js ================================
+
+import { fail, isFailed, isSuccess, reasons } from "../failable";
+
+export function all(...validators) {
+  return (target, detail) => {
+    let tmp = target;
+
+    for (const v of validators) {
+      const res = v(tmp, detail);
+      if (isFailed(res)) {
+        return res;
       }
-      return result;
+      tmp = res;
     }
-  }
+
+    return tmp;
+  };
 }
 
-export function concat(...arrays) {
-  return flat(arrays);
+export function allSettled(...validators) {
+  return (target, detail) => {
+    let tmp = target;
+    const allReasons = [];
+
+    for (const v of validators) {
+      const res = v(tmp, detail);
+      if (isFailed(res)) {
+        allReasons.push(...reasons(res));
+        continue;
+      }
+      tmp = res;
+    }
+
+    if (allReasons.length === 0) {
+      return tmp;
+    }
+    return fail(...allReasons);
+  };
 }
 
-export function zip(array0, ...arrays) {
-  const nArrays = arrays.length;
-  const length = _lengthMin(array0, arrays);
+export function any(...validators) {
+  return (target, detail) => {
+    const allReasons = [];
 
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    const acc = new Array(nArrays + 1);
-    acc[0] = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      acc[j + 1] = arrays[j][i];
+    for (const v of validators) {
+      const res = v(target, detail);
+      if (isSuccess(res)) {
+        return res;
+      }
+      allReasons.push(...reasons(res));
     }
-    result[i] = acc;
-  }
 
-  return result;
+    return fail(...allReasons);
+  };
 }
 
-export function entries(array0, ...arrays) {
-  const nArrays = arrays.length;
-  const length = _lengthMin(array0, arrays);
-
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    const acc = new Array(nArrays + 2);
-    acc[0] = i;
-    acc[1] = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      acc[j + 2] = arrays[j][i];
-    }
-    result[i] = acc;
-  }
-
-  return result;
+export function isTypeof(type) {
+  return (target, detail) => {
+    return typeof target === type ? target : fail(new ValidationError(detail, `expects ${type}, but got ${typeof target}`));
+  };
 }
 
-// filtering ================
+export const isBoolean = isTypeof("boolean");
+export const isNumber = isTypeof("number");
+export const isBigint = isTypeof("bigint");
+export const isString = isTypeof("string");
+export const isSymbol = isTypeof("symbol");
+export const isFunction = isTypeof("function");
 
-export function filter(pred, array) {
-  const { length } = array;
-  const result = [];
-  for (let i = 0; i < length; ++i) {
-    const v = array[i];
-    if (pred(v)) {
-      result.push(v);
-    }
-  }
-  return result;
+export function isNull() {
+  return (target, detail) => {
+    return target === null ? target : fail(new ValidationError(detail, "expects null"));
+  };
 }
 
-export function findTail(pred, array) {
-  const { length } = array;
-  let i;
-  for (i = 0; i < length; ++i) {
-    if (pred(array[i])) {
-      break;
-    }
-  }
-
-  if (i === 0) {
-    return array;
-  }
-  return _slice.call(array, i);
+export function nonNull() {
+  return (target, detail) => {
+    return target === null ? fail(new ValidationError(detail, "expects non-null")) : target;
+  };
 }
 
-export function takeWhile(pred, array) {
-  const { length } = array;
-  let i;
-  for (i = 0; i < length; ++i) {
-    if (!pred(array[i])) {
-      break;
-    }
-  }
-  if (i === length) {
-    return array;
-  }
-  return _slice.call(array, 0, i);
+export function isUndef() {
+  return (target, detail) => {
+    return target === void 0 ? target : fail(new ValidationError(detail, "expects undefined"));
+  };
 }
 
-export function dropWhile(pred, array) {
-  const { length } = array;
-  let i;
-  for (i = 0; i < length; ++i) {
-    if (!pred(array[i])) {
-      break;
-    }
-  }
-  if (i === 0) {
-    return array;
-  }
-  return _slice.call(array, i);
+export function nonUndef() {
+  return (target, detail) => {
+    return target === void 0 ? fail(new ValidationError(detail, "expects non-undefined")) : target;
+  };
 }
 
-export function unique(array) {
-  const { length } = array;
-  const resultSet = new Set();
-
-  for (let i = 0; i < length; ++i) {
-    resultSet.add(array[i]);
-  }
-
-  return [...resultSet];
+export function isNullish() {
+  return (target, detail) => {
+    return target == null ? target : fail(new ValidationError(detail, "expects null or undefined"));
+  };
 }
 
-// mapping ================
-
-export function map(proc, array0, ...arrays) {
-  const nArrays = arrays.length;
-
-  switch (nArrays) {
-    case 0: {
-      return map1(proc, array0);
-    }
-    case 1: {
-      return map2(proc, array0, arrays[0]);
-    }
-    default: {
-      return _mapN(proc, array0, arrays);
-    }
-  }
+export function nonNullish() {
+  return (target, detail) => {
+    return target == null ? fail(new ValidationError(detail, "expects non-null nor non-undefined")) : target;
+  };
 }
 
-export function map1(proc, array0) {
-  const { length } = array0;
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    result[i] = proc(array0[i]);
-  }
-  return result;
+export function isObject() {
+  return (target, detail) => {
+    return target != null && typeof target === "object" ? target : fail(new ValidationError(detail, "expects object"));
+  };
 }
 
-export function map2(proc, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    result[i] = proc(array0[i], array1[i]);
-  }
-  return result;
+export function isArray() {
+  return (target, detail) => {
+    return Array.isArray(target) ? target : fail(new ValidationError(detail, "expects array"));
+  };
 }
 
-function _mapN(proc, array0, arrays) {
-  const nArrays = arrays.length;
-  const length = _lengthMin(array0, arrays);
-
-  const result = new Array(length);
-  const values = new Array(nArrays);
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
+export function isIterOf(validator) {
+  return (target, detail) => {
+    const allReasons = [];
+    let i = 0;
+    for (const e of target) {
+      const res = validator(e, { ...detail, value: e, path: [...detail.path, i] })
+      if (isFailed) {
+        allReasons.push(...reasons(res));
+      }
+      i += 1;
     }
-
-    result[i] = proc(value0, ...values);
-  }
-  return result;
+    return allReasons.length === 0 ? target : fail(...allReasons);
+  };
 }
 
-export function flatMap(proc, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return flatMap1(proc, array0);
-    }
-    case 1: {
-      return flatMap2(proc, array0, arrays[0]);
-    }
-    default: {
-      return _flatMapN(proc, array0, arrays);
-    }
-  }
-}
-
-export function flatMap1(proc, array0) {
-  const result = [];
-  const { length } = array0;
-  for (let i = 0; i < length; ++i) {
-    const tmp = proc(array0[i]);
-    const n = tmp.length;
-    for (let j = 0; j < n; ++j) {
-      result.push(tmp[j]);
-    }
-  }
-  return result;
-}
-
-export function flatMap2(proc, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-  const result = [];
-  for (let i = 0; i < length; ++i) {
-    const tmp = proc(array0[i], array1[i]);
-    const n = tmp.length;
-    for (let j = 0; j < n; ++j) {
-      result.push(tmp[j]);
-    }
-  }
-  return result;
-}
-
-function _flatMapN(proc, array0, arrays) {
-  const nArrays = arrays.length;
-
-  const length = _lengthMin(array0, arrays);
-  const result = [];
-  const values = new Array(nArrays);
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    const tmp = proc(value0, ...values);
-    const n = tmp.length;
-    for (let j = 0; j < n; ++j) {
-      result.push(tmp[j]);
-    }
-  }
-  return result;
-}
-
-// reduction ================
-
-export function reduce(proc, init, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return reduce1(proc, init, array0);
-    }
-    case 1: {
-      return reduce2(proc, init, array0, arrays[0]);
-    }
-    default: {
-      return _reduceN(proc, init, array0, arrays);
-    }
-  }
-}
-
-export function reduce1(proc, init, array0) {
-  const { length } = array0;
-
-  for (let i = 0; i < length; ++i) {
-    init = proc(init, array0[i]);
-  }
-
-  return init;
-}
-
-export function reduce2(proc, init, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-
-  for (let i = 0; i < length; ++i) {
-    init = proc(init, array0[i], array1[i]);
-  }
-
-  return init;
-}
-
-function _reduceN(proc, init, array0, arrays) {
-  const nArrays = arrays.length;
-
-  const length = _lengthMin(array0, arrays);
-  const values = new Array(nArrays);
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    init = proc(init, value0, ...values);
-  }
-  return init;
-}
-
-export function reduceRight(proc, init, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return reduceRight1(proc, init, array0);
-    }
-    case 1: {
-      return reduceRight2(proc, init, array0, arrays[0]);
-    }
-    default: {
-      return _reduceRightN(proc, init, array0, arrays);
-    }
-  }
-}
-
-export function reduceRight1(proc, init, array0) {
-  const { length } = array0;
-
-  for (let i = length - 1; i >= 0; --i) {
-    init = proc(init, array0[i]);
-  }
-
-  return init;
-}
-
-export function reduceRight2(proc, init, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-
-  for (let i = length - 1; i >= 0; --i) {
-    init = proc(init, array0[i], array1[i]);
-  }
-
-  return init;
-}
-
-function _reduceRightN(proc, init, array0, arrays) {
-  const nArrays = arrays.length;
-
-  const length = _lengthMin(array0, arrays);
-  const values = new Array(nArrays);
-  for (let i = length - 1; i >= 0; --i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    init = proc(init, value0, ...values);
-  }
-  return init;
-}
-
-export function forEach(proc, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return forEach1(proc, array0);
-    }
-    case 1: {
-      return forEach2(proc, array0, arrays[0]);
-    }
-    default: {
-      return _forEachN(proc, array0, arrays);
-    }
-  }
-}
-
-export function forEach1(proc, array0) {
-  const { length } = array0;
-  for (let i = 0; i < length; ++i) {
-    proc(array0[i]);
-  }
-}
-
-export function forEach2(proc, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-  for (let i = 0; i < length; ++i) {
-    proc(array0[i], array1[i]);
-  }
-}
-
-function _forEachN(proc, array0, arrays) {
-  const nArrays = arrays.length;
-
-  const length = _lengthMin(array0, arrays);
-  const values = new Array(nArrays);
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    proc(value0, ...values);
-  }
-}
-
-export function every(pred, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return every1(pred, array0);
-    }
-    case 1: {
-      return every2(pred, array0, arrays[0]);
-    }
-    default: {
-      return _everyN(pred, array0, arrays);
-    }
-  }
-}
-
-export function every1(pred, array0) {
-  const { length } = array0;
-  let result = true;
-  for (let i = 0; i < length; ++i) {
-    result = pred(array0[i]);
-    if (!result) {
-      break;
-    }
-  }
-  return result;
-}
-
-export function every2(pred, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-  let result = true;
-  for (let i = 0; i < length; ++i) {
-    result = pred(array0[i], array1[i]);
-    if (!result) {
-      break;
-    }
-  }
-  return result;
-}
-
-function _everyN(pred, array0, arrays) {
-  const length = _lengthMin(array0, arrays);
-  const nArrays = arrays.length;
-  const values = new Array(nArrays);
-  let result = true;
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    result = pred(value0, ...values);
-    if (!result) {
-      break;
-    }
-  }
-  return result;
-}
-
-export function some(pred, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return some1(pred, array0);
-    }
-    case 1: {
-      return some2(pred, array0, arrays[0]);
-    }
-    default: {
-      return _someN(pred, array0, arrays);
-    }
-  }
-}
-
-export function some1(pred, array0) {
-  const { length } = array0;
-  let result = false;
-  for (let i = 0; i < length; ++i) {
-    result = pred(array0[i]);
-    if (result) {
-      break;
-    }
-  }
-  return result;
-}
-
-export function some2(pred, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-  let result = false;
-  for (let i = 0; i < length; ++i) {
-    result = pred(array0[i], array1[i]);
-    if (result) {
-      break;
-    }
-  }
-  return result;
-}
-
-function _someN(pred, array0, arrays) {
-  const length = _lengthMin(array0, arrays);
-  const nArrays = arrays.length;
-  const values = new Array(nArrays);
-  let result = false;
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    result = pred(value0, ...values);
-    if (result) {
-      break;
-    }
-  }
-  return result;
-}
-
-export function join(sep, array) {
-  return _join.call(array, sep);
-}
-
-// misc ================
-
-export function reverse(array) {
-  const { length } = array;
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    result[i] = array[length - i - 1];
-  }
-  return result;
-}
-
-export function* reverseIter(array) {
-  const { length } = array;
-  for (let i = length - 1; i >= 0; --i) {
-    yield array[i];
+export class ValidationError extends Error {
+  constructor(detail, ...args) {
+    super(...args);
+    this.detail = detail;
   }
 }
 
 
-================ funcfunc-core/src/lib/asfunc.js ================
-export const isArray = Array.isArray;
+## FILE: funcfunc-core/src/lib/chan/core.js ================================
 
-export const is = Object.is;
-export const objectFromEntries = Object.fromEntries;
-export const objectEntries = Object.entries;
-export const objectKeys = Object.keys;
-export const objectValues = Object.values;
-export const objectHasOwn = Object.hasOwn;
-export const objectPrototypeOf = Object.getPrototypeOf;
-
-
-export function eq(x, y) {
-  return x === y;
-}
-
-export function like(x, y) {
-  return x == y;
-}
-
-export function same(x, y) {
-  return x === y || x !== x && y !== y;
-}
-
-export function isNull(x) {
-  return x === null;
-}
-
-export function isUndef(x) {
-  return x === void 0;
-}
-
-export function isBigint(x) {
-  return typeof x === "bigint";
-}
-
-export function isBoolean(x) {
-  return typeof x === "boolean";
-}
-
-export function isFunction(x) {
-  return typeof x === "function";
-}
-
-export function isNumber(x) {
-  return typeof x === "number";
-}
-
-export function isObject(x) {
-  return x !== null && typeof x === "object";
-}
-
-export function isString(x) {
-  return typeof x === "string";
-}
-
-export function isSymbol(x) {
-  return typeof x === "symbol";
-}
-
-export function isInstanceOf(obj, clazz) {
-  return obj instanceof clazz;
-}
-
-export function isAssignableFrom(clazz, obj) {
-  return obj instanceof clazz;
-}
-
-export function newInstance(clazz, ...args) {
-  return new clazz(...args);
-}
-
-export function newInstance0(clazz) {
-  return new clazz();
-}
-
-export function newInstance1(clazz, arg0) {
-  return new clazz(arg0);
-}
-
-export function newInstance2(clazz, arg0, arg1) {
-  return new clazz(arg0, arg1);
-}
-
-export function newInstance3(clazz, arg0, arg1, arg2) {
-  return new clazz(arg0, arg1, arg2);
-}
-
-export function newInstance4(clazz, arg0, arg1, arg2, arg3) {
-  return new clazz(arg0, arg1, arg2, arg3);
-}
-
-export function ref(obj, key) {
-  return obj[key];
-}
-
-export function xref(key, obj) {
-  return obj[key];
-}
-
-export function add(x0, ...xs) {
-  return xs.reduce(add2, x0);
-}
-
-export function add2(x0, x1) {
-  return x0 + x1;
-}
-
-export function sub(x0, ...xs) {
-  return xs.reduce(sub2, x0);
-}
-
-export function sub2(x0, x1) {
-  return x0 - x1;
-}
-
-export function mul(x0, ...xs) {
-  return xs.reduce(mul2, x0);
-}
-
-export function mul2(x0, x1) {
-  return x0 * x1;
-}
-
-export function div(x0, ...xs) {
-  return xs.reduce(div2, x0);
-}
-
-export function div2(x0, x1) {
-  return x0 / x1;
-}
-
-export function quot(x0, ...xs) {
-  return xs.reduce(quot2, x0);
-}
-
-export function quot2(x0, x1) {
-  return (x0 / x1) | 0;
-}
-
-export function rem(x0, ...xs) {
-  return xs.reduce(rem2, x0);
-}
-
-export function rem2(x0, x1) {
-  return x0 % x1;
-}
-
-export function idiv(x0, ...xs) {
-  return xs.reduce(idiv2, x0);
-}
-
-export function idiv2(x0, x1) {
-  return (x0 - mod2(x0, x1)) / x1;
-}
-
-export function mod(x0, ...xs) {
-  return xs.reduce(mod2, x0);
-}
-
-export function mod2(x0, x1) {
-  return ((x0 % x1) + x1) % x1
-}
-
-export function toNumber(value) {
-  return +value;
-}
-
-export function toInt(value) {
-  return value | 0;
-}
-
-export function toUInt(value) {
-  return (value >>> 0) & ~(value >> 31);
-}
-
-export function toBoolean(value) {
-  return !!value;
-}
-
-export function toString(value) {
-  return String(value);
-}
-
-
-================ funcfunc-core/src/lib/chan/core.js ================
-import { every1, map1 } from "../arrays";
+import { every1, map1 } from "../array-utils";
 import { asyncFailable, fail, isSuccess } from "../failable";
 import { DStackQueue } from "../queue/double-stack-queue";
 
@@ -1016,6 +474,9 @@ export class Chan {
   _isClosed = false;
   _afterCloseHooks = new Set();
 
+  _bufferQueue = null;
+  _signal = null;
+
   constructor({ bufferQueue, signal } = {}) {
     this._bufferQueue = bufferQueue;
     this._signal = signal;
@@ -1088,6 +549,17 @@ export class Chan {
       const postContQueueItem = [value, _customResolve, _customReject];
       signal.addEventListener("abort", _cancel, { once: true });
       _postContQueue.push(postContQueueItem);
+    });
+  }
+
+  _postNoSig(value) {
+    const success = this.tryPost(value);
+    if (success) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      this._postContQueue.add([value, resolve, reject]);
     });
   }
 
@@ -1240,8 +712,9 @@ function _removeAbortEventListener(chan) {
 }
 
 
-================ funcfunc-core/src/lib/chan/utils.js ================
-import { flatMap1, forEach1, map1 } from "../arrays";
+## FILE: funcfunc-core/src/lib/chan/utils.js ================================
+
+import { flatMap1, forEach1, map1 } from "../array-utils";
 import { isEndOfChan } from "./core";
 
 export function merge(output, options = {}, ...inputs) {
@@ -1352,174 +825,47 @@ export function mult(input, options = {}, ...outputs) {
 }
 
 
-================ funcfunc-core/src/lib/classnames/aggregators.js ================
-export function autoBem(names) {
-  const { length } = names;
-  if (length === 0) {
-    return "";
-  }
-  const [block] = names;
-  const acc = new Array(length);
-  acc[0] = block;
-  for (let i = 1; i < length; ++i) {
-    const name = names[i];
-    const isTarget = typeof name === "string" && name.match(/^(?:--|__)/);
-    acc[i] = isTarget ? `${block}${name}` : name;
-  }
-  return acc.join(" ");
-}
+## FILE: funcfunc-core/src/lib/delegate.js ================================
 
-export { defaultAggregator as joinWithSpaces } from "./core";
-
-
-================ funcfunc-core/src/lib/classnames/core.js ================
-export function createClassNamesCombinator({ transformers = [], aggregator = defaultAggregator } = {}) {
-  return (...names) => {
-    const acc = [];
-    _loopNames(acc, transformers, 0, names);
-    return aggregator(acc);
-  }
-}
-
-function _loopNames(acc, transformers, offsetTranses, names) {
-  for (const name of names) {
-    if (Array.isArray(name)) {
-      _loopNames(acc, transformers, offsetTranses, name);
+export function delegate(principalClass, agentName, methodNames) {
+  const { length } = methodNames;
+  for (let i = 0; i < length; ++i) {
+    const nameI = methodNames[i];
+    if (nameI == null) {
       continue;
     }
-    _loopTranses(acc, transformers, offsetTranses, name);
-  }
-}
 
-function _loopTranses(acc, transformers, offsetTranses, name) {
-  const { length } = transformers;
-  for (let i = offsetTranses; i < length; ++i) {
-    const trans = transformers[i];
-    name = trans(name);
-    if (name === false) {
-      return;
-    }
-    if (Array.isArray(name)) {
-      _loopNames(acc, transformers, i + 1, name);
-      return;
-    }
-  }
-  acc.push(name);
-}
-
-export function defaultAggregator(names) {
-  return names.join(" ");
-}
-
-
-================ funcfunc-core/src/lib/classnames/presets.js ================
-import * as A from "./aggregators";
-import { createClassNamesCombinator } from "./core";
-import * as T from "./transformers";
-
-export const c = createClassNamesCombinator({ transformers: [T.omitFalsy] });
-
-export const clegacy = createClassNamesCombinator({ transformers: [T.omitFalsy, T.collectActiveKeys] });
-
-export function cprops(styles) {
-  return createClassNamesCombinator({ transformers: [T.mapObject(styles), T.omitFalsy] });
-}
-
-export function cprefix(prefix) {
-  return createClassNamesCombinator({ transformers: [T.omitFalsy, T.addPrefix(prefix)] });
-}
-
-export function cvariants(variantDefs) {
-  return createClassNamesCombinator({ transformers: [T.mapVariants(variantDefs), T.omitFalsy] });
-}
-
-export function cbem(prefix) {
-  return createClassNamesCombinator({ transformers: [T.addBemBlock(prefix), T.omitFalsy] });
-}
-
-export const cautoBem = createClassNamesCombinator({ transformers: [T.omitFalsy], aggregator: A.autoBem });
-
-export const craw = createClassNamesCombinator();
-
-
-================ funcfunc-core/src/lib/classnames/transformers.js ================
-export function omitFalsy(name) {
-  return name || [];
-}
-
-export function collectActiveKeys(name) {
-  if (name === null || typeof name !== "object") {
-    return name;
-  }
-
-  const keys = Object.keys(name)
-  const acc = new Array(keys.length);
-  let i = 0;
-  for (const k of keys) {
-    if (k !== "" && name[k]) {
-      acc[i++] = k;
-    }
-  }
-  acc.length = i;
-  return acc;
-}
-
-export function mapObject(styles) {
-  return (prop) => styles[prop] ?? prop;
-}
-
-export function addPrefix(prefix) {
-  return (name) => `${prefix}${name}`;
-}
-
-export function mapVariants(variantDefs) {
-  return (variants) => {
-    if (variants == null || typeof variants !== "object") {
-      return variants;
-    }
-
-    const keys = Object.keys(variants);
-    const { length } = keys;
-    for (let i = 0; i < length; ++i) {
-      const keyI = keys[i];
-      if (!(keyI in variantDefs)) {
-        console.warn("unrecognized key", keyI);
-        continue;
+    switch (typeof nameI) {
+      case "number":
+      case "string":
+      case "symbol": {
+        principalClass.prototype[nameI] = function (...args) {
+          return this[agentName][nameI](...args);
+        }
+        break;
       }
-
-      const defK = variantDefs[keyI];
-      const varI = variants[keyI];
-      if (!(varI in defK)) {
-        console.warn("unrecognized variant", defK, varI);
-        continue;
+      case "object": {
+        const fromNameArray = Object.keys(nameI)
+        const nFromNames = fromNameArray.length;
+        for (let j = 0; j < nFromNames; ++j) {
+          const fromName = fromNameArray[j];
+          const toName = nameI[fromName];
+          principalClass.prototype[fromName] = function (...args) {
+            return this[agentName][toName](...args);
+          }
+        }
+        break;
       }
-
-      keys[i] = defK[varI];
+      default: {
+        throw Error("unsupported name type.");
+      }
     }
-    return keys;
-  };
-}
-
-export function addBemBlock(block) {
-  return (name) => {
-    if (typeof name !== "string" || !name.match(/^(?:--|__)/)) {
-      return name;
-    }
-    return `${block}${name}`;
-  };
-}
-
-export function replaceRegex(regex, replace) {
-  return (name) => {
-    if (typeof name !== "string") {
-      return name;
-    }
-    return name.replace(regex, replace);
-  };
+  }
 }
 
 
-================ funcfunc-core/src/lib/core.js ================
+## FILE: funcfunc-core/src/lib/core.js ================================
+
 export function doNothing() {
 }
 
@@ -1934,262 +1280,360 @@ export function or4(...preds) {
 }
 
 
-================ funcfunc-core/src/lib/delay-list-reduce-right.js ================
-import { delayForce } from "./delay";
-import { car, cdr, isPair } from "./list";
+## FILE: funcfunc-core/src/lib/lens.js ================================
 
-export function delayReduceRight(proc, delayedInit, list0, ...lists) {
-  switch (lists.length) {
-    case 0: {
-      return delayReduceRight1(proc, delayedInit, list0);
-    }
-    case 1: {
-      return delayReduceRight2(proc, delayedInit, list0, lists[0]);
-    }
-    default: {
-      return _delayReduceRightN(proc, delayedInit, list0, lists);
-    }
+import { toUInt } from "./asfunc";
+
+export const idlens = lens((target) => target, (_target, value) => value);
+
+export function lens(ref, upd, thisArg = void 0) {
+  if (thisArg === void 0) {
+    return { ref, upd };
   }
+  return { ref: ref.bind(thisArg), upd: upd.bind(thisArg) };
 }
 
-export function delayReduceRight1(proc, delayedInit, list0) {
-  return delayForce(() => {
-    if (!isPair(list0)) {
-      return delayedInit;
-    }
-    return proc(delayReduceRight1(proc, delayedInit, cdr(list0)), car(list0));
-  });
+export function isLens(x) {
+  return x != null && typeof x === "object" && typeof x.ref === "function" && typeof x.upd === "function";
 }
 
-export function delayReduceRight2(proc, delayedInit, list0, list1) {
-  return delayForce(() => {
-    if (!isPair(list0) || !isPair(list1)) {
-      return delayedInit;
-    }
-    return proc(delayReduceRight2(proc, delayedInit, cdr(list0), cdr(list1)), car(list0), car(list1));
-  });
+export function ref(lns, target) {
+  return lns.ref(target);
 }
 
-function _delayReduceRightN(proc, delayedInit, list0, lists) {
-  return delayForce(() => {
-    if (!isPair(list0)) {
-      return delayedInit;
-    }
-
-    const value0 = car(list0);
-    const rest0 = cdr(list0);
-
-    const nLists = lists.length;
-
-    const values = new Array(nLists);
-    const rests = new Array(nLists);
-    for (let i = 0; i < nLists; ++i) {
-      const tmpI = lists[i];
-      if (!isPair(tmpI)) {
-        return delayedInit;
-      }
-
-      values[i] = car(tmpI);
-      rests[i] = cdr(tmpI);
-    }
-
-    return proc(_delayReduceRightN(proc, delayedInit, rest0, rests), value0, ...values);
-  });
+export function xref(target, lns) {
+  return lns.ref(target);
 }
 
-
-================ funcfunc-core/src/lib/delay.js ================
-import { constant } from "./core";
-
-export class Delayed {
-  constructor(content) {
-    this._content = content;
-  }
-
-  static resolve(value) {
-    return new Delayed({ _isLazy: false, _thunk: constant(value), _value: value });
-  }
+export function upd(lns, target, value) {
+  return lns.upd(target, value);
 }
 
-export function isDelayed(x) {
-  return x instanceof Delayed;
+export function xupd(target, lns, value) {
+  return lns.upd(target, value);
 }
 
-export function force(delayed) {
-  while (delayed._content._isLazy) {
-    const delayedInner = delayed._content._thunk();
-    if (delayed._content._isLazy) {
-      delayed._content._isLazy = delayedInner._content._isLazy;
-      delayed._content._thunk = delayedInner._content._thunk;
-      delayed._content._value = delayedInner._content._value;
-      delayedInner._content = delayed._content;
-    }
-  }
-
-  return delayed._content._value;
+export function swap(lns, target, swapper) {
+  return lns.upd(target, swapper(lns.ref(target)));
 }
 
-export function delayForce(thunk) {
-  return _delayForce(() => {
-    const result = thunk();
-    if (isDelayed(result)) {
-      return result;
-    }
-    throw TypeError(`expects delayed, but got: ${result}`);
-  });
+export function xswap(target, lns, swapper) {
+  return lns.upd(target, swapper(lns.ref(target)));
 }
 
-export function delay(thunk) {
-  return _delayForce(() => Delayed.resolve(thunk()));
+export function chain(...lenses) {
+  return _chainLens(lenses);
 }
 
-export function map(proc, delayed0, ...delayeds) {
-  switch (delayeds.length) {
-    case 0: {
-      return map1(proc, delayed0);
-    }
-    case 1: {
-      return map2(proc, delayed0, delayeds[0]);
-    }
-    default: {
-      return _mapN(proc, delayed0, delayeds);
-    }
-  }
-}
-
-export function map1(proc, delayed0) {
-  return delay(() => proc(force(delayed0)));
-}
-
-export function map2(proc, delayed0, delayed1) {
-  return delay(() => proc(force(delayed0), force(delayed1)));
-}
-
-function _mapN(proc, delayed0, delayeds) {
-  return delay(() => {
-    const { length } = delayeds;
-    const value0 = force(delayed0);
-    const values = new Array(length);
-    for (let i = 0; i < length; ++i) {
-      values[i] = force(delayeds[i]);
-    }
-    return proc(value0, ...values);
-  });
-}
-
-export function flatMap(proc, delayed0, ...delayeds) {
-  switch (delayeds.length) {
-    case 0: {
-      return flatMap1(proc, delayed0);
-    }
-    case 1: {
-      return flatMap2(proc, delayed0, delayeds[0]);
-    }
-    default: {
-      return _flatMapN(proc, delayed0, delayeds);
-    }
-  }
-}
-
-export function flatMap1(proc, delayed0) {
-  return delayForce(() => proc(force(delayed0)));
-}
-
-export function flatMap2(proc, delayed0, delayed1) {
-  return delayForce(() => proc(force(delayed0), force(delayed1)));
-}
-
-function _flatMapN(proc, delayed0, delayeds) {
-  return delayForce(() => {
-    const { length } = delayeds;
-    const value0 = force(delayed0);
-    const values = new Array(length);
-    for (let i = 0; i < length; ++i) {
-      values[i] = force(delayeds[i]);
-    }
-    return proc(value0, ...values);
-  });
-}
-
-export function forEach(proc, delayed0, ...delayeds) {
-  switch (delayeds.length) {
-    case 0: {
-      forEach1(proc, delayed0);
-      break;
-    }
-    case 1: {
-      forEach2(proc, delayed0, delayeds[0]);
-      break;
-    }
-    default: {
-      _forEachN(proc, delayed0, delayeds);
-      break;
-    }
-  }
-}
-
-export function forEach1(proc, delayed0) {
-  proc(force(delayed0));
-}
-
-export function forEach2(proc, delayed0, delayed1) {
-  proc(force(delayed0), force(delayed1));
-}
-
-function _forEachN(proc, delayed0, delayeds) {
-  const { length } = delayeds;
-  const value0 = force(delayed0);
-  const values = new Array(length);
+export function pathLens(...propOrIndex) {
+  const { length } = propOrIndex;
   for (let i = 0; i < length; ++i) {
-    values[i] = force(delayeds[i]);
-  }
-  proc(value0, ...values);
-}
-
-function _delayForce(thunk) {
-  return new Delayed({ _isLazy: true, _thunk: thunk, _value: void 0 });
-}
-
-
-================ funcfunc-core/src/lib/delegate.js ================
-export function delegate(principalClass, agentName, methodNames) {
-  const { length } = methodNames;
-  for (let i = 0; i < length; ++i) {
-    const nameI = methodNames[i];
-    if (nameI == null) {
-      continue;
-    }
-
-    switch (typeof nameI) {
-      case "number":
+    const segment = propOrIndex[i];
+    switch (typeof segment) {
       case "string":
       case "symbol": {
-        principalClass.prototype[nameI] = function (...args) {
-          return this[agentName][nameI](...args);
-        }
+        propOrIndex[i] = new _PropLens(segment);
         break;
       }
-      case "object": {
-        const fromNameArray = Object.keys(nameI)
-        const nFromNames = fromNameArray.length;
-        for (let j = 0; j < nFromNames; ++j) {
-          const fromName = fromNameArray[j];
-          const toName = nameI[fromName];
-          principalClass.prototype[fromName] = function (...args) {
-            return this[agentName][toName](...args);
-          }
-        }
+      case "number": {
+        propOrIndex[i] = new _IndexLens(segment);
         break;
       }
       default: {
-        throw Error("unsupported name type.");
+        throw TypeError(`expects string, symbol, or number, but got: ${segment}`);
       }
+    }
+  }
+
+  return _chainLens(propOrIndex);
+}
+
+function _chainLens(lenses) {
+  const { length } = lenses;
+  switch (length) {
+    case 0: {
+      return idlens;
+    }
+    case 1: {
+      return lenses[0];
+    }
+    default: {
+      return new _ChainLens(lenses);
     }
   }
 }
 
+class _ChainLens {
+  _lenses;
 
-================ funcfunc-core/src/lib/failable.js ================
+  constructor(lenses) {
+    this._lenses = lenses;
+  }
+
+  ref(target) {
+    const { _lenses } = this;
+    const { length } = _lenses
+
+    let t = target;
+    for (let i = 0; i < length; ++i) {
+      t = _lenses[i].ref(t);
+    }
+    return t;
+  }
+
+  upd(target, value) {
+    const { _lenses } = this;
+    const { length } = _lenses
+    return _chainUpd(_lenses, length, value, 0, target);
+  }
+}
+
+function _chainUpd(lenses, length, value, i, target) {
+  if (i === length) {
+    return value;
+  }
+  const lensI = lenses[i];
+  return lensI.upd(target, _chainUpd(lenses, length, value, i + 1, lensI.ref(target)));
+}
+
+class _PropLens {
+  _prop;
+
+  constructor(prop) {
+    this._prop = prop;
+  }
+
+  ref(target) {
+    if (target == null || typeof target !== "object") {
+      return void 0;
+    }
+    return target[this._prop];
+  }
+
+  upd(target, value) {
+    const { _prop } = this;
+
+    if (target == null || typeof target !== "object") {
+      return { [_prop]: value };
+    }
+
+    if (_prop in target && Object.is(target[_prop], value)) {
+      return target;
+    }
+
+    return { ...target, [_prop]: value };
+  }
+}
+
+class _IndexLens {
+  _index;
+
+  constructor(index) {
+    this._index = toUInt(index);
+  }
+
+  ref(target) {
+    if (!Array.isArray(target)) {
+      return void 0;
+    }
+    return target[this._index];
+  }
+
+  upd(target, value) {
+    const { _index } = this;
+
+    if (!Array.isArray(target)) {
+      const res = new Array(_index + 1);
+      res[_index] = value;
+      return res;
+    }
+
+    const { length } = target;
+    if (_index in target && Object.is(target[_index], value)) {
+      return target;
+    }
+
+    const res = [...target];
+    if (length <= _index) {
+      res.length = _index + 1;
+    }
+    res[_index] = value;
+    return res;
+
+  }
+}
+
+
+## FILE: funcfunc-core/src/lib/transducer.js ================================
+
+// core ================
+
+const _end = Symbol("end of transducing");
+
+export function stop() {
+  return _end;
+}
+
+export function isStopped(value) {
+  return _end === value;
+}
+
+// runner ================
+
+export function transduce(xform, rf, init, iter) {
+  const proc = xform(rf);
+  for (const v of iter) {
+    const res = proc(init, v);
+    if (isStopped(res)) {
+      break;
+    }
+    init = res;
+  }
+  return init;
+}
+
+// splicing ================
+
+export function takeTS(count) {
+  return (rf) => {
+    let i = 0;
+
+    return (acc, value) => {
+      if (i >= count) {
+        return _end;
+      }
+      i += 1;
+      return rf(acc, value);
+    };
+  };
+}
+
+export function dropTS(count) {
+  return (rf) => {
+    let i = 0;
+
+    return (acc, value) => {
+      if (i < count) {
+        i += 1;
+        return acc;
+      }
+      return rf(acc, value);
+    };
+  };
+}
+
+// composition ================
+
+export function flatT() {
+  return (rf) => (acc, iter) => {
+    for (const value of iter) {
+      if (isStopped(value)) {
+        return _end;
+      }
+      acc = rf(acc, value);
+    }
+    return acc;
+  };
+}
+
+export function entriesTS() {
+  return (rf) => {
+    let i = 0;
+
+    return (acc, value) => {
+      return rf(acc, [i++, value]);
+    };
+  };
+}
+
+// filtering ================
+
+export function filterT(pred) {
+  return (rf) => (acc, value) => {
+    if (pred(value)) {
+      return rf(acc, value);
+    }
+    return acc;
+  };
+}
+
+export function findTailTS(pred) {
+  return (rf) => {
+    let found = false;
+
+    return (acc, value) => {
+      if (found) {
+        return rf(acc, value);
+      }
+      if (pred(value)) {
+        found = true;
+        return rf(acc, value);
+      }
+      return acc;
+    };
+  };
+}
+
+export function takeWhileT(pred) {
+  return (rf) => (acc, value) => {
+    if (pred(value)) {
+      return rf(acc, value);
+    }
+    return _end;
+  };
+}
+
+export function dropWhileTS(pred) {
+  return (rf) => {
+    let unmatched = false;
+
+    return (acc, value) => {
+      if (unmatched) {
+        return rf(acc, value);
+      }
+      if (pred(value)) {
+        return acc;
+      }
+      unmatched = true;
+      return rf(acc, value);
+    };
+  };
+}
+
+export function uniqueTS() {
+  return (rf) => {
+    const appeared = new Set();
+
+    return (acc, value) => {
+      if (appeared.has(value)) {
+        return acc;
+      }
+      appeared.add(value);
+      return rf(acc, value);
+    };
+  };
+}
+
+// mapping ================
+
+export function mapT(proc) {
+  return (rf) => (acc, value) => {
+    return rf(acc, proc(value));
+  };
+}
+
+export function flatMapT(proc) {
+  return (rf) => (acc, value) => {
+    for (const v of proc(value)) {
+      acc = rf(acc, v);
+    }
+    return acc;
+  }
+}
+
+
+## FILE: funcfunc-core/src/lib/failable.js ================================
+
 const _reasons = Symbol("reasons");
 
 export function fail(...reasons) {
@@ -2442,7 +1886,464 @@ function _flatErrorsLoop(acc, errors) {
 }
 
 
-================ funcfunc-core/src/lib/generators.js ================
+## FILE: funcfunc-core/src/lib/delay-list-reduce-right.js ================================
+
+import { delayForce } from "./delay";
+import { car, cdr, isPair } from "./list";
+
+export function delayReduceRight(proc, delayedInit, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return delayReduceRight1(proc, delayedInit, list0);
+    }
+    case 1: {
+      return delayReduceRight2(proc, delayedInit, list0, lists[0]);
+    }
+    default: {
+      return _delayReduceRightN(proc, delayedInit, list0, lists);
+    }
+  }
+}
+
+export function delayReduceRight1(proc, delayedInit, list0) {
+  return delayForce(() => {
+    if (!isPair(list0)) {
+      return delayedInit;
+    }
+    return proc(delayReduceRight1(proc, delayedInit, cdr(list0)), car(list0));
+  });
+}
+
+export function delayReduceRight2(proc, delayedInit, list0, list1) {
+  return delayForce(() => {
+    if (!isPair(list0) || !isPair(list1)) {
+      return delayedInit;
+    }
+    return proc(delayReduceRight2(proc, delayedInit, cdr(list0), cdr(list1)), car(list0), car(list1));
+  });
+}
+
+function _delayReduceRightN(proc, delayedInit, list0, lists) {
+  return delayForce(() => {
+    if (!isPair(list0)) {
+      return delayedInit;
+    }
+
+    const value0 = car(list0);
+    const rest0 = cdr(list0);
+
+    const nLists = lists.length;
+
+    const values = new Array(nLists);
+    const rests = new Array(nLists);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        return delayedInit;
+      }
+
+      values[i] = car(tmpI);
+      rests[i] = cdr(tmpI);
+    }
+
+    return proc(_delayReduceRightN(proc, delayedInit, rest0, rests), value0, ...values);
+  });
+}
+
+
+## FILE: funcfunc-core/src/lib/classnames/presets.js ================================
+
+import * as A from "./aggregators";
+import { createClassNamesCombinator } from "./core";
+import * as T from "./transformers";
+
+export const c = createClassNamesCombinator({ transformers: [T.omitFalsy] });
+
+export const clegacy = createClassNamesCombinator({ transformers: [T.omitFalsy, T.collectActiveKeys] });
+
+export function cprops(styles) {
+  return createClassNamesCombinator({ transformers: [T.mapObject(styles), T.omitFalsy] });
+}
+
+export function cprefix(prefix) {
+  return createClassNamesCombinator({ transformers: [T.omitFalsy, T.addPrefix(prefix)] });
+}
+
+export function cvariants(variantDefs) {
+  return createClassNamesCombinator({ transformers: [T.mapVariants(variantDefs), T.omitFalsy] });
+}
+
+export function cbem(prefix) {
+  return createClassNamesCombinator({ transformers: [T.addBemBlock(prefix), T.omitFalsy] });
+}
+
+export const cautoBem = createClassNamesCombinator({ transformers: [T.omitFalsy], aggregator: A.autoBem });
+
+export const craw = createClassNamesCombinator();
+
+
+## FILE: funcfunc-core/src/lib/classnames/core.js ================================
+
+export function createClassNamesCombinator({ transformers = [], aggregator = defaultAggregator } = {}) {
+  return (...names) => {
+    const acc = [];
+    _loopNames(acc, transformers, 0, names);
+    return aggregator(acc);
+  }
+}
+
+function _loopNames(acc, transformers, offsetTranses, names) {
+  for (const name of names) {
+    if (Array.isArray(name)) {
+      _loopNames(acc, transformers, offsetTranses, name);
+      continue;
+    }
+    _loopTranses(acc, transformers, offsetTranses, name);
+  }
+}
+
+function _loopTranses(acc, transformers, offsetTranses, name) {
+  const { length } = transformers;
+  for (let i = offsetTranses; i < length; ++i) {
+    const trans = transformers[i];
+    name = trans(name);
+    if (name === false) {
+      return;
+    }
+    if (Array.isArray(name)) {
+      _loopNames(acc, transformers, i + 1, name);
+      return;
+    }
+  }
+  acc.push(name);
+}
+
+export function defaultAggregator(names) {
+  return names.join(" ");
+}
+
+
+## FILE: funcfunc-core/src/lib/classnames/transformers.js ================================
+
+export function omitFalsy(name) {
+  return name || [];
+}
+
+export function collectActiveKeys(name) {
+  if (name === null || typeof name !== "object") {
+    return name;
+  }
+
+  const keys = Object.keys(name)
+  const acc = new Array(keys.length);
+  let i = 0;
+  for (const k of keys) {
+    if (k !== "" && name[k]) {
+      acc[i++] = k;
+    }
+  }
+  acc.length = i;
+  return acc;
+}
+
+export function mapObject(styles) {
+  return (prop) => styles[prop] ?? prop;
+}
+
+export function addPrefix(prefix) {
+  return (name) => `${prefix}${name}`;
+}
+
+export function mapVariants(variantDefs) {
+  return (variants) => {
+    if (variants == null || typeof variants !== "object") {
+      return variants;
+    }
+
+    const keys = Object.keys(variants);
+    const { length } = keys;
+    for (let i = 0; i < length; ++i) {
+      const keyI = keys[i];
+      if (!(keyI in variantDefs)) {
+        console.warn("unrecognized key", keyI);
+        continue;
+      }
+
+      const defK = variantDefs[keyI];
+      const varI = variants[keyI];
+      if (!(varI in defK)) {
+        console.warn("unrecognized variant", defK, varI);
+        continue;
+      }
+
+      keys[i] = defK[varI];
+    }
+    return keys;
+  };
+}
+
+export function addBemBlock(block) {
+  return (name) => {
+    if (typeof name !== "string" || !name.match(/^(?:--|__)/)) {
+      return name;
+    }
+    return `${block}${name}`;
+  };
+}
+
+export function replaceRegex(regex, replace) {
+  return (name) => {
+    if (typeof name !== "string") {
+      return name;
+    }
+    return name.replace(regex, replace);
+  };
+}
+
+
+## FILE: funcfunc-core/src/lib/classnames/aggregators.js ================================
+
+export function autoBem(names) {
+  const { length } = names;
+  if (length === 0) {
+    return "";
+  }
+  const [block] = names;
+  const acc = new Array(length);
+  acc[0] = block;
+  for (let i = 1; i < length; ++i) {
+    const name = names[i];
+    const isTarget = typeof name === "string" && name.match(/^(?:--|__)/);
+    acc[i] = isTarget ? `${block}${name}` : name;
+  }
+  return acc.join(" ");
+}
+
+export { defaultAggregator as joinWithSpaces } from "./core";
+
+
+## FILE: funcfunc-core/src/lib/nullable.js ================================
+
+import { isNull, isUndef } from "./asfunc";
+
+export { isNull, isUndef };
+
+export function isNullish(x) {
+  return x == null;
+}
+
+export function isFalsy(x) {
+  return !x;
+}
+
+export function nullMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return nullMap1(proc, x0);
+    }
+    case 1: {
+      return nullMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _nullMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function nullMap1(proc, x0) {
+  if (x0 === null) {
+    return null;
+  }
+  return proc(x0);
+}
+
+export function nullMap2(proc, x0, x1) {
+  if (x0 === null || x1 === null) {
+    return null;
+  }
+  return proc(x0, x1);
+}
+
+function _nullMapN(proc, x0, xs) {
+  if (x0 === null) {
+    return null;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] === null) {
+      return null;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+export function undefMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return undefMap1(proc, x0);
+    }
+    case 1: {
+      return undefMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _undefMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function undefMap1(proc, x0) {
+  if (x0 === void 0) {
+    return void 0;
+  }
+  return proc(x0);
+}
+
+export function undefMap2(proc, x0, x1) {
+  if (x0 === void 0 || x1 === void 0) {
+    return void 0;
+  }
+  return proc(x0, x1);
+}
+
+function _undefMapN(proc, x0, xs) {
+  if (x0 === void 0) {
+    return void 0;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] === void 0) {
+      return void 0;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+export function nullishMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return nullishMap1(proc, x0);
+    }
+    case 1: {
+      return nullishMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _nullishMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function nullishMap1(proc, x0) {
+  if (x0 == null) {
+    return void 0;
+  }
+  return proc(x0);
+}
+
+export function nullishMap2(proc, x0, x1) {
+  if (x0 == null || x1 == null) {
+    return void 0;
+  }
+  return proc(x0, x1);
+}
+
+function _nullishMapN(proc, x0, xs) {
+  if (x0 == null) {
+    return void 0;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] == null) {
+      return void 0;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+export function falsyMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return falsyMap1(proc, x0);
+    }
+    case 1: {
+      return falsyMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _falsyMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function falsyMap1(proc, x0) {
+  if (!x0) {
+    return false;
+  }
+  return proc(x0);
+}
+
+export function falsyMap2(proc, x0, x1) {
+  if (!x0 || !x1) {
+    return false;
+  }
+  return proc(x0, x1);
+}
+
+function _falsyMapN(proc, x0, xs) {
+  if (!x0) {
+    return false;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (!xs[i]) {
+      return false;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+export function falseMap(proc, x0, ...xs) {
+  switch (xs.length) {
+    case 0: {
+      return falseMap1(proc, x0);
+    }
+    case 1: {
+      return falseMap2(proc, x0, xs[0]);
+    }
+    default: {
+      return _falseMapN(proc, x0, xs);
+    }
+  }
+}
+
+export function falseMap1(proc, x0) {
+  if (x0 === false) {
+    return false;
+  }
+  return proc(x0);
+}
+
+export function falseMap2(proc, x0, x1) {
+  if (x0 === false || x1 === false) {
+    return false;
+  }
+  return proc(x0, x1);
+}
+
+function _falseMapN(proc, x0, xs) {
+  if (x0 === false) {
+    return false;
+  }
+  const { length } = xs;
+  for (let i = 0; i < length; ++i) {
+    if (xs[i] === false) {
+      return false;
+    }
+  }
+  return proc(x0, ...xs);
+}
+
+
+## FILE: funcfunc-core/src/lib/iterator-utils.js ================================
+
 import { toUInt } from "./asfunc";
 
 // helpers ================
@@ -3103,572 +3004,8 @@ export function join(sep, iter) {
 }
 
 
-================ funcfunc-core/src/lib/lazylist.js ================
-import { toUInt } from "./asfunc";
-import { car, cdr, cons, isPair, lcons, listOf, nil } from "./list";
+## FILE: funcfunc-core/src/lib/list.js ================================
 
-// creation ================
-
-export { listOf as llistOf } from "./list";
-
-export function lrepeat(count, value) {
-  if (count === void 0 || count === Number.POSITIVE_INFINITY) {
-    return lrepeatInf(value);
-  }
-  return _lrepeatFinite(toUInt(count), value);
-}
-
-export function lrepeatInf(value) {
-  return lcons(value, () => lrepeatInf(value));
-}
-
-function _lrepeatFinite(count, value) {
-  if (count === 0) {
-    return null;
-  }
-  return lcons(value, () => _lrepeatFinite(count - 1, value));
-}
-
-export function liota(count, start = 0, step = 1) {
-  if (count === void 0 || count === Number.POSITIVE_INFINITY) {
-    return liotaInf(start, step);
-  }
-  return _liotaFinite(toUInt(count), +start, +step);
-}
-
-export function liotaInf(start, step) {
-  const _start = +start;
-  const _step = +step;
-
-  function _loop(i) {
-    return lcons(i * _step + _start, () => _loop(i + 1));
-  }
-
-  return _loop(0);
-}
-
-function _liotaFinite(count, start, step) {
-  function _loop(i) {
-    if (i === count) {
-      return null;
-    }
-    return lcons(i * step + start, () => _loop(i + 1));
-  }
-
-  return _loop(0);
-}
-
-export function iterableToLazyList(iterable) {
-  const iter = iterable[Symbol.iterator]();
-
-  function _loop() {
-    const res = iter.next();
-    if (res.done) {
-      return null;
-    }
-    return lcons(res.value, _loop);
-  }
-
-  return _loop();
-}
-
-export function lunfold(gen, seed, tailGen = void 0) {
-  const res = gen(seed);
-  const { value, done } = res;
-  if (done) {
-    return tailGen === void 0 ? nil() : tailGen(seed);
-  }
-  return lcons(value, () => lunfold(gen, "seed" in res ? res.seed : value, tailGen));
-}
-
-// splicing ================
-
-export function ltake(count, list) {
-  if (count === 0 || !isPair(list)) {
-    return null;
-  }
-  return lcons(car(list), () => ltake(count - 1, cdr(list)));
-}
-
-export { drop as ldrop } from "./list";
-
-// composition ================
-
-export function lflat(listOfList) {
-  if (!isPair(listOfList)) {
-    return null;
-  }
-
-  return lconcat2(car(listOfList), () => lflat(cdr(listOfList)));
-}
-
-export function lconcat(list0, ...lists) {
-  switch (lists.length) {
-    case 0: {
-      return list0;
-    }
-    case 1: {
-      return lconcat2(list0, () => lists[0]);
-    }
-    default: {
-      return lconcat2(list0, () => _lconcatN(0, lists));
-    }
-  }
-}
-
-export function lconcat2(list0, thunk) {
-  if (!isPair(list0)) {
-    return thunk();
-  }
-  return lcons(car(list0), () => lconcat2(cdr(list0), thunk));
-}
-
-function _lconcatN(offset, lists) {
-  if (offset === lists.length) {
-    return null;
-  }
-  return lconcat2(lists[offset], () => _lconcatN(offset + 1, lists));
-}
-
-export function lzip(list0, ...lists) {
-  switch (lists.length) {
-    case 0: {
-      return _lzip1(list0);
-    }
-    case 1: {
-      return _lzip2(list0, lists[0]);
-    }
-    default: {
-      return _lzipN(list0, lists);
-    }
-  }
-}
-
-function _lzip1(list0) {
-  if (!isPair(list0)) {
-    return null;
-  }
-  return lcons(listOf(car(list0)), () => _lzip1(cdr(list0)));
-}
-
-function _lzip2(list0, list1) {
-  if (!isPair(list0) || !isPair(list1)) {
-    return null;
-  }
-  return lcons(listOf(car(list0), car(list1)), () => _lzip2(cdr(list0), cdr(list1)));
-}
-
-function _lzipN(list0, lists) {
-  const nLists = lists.length;
-  let elem = null;
-  for (let i = nLists - 1; i >= 0; --i) {
-    const listI = lists[i];
-    if (!isPair(listI)) {
-      return null;
-    }
-    elem = cons(car(listI), elem);
-  }
-
-  if (!isPair(list0)) {
-    return null;
-  }
-  elem = cons(car(list0), elem);
-
-  return lcons(elem, () => {
-    const next0 = cdr(list0);
-    const nexts = new Array(nLists);
-    for (let i = 0; i < nLists; ++i) {
-      nexts[i] = cdr(lists[i]);
-    }
-    return _lzipN(next0, nexts);
-  });
-}
-
-// filtering ================
-
-export function lfilter(pred, list) {
-  for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
-    const x = car(tmp);
-    if (pred(x)) {
-      return lcons(x, () => lfilter(pred, cdr(tmp)));
-    }
-  }
-  return null;
-}
-
-export function ltakeWhile(pred, list) {
-  if (!isPair(list)) {
-    return null;
-  }
-  const x = car(list);
-  if (pred(x)) {
-    return lcons(x, () => ltakeWhile(pred, cdr(list)));
-  }
-  return null;
-}
-
-export function lunique(list) {
-  if (!isPair(list)) {
-    return null;
-  }
-
-  const cache = new Set();
-
-  function loop(list) {
-    if (!isPair(list)) {
-      return null;
-    }
-    const x = car(list);
-    if (cache.has(x)) {
-      return loop(cdr(list));
-    }
-    cache.add(x);
-    return lcons(x, () => loop(cdr(list)));
-  }
-
-  return loop(list);
-}
-
-export {
-  dropWhile as ldropWhile,
-  findTail as lfindTail
-} from "./list";
-
-// mapping ================
-
-export function lmap(proc, list0, ...lists) {
-  switch (lists.length) {
-    case 0: {
-      return lmap1(proc, list0);
-    }
-    case 1: {
-      return lmap2(proc, list0, lists[0]);
-    }
-    default: {
-      return _lmapN(proc, list0, lists);
-    }
-  }
-}
-
-export function lmap1(proc, list0) {
-  if (!isPair(list0)) {
-    return null;
-  }
-  return lcons(proc(car(list0)), () => lmap1(proc, cdr(list0)));
-}
-
-export function lmap2(proc, list0, list1) {
-  if (!isPair(list0) || !isPair(list1)) {
-    return null;
-  }
-  return lcons(proc(car(list0), car(list1)), () => lmap2(proc, cdr(list0), cdr(list1)));
-}
-
-function _lmapN(proc, list0, lists) {
-  if (!isPair(list0)) {
-    return null;
-  }
-
-  const value0 = car(list0);
-
-  const nLists = lists.length;
-  const values = new Array(nLists);
-  for (let i = 0; i < nLists; ++i) {
-    const listI = lists[i];
-    if (!isPair(listI)) {
-      return null;
-    }
-    values[i] = car(listI);
-  }
-
-  return lcons(proc(value0, ...values), () => {
-    const rest0 = cdr(list0);
-    const rests = new Array(nLists);
-    for (let i = 0; i < nLists; ++i) {
-      rests[i] = cdr(lists[i]);
-    }
-    return _lmapN(proc, rest0, rests);
-  });
-}
-
-export function lflatMap(proc, list0, ...lists) {
-  switch (lists.length) {
-    case 0: {
-      return lflatMap1(proc, list0);
-    }
-    case 1: {
-      return lflatMap2(proc, list0, lists[0]);
-    }
-    default: {
-      return _lflatMapN(proc, list0, lists);
-    }
-  }
-}
-
-export function lflatMap1(proc, list0) {
-  if (!isPair(list0)) {
-    return null;
-  }
-  return lconcat2(proc(car(list0)), () => lflatMap1(proc, cdr(list0)));
-}
-
-export function lflatMap2(proc, list0, list1) {
-  if (!isPair(list0) || !isPair(list1)) {
-    return null;
-  }
-  return lconcat2(proc(car(list0), car(list1)), () => lflatMap2(proc, cdr(list0), cdr(list1)));
-}
-
-function _lflatMapN(proc, list0, lists) {
-  if (!isPair(list0)) {
-    return null;
-  }
-
-  const value0 = car(list0);
-
-  const nLists = lists.length;
-  const values = new Array(nLists);
-  for (let i = 0; i < nLists; ++i) {
-    const listI = lists[i];
-    if (!isPair(listI)) {
-      return null;
-    }
-    values[i] = car(listI);
-  }
-
-  return lconcat2(proc(value0, ...values), () => {
-    const rest0 = cdr(list0);
-    const rests = new Array(nLists);
-    for (let i = 0; i < nLists; ++i) {
-      rests[i] = cdr(lists[i]);
-    }
-    return _lflatMapN(proc, rest0, rests);
-  });
-}
-
-
-================ funcfunc-core/src/lib/lens.d.ts ================
-export interface LensLike<T = unknown, A = unknown> {
-  ref<T_ extends T, A_ extends A>(target: T_): A_;
-  upd<T_ extends T, A_ extends A>(target: T_, value: A_): T_;
-}
-
-export const idlens: LensLike;
-
-export function lens<T, A>(ref: LensLike<T, A>["ref"], upd: LensLike<T, A>["upd"]): LensLike<T, A>;
-
-export function isLens(x: unknown): x is LensLike;
-
-export function ref<T, A>(lns: LensLike<T, A>, target: T): A;
-
-export function xref<T, A>(target: T, lns: LensLike<T, A>): A;
-
-export function upd<T, A>(lns: LensLike<T, A>, target: T, value: A): T;
-
-export function xupd<T, A>(target: T, lns: LensLike<T, A>, value: A): T;
-
-export function swap<T, A>(lns: LensLike<T, A>, target: T, swapper: Swapper<A>): T;
-
-export function xswap<T, A>(target: T, lns: LensLike<T, A>, swapper: Swapper<A>): T;
-
-export interface Swapper<A = unknown> {
-  <A_ extends A>(before: A_): A_;
-}
-
-export function chain(): LensLike;
-export function chain<T0, A0>(lens0: LensLike<T0, A0>): LensLike<T0, A0>;
-export function chain<T0, A0, A1>(lens0: LensLike<T0, A0>, lens1: LensLike<A0, A1>): LensLike<T0, A1>;
-export function chain<T0, A0, A1, A2>(lens0: LensLike<T0, A0>, lens1: LensLike<A0, A1>, lens2: LensLike<A1, A2>): LensLike<T0, A2>;
-export function chain<T0, A0, A1, A2, A3>(lens0: LensLike<T0, A0>, lens1: LensLike<A0, A1>, lens2: LensLike<A1, A2>, lens3: LensLike<A2, A3>): LensLike<T0, A3>;
-
-export function pathLens(): LensLike;
-export function pathLens<P0>(prop0: P0): LensLike<Record<P0>, unknown>;
-
-
-================ funcfunc-core/src/lib/lens.js ================
-import { toUInt } from "./asfunc";
-
-export const idlens = lens((target) => target, (_target, value) => value);
-
-export function lens(ref, upd, thisArg = void 0) {
-  if (thisArg === void 0) {
-    return { ref, upd };
-  }
-  return { ref: ref.bind(thisArg), upd: upd.bind(thisArg) };
-}
-
-export function isLens(x) {
-  return x != null && typeof x === "object" && typeof x.ref === "function" && typeof x.upd === "function";
-}
-
-export function ref(lns, target) {
-  return lns.ref(target);
-}
-
-export function xref(target, lns) {
-  return lns.ref(target);
-}
-
-export function upd(lns, target, value) {
-  return lns.upd(target, value);
-}
-
-export function xupd(target, lns, value) {
-  return lns.upd(target, value);
-}
-
-export function swap(lns, target, swapper) {
-  return lns.upd(target, swapper(lns.ref(target)));
-}
-
-export function xswap(target, lns, swapper) {
-  return lns.upd(target, swapper(lns.ref(target)));
-}
-
-export function chain(...lenses) {
-  return _chainLens(lenses);
-}
-
-export function pathLens(...propOrIndex) {
-  const { length } = propOrIndex;
-  for (let i = 0; i < length; ++i) {
-    const segment = propOrIndex[i];
-    switch (typeof segment) {
-      case "string":
-      case "symbol": {
-        propOrIndex[i] = new _PropLens(segment);
-        break;
-      }
-      case "number": {
-        propOrIndex[i] = new _IndexLens(segment);
-        break;
-      }
-      default: {
-        throw TypeError(`expects string, symbol, or number, but got: ${segment}`);
-      }
-    }
-  }
-
-  return _chainLens(propOrIndex);
-}
-
-function _chainLens(lenses) {
-  const { length } = lenses;
-  switch (length) {
-    case 0: {
-      return idlens;
-    }
-    case 1: {
-      return lenses[0];
-    }
-    default: {
-      return new _ChainLens(lenses);
-    }
-  }
-}
-
-class _ChainLens {
-  _lenses;
-
-  constructor(lenses) {
-    this._lenses = lenses;
-  }
-
-  ref(target) {
-    const { _lenses } = this;
-    const { length } = _lenses
-
-    let t = target;
-    for (let i = 0; i < length; ++i) {
-      t = _lenses[i].ref(t);
-    }
-    return t;
-  }
-
-  upd(target, value) {
-    const { _lenses } = this;
-    const { length } = _lenses
-    return _chainUpd(_lenses, length, value, 0, target);
-  }
-}
-
-function _chainUpd(lenses, length, value, i, target) {
-  if (i === length) {
-    return value;
-  }
-  const lensI = lenses[i];
-  return lensI.upd(target, _chainUpd(lenses, length, value, i + 1, lensI.ref(target)));
-}
-
-class _PropLens {
-  _prop;
-
-  constructor(prop) {
-    this._prop = prop;
-  }
-
-  ref(target) {
-    if (target == null || typeof target !== "object") {
-      return void 0;
-    }
-    return target[this._prop];
-  }
-
-  upd(target, value) {
-    const { _prop } = this;
-
-    if (target == null || typeof target !== "object") {
-      return { [_prop]: value };
-    }
-
-    if (_prop in target && Object.is(target[_prop], value)) {
-      return target;
-    }
-
-    return { ...target, [_prop]: value };
-  }
-}
-
-class _IndexLens {
-  _index;
-
-  constructor(index) {
-    this._index = toUInt(index);
-  }
-
-  ref(target) {
-    if (!Array.isArray(target)) {
-      return void 0;
-    }
-    return target[this._index];
-  }
-
-  upd(target, value) {
-    const { _index } = this;
-
-    if (!Array.isArray(target)) {
-      const res = new Array(_index + 1);
-      res[_index] = value;
-      return res;
-    }
-
-    const { length } = target;
-    if (_index in target && Object.is(target[_index], value)) {
-      return target;
-    }
-
-    const res = [...target];
-    if (length <= _index) {
-      res.length = _index + 1;
-    }
-    res[_index] = value;
-    return res;
-
-  }
-}
-
-
-================ funcfunc-core/src/lib/list.js ================
 import { toUInt } from "./asfunc";
 
 // core ================
@@ -4782,428 +4119,8 @@ export function reverseI(list, last = _nil) {
 }
 
 
-================ funcfunc-core/src/lib/multi.js ================
-import { is } from "./asfunc";
-import { car, cdr, flatMap1, isPair, lastPair, listOf, map1, setCdr, some1 } from "./list";
+## FILE: funcfunc-core/src/lib/queue/ring-queue.js ================================
 
-export function multi({ dispatch, defaultImpl = _defaultImpl }) {
-  const implMap = new Map();
-
-  function _doMethod(...args) {
-    const keys = traverseHierarchy(dispatch(...args));
-    for (const k of keys) {
-      const impl = implMap.get(k);
-      if (impl != null) {
-        return impl(...args);
-      }
-    }
-    return defaultImpl(...args);
-  }
-
-  _doMethod.reg = (key, impl) => {
-    implMap.set(key, impl);
-    return _doMethod;
-  };
-
-  return _doMethod;
-}
-
-export function derive(child, parent) {
-  let hier = _hierarchy.get(child);
-  if (hier == null) {
-    _hierarchy.set(child, (hier = listOf(child)));
-  }
-
-  const parents = map1(car, cdr(hier));
-
-  if (some1((p) => is(p, parent), parents)) {
-    return;
-  }
-
-  let parentHier = _hierarchy.get(parent);
-  if (parentHier == null) {
-    _hierarchy.set(parent, (parentHier = listOf(parent)));
-  }
-
-  setCdr(lastPair(hier), listOf(parentHier));
-}
-
-/*
-{
-  superA1: (superA1 (superA1a) (superA1b)),
-  superA1a: (superA1a)
-  superA1b: (superA1b)
-  superA2: (superA2 (superA2a) (superA2b)),
-  superA2a: (superA2a),
-  superA2b: (superA2b),
-  superB1: (superB1),
-  superB2: (superB2),
-  classA: (classA (superA1 (superA1a) (superA1b)) (superA2 (superA2a) (superA2b))),
-  classB: (classB (superB1) (superB2)),
-}
-*/
-const _hierarchy = new Map();
-
-export function* traverseHierarchy(hierarchy) {
-  const current = car(hierarchy);
-  yield current;
-  for (let ancestors = cdr(hierarchy); isPair(ancestors); ancestors = flatMap1(cdr, ancestors)) {
-    const parents = map1(car, ancestors);
-    yield* parents;
-  }
-}
-
-export function isa(target, type) {
-  const hierarchy = _hierarchy.get(target) ?? listOf(target);
-  for (const t of traverseHierarchy(hierarchy)) {
-    if (is(t, type)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function _defaultImpl() {
-  throw TypeError("Not implemented");
-}
-
-
-================ funcfunc-core/src/lib/nullable.js ================
-import { isNull, isUndef } from "./asfunc";
-
-export { isNull, isUndef };
-
-export function isNullish(x) {
-  return x == null;
-}
-
-export function isFalsy(x) {
-  return !x;
-}
-
-export function nullMap(proc, x0, ...xs) {
-  switch (xs.length) {
-    case 0: {
-      return nullMap1(proc, x0);
-    }
-    case 1: {
-      return nullMap2(proc, x0, xs[0]);
-    }
-    default: {
-      return _nullMapN(proc, x0, xs);
-    }
-  }
-}
-
-export function nullMap1(proc, x0) {
-  if (x0 === null) {
-    return null;
-  }
-  return proc(x0);
-}
-
-export function nullMap2(proc, x0, x1) {
-  if (x0 === null || x1 === null) {
-    return null;
-  }
-  return proc(x0, x1);
-}
-
-function _nullMapN(proc, x0, xs) {
-  if (x0 === null) {
-    return null;
-  }
-  const { length } = xs;
-  for (let i = 0; i < length; ++i) {
-    if (xs[i] === null) {
-      return null;
-    }
-  }
-  return proc(x0, ...xs);
-}
-
-export function undefMap(proc, x0, ...xs) {
-  switch (xs.length) {
-    case 0: {
-      return undefMap1(proc, x0);
-    }
-    case 1: {
-      return undefMap2(proc, x0, xs[0]);
-    }
-    default: {
-      return _undefMapN(proc, x0, xs);
-    }
-  }
-}
-
-export function undefMap1(proc, x0) {
-  if (x0 === void 0) {
-    return void 0;
-  }
-  return proc(x0);
-}
-
-export function undefMap2(proc, x0, x1) {
-  if (x0 === void 0 || x1 === void 0) {
-    return void 0;
-  }
-  return proc(x0, x1);
-}
-
-function _undefMapN(proc, x0, xs) {
-  if (x0 === void 0) {
-    return void 0;
-  }
-  const { length } = xs;
-  for (let i = 0; i < length; ++i) {
-    if (xs[i] === void 0) {
-      return void 0;
-    }
-  }
-  return proc(x0, ...xs);
-}
-
-export function nullishMap(proc, x0, ...xs) {
-  switch (xs.length) {
-    case 0: {
-      return nullishMap1(proc, x0);
-    }
-    case 1: {
-      return nullishMap2(proc, x0, xs[0]);
-    }
-    default: {
-      return _nullishMapN(proc, x0, xs);
-    }
-  }
-}
-
-export function nullishMap1(proc, x0) {
-  if (x0 == null) {
-    return void 0;
-  }
-  return proc(x0);
-}
-
-export function nullishMap2(proc, x0, x1) {
-  if (x0 == null || x1 == null) {
-    return void 0;
-  }
-  return proc(x0, x1);
-}
-
-function _nullishMapN(proc, x0, xs) {
-  if (x0 == null) {
-    return void 0;
-  }
-  const { length } = xs;
-  for (let i = 0; i < length; ++i) {
-    if (xs[i] == null) {
-      return void 0;
-    }
-  }
-  return proc(x0, ...xs);
-}
-
-export function falsyMap(proc, x0, ...xs) {
-  switch (xs.length) {
-    case 0: {
-      return falsyMap1(proc, x0);
-    }
-    case 1: {
-      return falsyMap2(proc, x0, xs[0]);
-    }
-    default: {
-      return _falsyMapN(proc, x0, xs);
-    }
-  }
-}
-
-export function falsyMap1(proc, x0) {
-  if (!x0) {
-    return false;
-  }
-  return proc(x0);
-}
-
-export function falsyMap2(proc, x0, x1) {
-  if (!x0 || !x1) {
-    return false;
-  }
-  return proc(x0, x1);
-}
-
-function _falsyMapN(proc, x0, xs) {
-  if (!x0) {
-    return false;
-  }
-  const { length } = xs;
-  for (let i = 0; i < length; ++i) {
-    if (!xs[i]) {
-      return false;
-    }
-  }
-  return proc(x0, ...xs);
-}
-
-export function falseMap(proc, x0, ...xs) {
-  switch (xs.length) {
-    case 0: {
-      return falseMap1(proc, x0);
-    }
-    case 1: {
-      return falseMap2(proc, x0, xs[0]);
-    }
-    default: {
-      return _falseMapN(proc, x0, xs);
-    }
-  }
-}
-
-export function falseMap1(proc, x0) {
-  if (x0 === false) {
-    return false;
-  }
-  return proc(x0);
-}
-
-export function falseMap2(proc, x0, x1) {
-  if (x0 === false || x1 === false) {
-    return false;
-  }
-  return proc(x0, x1);
-}
-
-function _falseMapN(proc, x0, xs) {
-  if (x0 === false) {
-    return false;
-  }
-  const { length } = xs;
-  for (let i = 0; i < length; ++i) {
-    if (xs[i] === false) {
-      return false;
-    }
-  }
-  return proc(x0, ...xs);
-}
-
-
-================ funcfunc-core/src/lib/queue/double-stack-queue.js ================
-import { fail, isSuccess, orValue } from "../failable";
-
-const _deleteMark = Symbol("delete mark");
-
-export class DStackQueue {
-  _leftBuffer = [];
-  _rightBuffer = [];
-  _deleted = 0;
-
-  constructor() {
-  }
-
-  get capacity() {
-    return Number.POSITIVE_INFINITY
-  }
-
-  get filled() {
-    return this._leftBuffer.length + this._rightBuffer.length;
-  }
-
-  get size() {
-    return this.filled - this._deleted;
-  }
-
-  push(value) {
-    const { _leftBuffer, _rightBuffer } = this;
-
-    if (_rightBuffer.length === 0 && _leftBuffer.length === 0) {
-      _leftBuffer.push(value);
-    } else {
-      _rightBuffer.push(value);
-    }
-    return true;
-  }
-
-  pop() {
-    const value = this._tryPop();
-    if (isSuccess(value)) {
-      return value;
-    }
-    this.flush();
-    return orValue(this._tryPop(), void 0);
-  }
-
-  delete(target) {
-    const { _leftBuffer, _rightBuffer } = this;
-    const leftLength = _leftBuffer.length;
-    const rightLength = _rightBuffer.length;
-
-    for (let i = rightLength - 1; i >= 0; --i) {
-      const value = _rightBuffer[i];
-      if (Object.is(value, target)) {
-        _rightBuffer[i] = _deleteMark;
-        this._deleted += 1;
-        return true;
-      }
-    }
-
-    for (let i = 0; i < leftLength; ++i) {
-      const value = _leftBuffer[i];
-      if (Object.is(value, target)) {
-        _leftBuffer[i] = _deleteMark;
-        this._deleted += 1;
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  flush() {
-    const { _leftBuffer, _rightBuffer } = this;
-    const leftLength = _leftBuffer.length;
-    const rightLength = _rightBuffer.length;
-
-    const buffer = [];
-
-    for (let i = rightLength - 1; i >= 0; --i) {
-      const value = _rightBuffer[i];
-      if (value === _deleteMark) {
-        this._deleted -= 1;
-        continue;
-      }
-      buffer.push(value);
-    }
-
-    for (let i = 0; i < leftLength; ++i) {
-      const value = _leftBuffer[i];
-      if (value === _deleteMark) {
-        this._deleted -= 1;
-        continue;
-      }
-      buffer.push(value);
-    }
-
-    this._leftBuffer = buffer;
-    this._rightBuffer = [];
-  }
-
-  _tryPop() {
-    const { _leftBuffer } = this;
-    while (_leftBuffer.length > 0) {
-      const value = _leftBuffer.pop();
-
-      if (value !== _deleteMark) {
-        return value;
-      }
-      this._deleted -= 1;
-    }
-
-    return fail();
-  }
-}
-
-
-================ funcfunc-core/src/lib/queue/ring-queue.js ================
 const _deleteMark = Symbol("delete mark");
 
 export class RingQueue {
@@ -5335,8 +4252,657 @@ function _factorFromHint(hint) {
 }
 
 
-================ funcfunc-core/src/lib/sigtree.js ================
-import { every2, forEach1, map1 } from "./arrays";
+## FILE: funcfunc-core/src/lib/queue/double-stack-queue.js ================================
+
+import { fail, isSuccess, orValue } from "../failable";
+
+const _deleteMark = Symbol("delete mark");
+
+export class DStackQueue {
+  _leftBuffer = [];
+  _rightBuffer = [];
+  _deleted = 0;
+
+  constructor() {
+  }
+
+  get capacity() {
+    return Number.POSITIVE_INFINITY
+  }
+
+  get filled() {
+    return this._leftBuffer.length + this._rightBuffer.length;
+  }
+
+  get size() {
+    return this.filled - this._deleted;
+  }
+
+  push(value) {
+    const { _leftBuffer, _rightBuffer } = this;
+
+    if (_rightBuffer.length === 0 && _leftBuffer.length === 0) {
+      _leftBuffer.push(value);
+    } else {
+      _rightBuffer.push(value);
+    }
+    return true;
+  }
+
+  pop() {
+    const value = this._tryPop();
+    if (isSuccess(value)) {
+      return value;
+    }
+    this.flush();
+    return orValue(this._tryPop(), void 0);
+  }
+
+  delete(target) {
+    const { _leftBuffer, _rightBuffer } = this;
+    const leftLength = _leftBuffer.length;
+    const rightLength = _rightBuffer.length;
+
+    for (let i = rightLength - 1; i >= 0; --i) {
+      const value = _rightBuffer[i];
+      if (Object.is(value, target)) {
+        _rightBuffer[i] = _deleteMark;
+        this._deleted += 1;
+        return true;
+      }
+    }
+
+    for (let i = 0; i < leftLength; ++i) {
+      const value = _leftBuffer[i];
+      if (Object.is(value, target)) {
+        _leftBuffer[i] = _deleteMark;
+        this._deleted += 1;
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  flush() {
+    const { _leftBuffer, _rightBuffer } = this;
+    const leftLength = _leftBuffer.length;
+    const rightLength = _rightBuffer.length;
+
+    const buffer = [];
+
+    for (let i = rightLength - 1; i >= 0; --i) {
+      const value = _rightBuffer[i];
+      if (value === _deleteMark) {
+        this._deleted -= 1;
+        continue;
+      }
+      buffer.push(value);
+    }
+
+    for (let i = 0; i < leftLength; ++i) {
+      const value = _leftBuffer[i];
+      if (value === _deleteMark) {
+        this._deleted -= 1;
+        continue;
+      }
+      buffer.push(value);
+    }
+
+    this._leftBuffer = buffer;
+    this._rightBuffer = [];
+  }
+
+  _tryPop() {
+    const { _leftBuffer } = this;
+    while (_leftBuffer.length > 0) {
+      const value = _leftBuffer.pop();
+
+      if (value !== _deleteMark) {
+        return value;
+      }
+      this._deleted -= 1;
+    }
+
+    return fail();
+  }
+}
+
+
+## FILE: funcfunc-core/src/lib/lazylist.js ================================
+
+import { toUInt } from "./asfunc";
+import { car, cdr, cons, isPair, lcons, listOf, nil } from "./list";
+
+// creation ================
+
+export { listOf as llistOf } from "./list";
+
+export function lrepeat(count, value) {
+  if (count === void 0 || count === Number.POSITIVE_INFINITY) {
+    return lrepeatInf(value);
+  }
+  return _lrepeatFinite(toUInt(count), value);
+}
+
+export function lrepeatInf(value) {
+  return lcons(value, () => lrepeatInf(value));
+}
+
+function _lrepeatFinite(count, value) {
+  if (count === 0) {
+    return null;
+  }
+  return lcons(value, () => _lrepeatFinite(count - 1, value));
+}
+
+export function liota(count, start = 0, step = 1) {
+  if (count === void 0 || count === Number.POSITIVE_INFINITY) {
+    return liotaInf(start, step);
+  }
+  return _liotaFinite(toUInt(count), +start, +step);
+}
+
+export function liotaInf(start, step) {
+  const _start = +start;
+  const _step = +step;
+
+  function _loop(i) {
+    return lcons(i * _step + _start, () => _loop(i + 1));
+  }
+
+  return _loop(0);
+}
+
+function _liotaFinite(count, start, step) {
+  function _loop(i) {
+    if (i === count) {
+      return null;
+    }
+    return lcons(i * step + start, () => _loop(i + 1));
+  }
+
+  return _loop(0);
+}
+
+export function iterableToLazyList(iterable) {
+  const iter = iterable[Symbol.iterator]();
+
+  function _loop() {
+    const res = iter.next();
+    if (res.done) {
+      return null;
+    }
+    return lcons(res.value, _loop);
+  }
+
+  return _loop();
+}
+
+export function lunfold(gen, seed, tailGen = void 0) {
+  const res = gen(seed);
+  const { value, done } = res;
+  if (done) {
+    return tailGen === void 0 ? nil() : tailGen(seed);
+  }
+  return lcons(value, () => lunfold(gen, "seed" in res ? res.seed : value, tailGen));
+}
+
+// splicing ================
+
+export function ltake(count, list) {
+  if (count === 0 || !isPair(list)) {
+    return null;
+  }
+  return lcons(car(list), () => ltake(count - 1, cdr(list)));
+}
+
+export { drop as ldrop } from "./list";
+
+// composition ================
+
+export function lflat(listOfList) {
+  if (!isPair(listOfList)) {
+    return null;
+  }
+
+  return lconcat2(car(listOfList), () => lflat(cdr(listOfList)));
+}
+
+export function lconcat(list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return list0;
+    }
+    case 1: {
+      return lconcat2(list0, () => lists[0]);
+    }
+    default: {
+      return lconcat2(list0, () => _lconcatN(0, lists));
+    }
+  }
+}
+
+export function lconcat2(list0, thunk) {
+  if (!isPair(list0)) {
+    return thunk();
+  }
+  return lcons(car(list0), () => lconcat2(cdr(list0), thunk));
+}
+
+function _lconcatN(offset, lists) {
+  if (offset === lists.length) {
+    return null;
+  }
+  return lconcat2(lists[offset], () => _lconcatN(offset + 1, lists));
+}
+
+export function lzip(list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return _lzip1(list0);
+    }
+    case 1: {
+      return _lzip2(list0, lists[0]);
+    }
+    default: {
+      return _lzipN(list0, lists);
+    }
+  }
+}
+
+function _lzip1(list0) {
+  if (!isPair(list0)) {
+    return null;
+  }
+  return lcons(listOf(car(list0)), () => _lzip1(cdr(list0)));
+}
+
+function _lzip2(list0, list1) {
+  if (!isPair(list0) || !isPair(list1)) {
+    return null;
+  }
+  return lcons(listOf(car(list0), car(list1)), () => _lzip2(cdr(list0), cdr(list1)));
+}
+
+function _lzipN(list0, lists) {
+  const nLists = lists.length;
+  let elem = null;
+  for (let i = nLists - 1; i >= 0; --i) {
+    const listI = lists[i];
+    if (!isPair(listI)) {
+      return null;
+    }
+    elem = cons(car(listI), elem);
+  }
+
+  if (!isPair(list0)) {
+    return null;
+  }
+  elem = cons(car(list0), elem);
+
+  return lcons(elem, () => {
+    const next0 = cdr(list0);
+    const nexts = new Array(nLists);
+    for (let i = 0; i < nLists; ++i) {
+      nexts[i] = cdr(lists[i]);
+    }
+    return _lzipN(next0, nexts);
+  });
+}
+
+// filtering ================
+
+export function lfilter(pred, list) {
+  for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
+    const x = car(tmp);
+    if (pred(x)) {
+      return lcons(x, () => lfilter(pred, cdr(tmp)));
+    }
+  }
+  return null;
+}
+
+export function ltakeWhile(pred, list) {
+  if (!isPair(list)) {
+    return null;
+  }
+  const x = car(list);
+  if (pred(x)) {
+    return lcons(x, () => ltakeWhile(pred, cdr(list)));
+  }
+  return null;
+}
+
+export function lunique(list) {
+  if (!isPair(list)) {
+    return null;
+  }
+
+  const cache = new Set();
+
+  function loop(list) {
+    if (!isPair(list)) {
+      return null;
+    }
+    const x = car(list);
+    if (cache.has(x)) {
+      return loop(cdr(list));
+    }
+    cache.add(x);
+    return lcons(x, () => loop(cdr(list)));
+  }
+
+  return loop(list);
+}
+
+export {
+  dropWhile as ldropWhile,
+  findTail as lfindTail
+} from "./list";
+
+// mapping ================
+
+export function lmap(proc, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return lmap1(proc, list0);
+    }
+    case 1: {
+      return lmap2(proc, list0, lists[0]);
+    }
+    default: {
+      return _lmapN(proc, list0, lists);
+    }
+  }
+}
+
+export function lmap1(proc, list0) {
+  if (!isPair(list0)) {
+    return null;
+  }
+  return lcons(proc(car(list0)), () => lmap1(proc, cdr(list0)));
+}
+
+export function lmap2(proc, list0, list1) {
+  if (!isPair(list0) || !isPair(list1)) {
+    return null;
+  }
+  return lcons(proc(car(list0), car(list1)), () => lmap2(proc, cdr(list0), cdr(list1)));
+}
+
+function _lmapN(proc, list0, lists) {
+  if (!isPair(list0)) {
+    return null;
+  }
+
+  const value0 = car(list0);
+
+  const nLists = lists.length;
+  const values = new Array(nLists);
+  for (let i = 0; i < nLists; ++i) {
+    const listI = lists[i];
+    if (!isPair(listI)) {
+      return null;
+    }
+    values[i] = car(listI);
+  }
+
+  return lcons(proc(value0, ...values), () => {
+    const rest0 = cdr(list0);
+    const rests = new Array(nLists);
+    for (let i = 0; i < nLists; ++i) {
+      rests[i] = cdr(lists[i]);
+    }
+    return _lmapN(proc, rest0, rests);
+  });
+}
+
+export function lflatMap(proc, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return lflatMap1(proc, list0);
+    }
+    case 1: {
+      return lflatMap2(proc, list0, lists[0]);
+    }
+    default: {
+      return _lflatMapN(proc, list0, lists);
+    }
+  }
+}
+
+export function lflatMap1(proc, list0) {
+  if (!isPair(list0)) {
+    return null;
+  }
+  return lconcat2(proc(car(list0)), () => lflatMap1(proc, cdr(list0)));
+}
+
+export function lflatMap2(proc, list0, list1) {
+  if (!isPair(list0) || !isPair(list1)) {
+    return null;
+  }
+  return lconcat2(proc(car(list0), car(list1)), () => lflatMap2(proc, cdr(list0), cdr(list1)));
+}
+
+function _lflatMapN(proc, list0, lists) {
+  if (!isPair(list0)) {
+    return null;
+  }
+
+  const value0 = car(list0);
+
+  const nLists = lists.length;
+  const values = new Array(nLists);
+  for (let i = 0; i < nLists; ++i) {
+    const listI = lists[i];
+    if (!isPair(listI)) {
+      return null;
+    }
+    values[i] = car(listI);
+  }
+
+  return lconcat2(proc(value0, ...values), () => {
+    const rest0 = cdr(list0);
+    const rests = new Array(nLists);
+    for (let i = 0; i < nLists; ++i) {
+      rests[i] = cdr(lists[i]);
+    }
+    return _lflatMapN(proc, rest0, rests);
+  });
+}
+
+
+## FILE: funcfunc-core/src/lib/asfunc.js ================================
+
+export const isArray = Array.isArray;
+
+export const is = Object.is;
+export const objectFromEntries = Object.fromEntries;
+export const objectEntries = Object.entries;
+export const objectKeys = Object.keys;
+export const objectValues = Object.values;
+export const objectHasOwn = Object.hasOwn;
+export const objectPrototypeOf = Object.getPrototypeOf;
+
+
+export function eq(x, y) {
+  return x === y;
+}
+
+export function like(x, y) {
+  return x == y;
+}
+
+export function same(x, y) {
+  return x === y || x !== x && y !== y;
+}
+
+export function isNull(x) {
+  return x === null;
+}
+
+export function isUndef(x) {
+  return x === void 0;
+}
+
+export function isBigint(x) {
+  return typeof x === "bigint";
+}
+
+export function isBoolean(x) {
+  return typeof x === "boolean";
+}
+
+export function isFunction(x) {
+  return typeof x === "function";
+}
+
+export function isNumber(x) {
+  return typeof x === "number";
+}
+
+export function isObject(x) {
+  return x !== null && typeof x === "object";
+}
+
+export function isString(x) {
+  return typeof x === "string";
+}
+
+export function isSymbol(x) {
+  return typeof x === "symbol";
+}
+
+export function isInstanceOf(obj, clazz) {
+  return obj instanceof clazz;
+}
+
+export function isAssignableFrom(clazz, obj) {
+  return obj instanceof clazz;
+}
+
+export function newInstance(clazz, ...args) {
+  return new clazz(...args);
+}
+
+export function newInstance0(clazz) {
+  return new clazz();
+}
+
+export function newInstance1(clazz, arg0) {
+  return new clazz(arg0);
+}
+
+export function newInstance2(clazz, arg0, arg1) {
+  return new clazz(arg0, arg1);
+}
+
+export function newInstance3(clazz, arg0, arg1, arg2) {
+  return new clazz(arg0, arg1, arg2);
+}
+
+export function newInstance4(clazz, arg0, arg1, arg2, arg3) {
+  return new clazz(arg0, arg1, arg2, arg3);
+}
+
+export function ref(obj, key) {
+  return obj[key];
+}
+
+export function xref(key, obj) {
+  return obj[key];
+}
+
+export function add(x0, ...xs) {
+  return xs.reduce(add2, x0);
+}
+
+export function add2(x0, x1) {
+  return x0 + x1;
+}
+
+export function sub(x0, ...xs) {
+  return xs.reduce(sub2, x0);
+}
+
+export function sub2(x0, x1) {
+  return x0 - x1;
+}
+
+export function mul(x0, ...xs) {
+  return xs.reduce(mul2, x0);
+}
+
+export function mul2(x0, x1) {
+  return x0 * x1;
+}
+
+export function div(x0, ...xs) {
+  return xs.reduce(div2, x0);
+}
+
+export function div2(x0, x1) {
+  return x0 / x1;
+}
+
+export function quot(x0, ...xs) {
+  return xs.reduce(quot2, x0);
+}
+
+export function quot2(x0, x1) {
+  return (x0 / x1) | 0;
+}
+
+export function rem(x0, ...xs) {
+  return xs.reduce(rem2, x0);
+}
+
+export function rem2(x0, x1) {
+  return x0 % x1;
+}
+
+export function idiv(x0, ...xs) {
+  return xs.reduce(idiv2, x0);
+}
+
+export function idiv2(x0, x1) {
+  return (x0 - mod2(x0, x1)) / x1;
+}
+
+export function mod(x0, ...xs) {
+  return xs.reduce(mod2, x0);
+}
+
+export function mod2(x0, x1) {
+  return ((x0 % x1) + x1) % x1
+}
+
+export function toNumber(value) {
+  return +value;
+}
+
+export function toInt(value) {
+  return value | 0;
+}
+
+export function toUInt(value) {
+  return (value >>> 0) & ~(value >> 31);
+}
+
+export function toBoolean(value) {
+  return !!value;
+}
+
+export function toString(value) {
+  return String(value);
+}
+
+
+## FILE: funcfunc-core/src/lib/sigtree.js ================================
+
+import { every2, forEach1, map1 } from "./array-utils";
 
 export function atom(init) {
   return new Atom(init);
@@ -5849,338 +5415,841 @@ function* _staleAndCollectEffects(sigNodes) {
 }
 
 
-================ funcfunc-core/src/lib/transducer.js ================
-// core ================
+## FILE: funcfunc-core/src/lib/array-utils.js ================================
 
-const _end = Symbol("end of transducing");
+import { toUInt } from "./asfunc";
 
-export function stop() {
-  return _end;
-}
+// helpers ================
 
-export function isStopped(value) {
-  return _end === value;
-}
+const _slice = Array.prototype.slice;
 
-// runner ================
+const _join = Array.prototype.join;
 
-export function transduce(xform, rf, init, iter) {
-  const proc = xform(rf);
-  for (const v of iter) {
-    const res = proc(init, v);
-    if (isStopped(res)) {
-      break;
-    }
-    init = res;
+function _lengthMin(array0, arrays) {
+  const nArrays = arrays.length;
+
+  let { length } = array0;
+  for (let i = 0; i < nArrays; ++i) {
+    length = Math.min(length, arrays[i].length);
   }
-  return init;
+
+  return length;
+}
+
+// creation ================
+
+export function arrayOf(...values) {
+  return values;
+}
+
+export function repeat(count, value) {
+  return new Array(toUInt(count)).fill(value);
+}
+
+export function iota(count, start = 0, step = 1) {
+  count = toUInt(count);
+  start = +start;
+  step = +step;
+
+  const result = new Array(count);
+  for (let i = 0; i < count; ++i) {
+    result[i] = step * i + start;
+  }
+
+  return result;
+}
+
+export function unfold(gen, seed, tailGen = void 0) {
+  const result = [];
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    result.push(value);
+    seed = "seed" in res ? res.seed : value;
+  }
+
+  if (tailGen !== void 0) {
+    const tail = tailGen(seed);
+    let { length } = tail;
+    for (let i = 0; i < length; ++i) {
+      result.push(tail[i]);
+    }
+  }
+
+  return result;
+}
+
+export function unfoldRight(gen, seed, tail = []) {
+  const result = [];
+  let res;
+  while ((res = gen(seed)), !res.done) {
+    const { value } = res;
+    result.push(value);
+    seed = "seed" in res ? res.seed : value;
+  }
+
+  result.reverse();
+
+  const { length } = tail;
+  for (let i = 0; i < length; ++i) {
+    result.push(tail[i]);
+  }
+
+  return result;
 }
 
 // splicing ================
 
-export function takeTS(count) {
-  return (rf) => {
-    let i = 0;
-
-    return (acc, value) => {
-      if (i >= count) {
-        return _end;
-      }
-      i += 1;
-      return rf(acc, value);
-    };
-  };
+export function take(count, array) {
+  count = toUInt(count);
+  if (count >= array.length) {
+    return array;
+  }
+  return _slice.call(array, 0, count);
 }
 
-export function dropTS(count) {
-  return (rf) => {
-    let i = 0;
+export function drop(count, array) {
+  count = toUInt(count);
+  if (count === 0) {
+    return array;
+  }
+  return _slice.call(array, count);
+}
 
-    return (acc, value) => {
-      if (i < count) {
-        i += 1;
-        return acc;
-      }
-      return rf(acc, value);
-    };
-  };
+export function takeRight(count, array) {
+  count = toUInt(count);
+  const { length } = array;
+  if (count >= length) {
+    return array;
+  }
+  return _slice.call(array, length - count);
+}
+
+export function dropRight(count, array) {
+  count = toUInt(count);
+  if (count === 0) {
+    return array;
+  }
+  return _slice.call(array, 0, array.length - count);
 }
 
 // composition ================
 
-export function flatT() {
-  return (rf) => (acc, iter) => {
-    for (const value of iter) {
-      if (isStopped(value)) {
-        return _end;
-      }
-      acc = rf(acc, value);
+export function flat(arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return arrays;
     }
-    return acc;
-  };
+    case 1: {
+      return arrays[0];
+    }
+    default: {
+      let length = 0;
+      const nOuter = arrays.length;
+      for (let i = 0; i < nOuter; ++i) {
+        length += arrays[i].length;
+      }
+
+      const result = new Array(length);
+      let jOffset = 0;
+      for (let i = 0; i < nOuter; ++i) {
+        const arrayI = arrays[i];
+        const nInner = arrayI.length;
+        for (let j = 0; j < nInner; ++j) {
+          result[j + jOffset] = arrayI[j];
+        }
+        jOffset += nInner;
+      }
+      return result;
+    }
+  }
 }
 
-export function entriesTS() {
-  return (rf) => {
-    let i = 0;
+export function concat(...arrays) {
+  return flat(arrays);
+}
 
-    return (acc, value) => {
-      return rf(acc, [i++, value]);
-    };
-  };
+export function zip(array0, ...arrays) {
+  const nArrays = arrays.length;
+  const length = _lengthMin(array0, arrays);
+
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    const acc = new Array(nArrays + 1);
+    acc[0] = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      acc[j + 1] = arrays[j][i];
+    }
+    result[i] = acc;
+  }
+
+  return result;
+}
+
+export function entries(array0, ...arrays) {
+  const nArrays = arrays.length;
+  const length = _lengthMin(array0, arrays);
+
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    const acc = new Array(nArrays + 2);
+    acc[0] = i;
+    acc[1] = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      acc[j + 2] = arrays[j][i];
+    }
+    result[i] = acc;
+  }
+
+  return result;
 }
 
 // filtering ================
 
-export function filterT(pred) {
-  return (rf) => (acc, value) => {
-    if (pred(value)) {
-      return rf(acc, value);
+export function filter(pred, array) {
+  const { length } = array;
+  const result = [];
+  for (let i = 0; i < length; ++i) {
+    const v = array[i];
+    if (pred(v)) {
+      result.push(v);
     }
-    return acc;
-  };
+  }
+  return result;
 }
 
-export function findTailTS(pred) {
-  return (rf) => {
-    let found = false;
-
-    return (acc, value) => {
-      if (found) {
-        return rf(acc, value);
-      }
-      if (pred(value)) {
-        found = true;
-        return rf(acc, value);
-      }
-      return acc;
-    };
-  };
-}
-
-export function takeWhileT(pred) {
-  return (rf) => (acc, value) => {
-    if (pred(value)) {
-      return rf(acc, value);
+export function findTail(pred, array) {
+  const { length } = array;
+  let i;
+  for (i = 0; i < length; ++i) {
+    if (pred(array[i])) {
+      break;
     }
-    return _end;
-  };
+  }
+
+  if (i === 0) {
+    return array;
+  }
+  return _slice.call(array, i);
 }
 
-export function dropWhileTS(pred) {
-  return (rf) => {
-    let unmatched = false;
-
-    return (acc, value) => {
-      if (unmatched) {
-        return rf(acc, value);
-      }
-      if (pred(value)) {
-        return acc;
-      }
-      unmatched = true;
-      return rf(acc, value);
-    };
-  };
+export function takeWhile(pred, array) {
+  const { length } = array;
+  let i;
+  for (i = 0; i < length; ++i) {
+    if (!pred(array[i])) {
+      break;
+    }
+  }
+  if (i === length) {
+    return array;
+  }
+  return _slice.call(array, 0, i);
 }
 
-export function uniqueTS() {
-  return (rf) => {
-    const appeared = new Set();
+export function dropWhile(pred, array) {
+  const { length } = array;
+  let i;
+  for (i = 0; i < length; ++i) {
+    if (!pred(array[i])) {
+      break;
+    }
+  }
+  if (i === 0) {
+    return array;
+  }
+  return _slice.call(array, i);
+}
 
-    return (acc, value) => {
-      if (appeared.has(value)) {
-        return acc;
-      }
-      appeared.add(value);
-      return rf(acc, value);
-    };
-  };
+export function unique(array) {
+  const { length } = array;
+  const resultSet = new Set();
+
+  for (let i = 0; i < length; ++i) {
+    resultSet.add(array[i]);
+  }
+
+  return [...resultSet];
 }
 
 // mapping ================
 
-export function mapT(proc) {
-  return (rf) => (acc, value) => {
-    return rf(acc, proc(value));
-  };
+export function map(proc, array0, ...arrays) {
+  const nArrays = arrays.length;
+
+  switch (nArrays) {
+    case 0: {
+      return map1(proc, array0);
+    }
+    case 1: {
+      return map2(proc, array0, arrays[0]);
+    }
+    default: {
+      return _mapN(proc, array0, arrays);
+    }
+  }
 }
 
-export function flatMapT(proc) {
-  return (rf) => (acc, value) => {
-    for (const v of proc(value)) {
-      acc = rf(acc, v);
+export function map1(proc, array0) {
+  const { length } = array0;
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    result[i] = proc(array0[i]);
+  }
+  return result;
+}
+
+export function map2(proc, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    result[i] = proc(array0[i], array1[i]);
+  }
+  return result;
+}
+
+function _mapN(proc, array0, arrays) {
+  const nArrays = arrays.length;
+  const length = _lengthMin(array0, arrays);
+
+  const result = new Array(length);
+  const values = new Array(nArrays);
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
     }
-    return acc;
+
+    result[i] = proc(value0, ...values);
+  }
+  return result;
+}
+
+export function flatMap(proc, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return flatMap1(proc, array0);
+    }
+    case 1: {
+      return flatMap2(proc, array0, arrays[0]);
+    }
+    default: {
+      return _flatMapN(proc, array0, arrays);
+    }
+  }
+}
+
+export function flatMap1(proc, array0) {
+  const result = [];
+  const { length } = array0;
+  for (let i = 0; i < length; ++i) {
+    const tmp = proc(array0[i]);
+    const n = tmp.length;
+    for (let j = 0; j < n; ++j) {
+      result.push(tmp[j]);
+    }
+  }
+  return result;
+}
+
+export function flatMap2(proc, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  const result = [];
+  for (let i = 0; i < length; ++i) {
+    const tmp = proc(array0[i], array1[i]);
+    const n = tmp.length;
+    for (let j = 0; j < n; ++j) {
+      result.push(tmp[j]);
+    }
+  }
+  return result;
+}
+
+function _flatMapN(proc, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  const result = [];
+  const values = new Array(nArrays);
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    const tmp = proc(value0, ...values);
+    const n = tmp.length;
+    for (let j = 0; j < n; ++j) {
+      result.push(tmp[j]);
+    }
+  }
+  return result;
+}
+
+// reduction ================
+
+export function reduce(proc, init, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return reduce1(proc, init, array0);
+    }
+    case 1: {
+      return reduce2(proc, init, array0, arrays[0]);
+    }
+    default: {
+      return _reduceN(proc, init, array0, arrays);
+    }
+  }
+}
+
+export function reduce1(proc, init, array0) {
+  const { length } = array0;
+
+  for (let i = 0; i < length; ++i) {
+    init = proc(init, array0[i]);
+  }
+
+  return init;
+}
+
+export function reduce2(proc, init, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+
+  for (let i = 0; i < length; ++i) {
+    init = proc(init, array0[i], array1[i]);
+  }
+
+  return init;
+}
+
+function _reduceN(proc, init, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  const values = new Array(nArrays);
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    init = proc(init, value0, ...values);
+  }
+  return init;
+}
+
+export function reduceRight(proc, init, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return reduceRight1(proc, init, array0);
+    }
+    case 1: {
+      return reduceRight2(proc, init, array0, arrays[0]);
+    }
+    default: {
+      return _reduceRightN(proc, init, array0, arrays);
+    }
+  }
+}
+
+export function reduceRight1(proc, init, array0) {
+  const { length } = array0;
+
+  for (let i = length - 1; i >= 0; --i) {
+    init = proc(init, array0[i]);
+  }
+
+  return init;
+}
+
+export function reduceRight2(proc, init, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+
+  for (let i = length - 1; i >= 0; --i) {
+    init = proc(init, array0[i], array1[i]);
+  }
+
+  return init;
+}
+
+function _reduceRightN(proc, init, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  const values = new Array(nArrays);
+  for (let i = length - 1; i >= 0; --i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    init = proc(init, value0, ...values);
+  }
+  return init;
+}
+
+export function forEach(proc, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return forEach1(proc, array0);
+    }
+    case 1: {
+      return forEach2(proc, array0, arrays[0]);
+    }
+    default: {
+      return _forEachN(proc, array0, arrays);
+    }
+  }
+}
+
+export function forEach1(proc, array0) {
+  const { length } = array0;
+  for (let i = 0; i < length; ++i) {
+    proc(array0[i]);
+  }
+}
+
+export function forEach2(proc, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  for (let i = 0; i < length; ++i) {
+    proc(array0[i], array1[i]);
+  }
+}
+
+function _forEachN(proc, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const length = _lengthMin(array0, arrays);
+  const values = new Array(nArrays);
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    proc(value0, ...values);
+  }
+}
+
+export function every(pred, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return every1(pred, array0);
+    }
+    case 1: {
+      return every2(pred, array0, arrays[0]);
+    }
+    default: {
+      return _everyN(pred, array0, arrays);
+    }
+  }
+}
+
+export function every1(pred, array0) {
+  const { length } = array0;
+  let result = true;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i]);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function every2(pred, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  let result = true;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i], array1[i]);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+function _everyN(pred, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const nArrays = arrays.length;
+  const values = new Array(nArrays);
+  let result = true;
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    result = pred(value0, ...values);
+    if (!result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function some(pred, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: {
+      return some1(pred, array0);
+    }
+    case 1: {
+      return some2(pred, array0, arrays[0]);
+    }
+    default: {
+      return _someN(pred, array0, arrays);
+    }
+  }
+}
+
+export function some1(pred, array0) {
+  const { length } = array0;
+  let result = false;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i]);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function some2(pred, array0, array1) {
+  const length = Math.min(array0.length, array1.length);
+  let result = false;
+  for (let i = 0; i < length; ++i) {
+    result = pred(array0[i], array1[i]);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+function _someN(pred, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const nArrays = arrays.length;
+  const values = new Array(nArrays);
+  let result = false;
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    result = pred(value0, ...values);
+    if (result) {
+      break;
+    }
+  }
+  return result;
+}
+
+export function join(sep, array) {
+  return _join.call(array, sep);
+}
+
+// misc ================
+
+export function reverse(array) {
+  const { length } = array;
+  const result = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    result[i] = array[length - i - 1];
+  }
+  return result;
+}
+
+export function* reverseIter(array) {
+  const { length } = array;
+  for (let i = length - 1; i >= 0; --i) {
+    yield array[i];
   }
 }
 
 
-================ funcfunc-core/src/lib/validate/core.js ================
-import { fail, isFailed, isSuccess, reasons } from "../failable";
+## FILE: funcfunc-core/src/lib/lens.d.ts ================================
 
-export function all(...validators) {
-  return (target, detail) => {
-    let tmp = target;
-
-    for (const v of validators) {
-      const res = v(tmp, detail);
-      if (isFailed(res)) {
-        return res;
-      }
-      tmp = res;
-    }
-
-    return tmp;
-  };
+export interface LensLike<T = unknown, A = unknown> {
+  ref<T_ extends T, A_ extends A>(target: T_): A_;
+  upd<T_ extends T, A_ extends A>(target: T_, value: A_): T_;
 }
 
-export function allSettled(...validators) {
-  return (target, detail) => {
-    let tmp = target;
-    const allReasons = [];
+export const idlens: LensLike;
 
-    for (const v of validators) {
-      const res = v(tmp, detail);
-      if (isFailed(res)) {
-        allReasons.push(...reasons(res));
-        continue;
-      }
-      tmp = res;
-    }
+export function lens<T, A>(ref: LensLike<T, A>["ref"], upd: LensLike<T, A>["upd"]): LensLike<T, A>;
 
-    if (allReasons.length === 0) {
-      return tmp;
-    }
-    return fail(...allReasons);
-  };
+export function isLens(x: unknown): x is LensLike;
+
+export function ref<T, A>(lns: LensLike<T, A>, target: T): A;
+
+export function xref<T, A>(target: T, lns: LensLike<T, A>): A;
+
+export function upd<T, A>(lns: LensLike<T, A>, target: T, value: A): T;
+
+export function xupd<T, A>(target: T, lns: LensLike<T, A>, value: A): T;
+
+export function swap<T, A>(lns: LensLike<T, A>, target: T, swapper: Swapper<A>): T;
+
+export function xswap<T, A>(target: T, lns: LensLike<T, A>, swapper: Swapper<A>): T;
+
+export interface Swapper<A = unknown> {
+  <A_ extends A>(before: A_): A_;
 }
 
-export function any(...validators) {
-  return (target, detail) => {
-    const allReasons = [];
+export function chain(): LensLike;
+export function chain<T0, A0>(lens0: LensLike<T0, A0>): LensLike<T0, A0>;
+export function chain<T0, A0, A1>(lens0: LensLike<T0, A0>, lens1: LensLike<A0, A1>): LensLike<T0, A1>;
+export function chain<T0, A0, A1, A2>(lens0: LensLike<T0, A0>, lens1: LensLike<A0, A1>, lens2: LensLike<A1, A2>): LensLike<T0, A2>;
+export function chain<T0, A0, A1, A2, A3>(lens0: LensLike<T0, A0>, lens1: LensLike<A0, A1>, lens2: LensLike<A1, A2>, lens3: LensLike<A2, A3>): LensLike<T0, A3>;
 
-    for (const v of validators) {
-      const res = v(target, detail);
-      if (isSuccess(res)) {
-        return res;
-      }
-      allReasons.push(...reasons(res));
-    }
+export function pathLens(): LensLike;
+export function pathLens<P0>(prop0: P0): LensLike<Record<P0>, unknown>;
 
-    return fail(...allReasons);
-  };
-}
 
-export function isTypeof(type) {
-  return (target, detail) => {
-    return typeof target === type ? target : fail(new ValidationError(detail, `expects ${type}, but got ${typeof target}`));
-  };
-}
+## FILE: funcfunc-core/src/lib/delay.js ================================
 
-export const isBoolean = isTypeof("boolean");
-export const isNumber = isTypeof("number");
-export const isBigint = isTypeof("bigint");
-export const isString = isTypeof("string");
-export const isSymbol = isTypeof("symbol");
-export const isFunction = isTypeof("function");
+import { constant } from "./core";
 
-export function isNull() {
-  return (target, detail) => {
-    return target === null ? target : fail(new ValidationError(detail, "expects null"));
-  };
-}
+export class Delayed {
+  constructor(content) {
+    this._content = content;
+  }
 
-export function nonNull() {
-  return (target, detail) => {
-    return target === null ? fail(new ValidationError(detail, "expects non-null")) : target;
-  };
-}
-
-export function isUndef() {
-  return (target, detail) => {
-    return target === void 0 ? target : fail(new ValidationError(detail, "expects undefined"));
-  };
-}
-
-export function nonUndef() {
-  return (target, detail) => {
-    return target === void 0 ? fail(new ValidationError(detail, "expects non-undefined")) : target;
-  };
-}
-
-export function isNullish() {
-  return (target, detail) => {
-    return target == null ? target : fail(new ValidationError(detail, "expects null or undefined"));
-  };
-}
-
-export function nonNullish() {
-  return (target, detail) => {
-    return target == null ? fail(new ValidationError(detail, "expects non-null nor non-undefined")) : target;
-  };
-}
-
-export function isObject() {
-  return (target, detail) => {
-    return target != null && typeof target === "object" ? target : fail(new ValidationError(detail, "expects object"));
-  };
-}
-
-export function isArray() {
-  return (target, detail) => {
-    return Array.isArray(target) ? target : fail(new ValidationError(detail, "expects array"));
-  };
-}
-
-export function isIterOf(validator) {
-  return (target, detail) => {
-    const allReasons = [];
-    let i = 0;
-    for (const e of target) {
-      const res = validator(e, { ...detail, value: e, path: [...detail.path, i] })
-      if (isFailed) {
-        allReasons.push(...reasons(res));
-      }
-      i += 1;
-    }
-    return allReasons.length === 0 ? target : fail(...allReasons);
-  };
-}
-
-export class ValidationError extends Error {
-  constructor(detail, ...args) {
-    super(...args);
-    this.detail = detail;
+  static resolve(value) {
+    return new Delayed({ _isLazy: false, _thunk: constant(value), _value: value });
   }
 }
 
+export function isDelayed(x) {
+  return x instanceof Delayed;
+}
 
-================ funcfunc-core/src/main.js ================
-export * as Arrays from "./lib/arrays";
-export * from "./lib/core";
-export * as Delay from "./lib/delay";
-export * as Lens from "./lib/lens";
-export * as Multi from "./lib/multi";
-export * as Nullable from "./lib/nullable";
-export * as Signal from "./lib/sigtree";
-
-
-================ funcfunc-core/src/main.test.ts ================
-import { expect, test } from 'vitest';
-
-test("some", () => {
-  expect(2).toBe(2);
-})
-
-
-================ funcfunc-core/vitest.config.js ================
-import { defineConfig } from "vitest/config";
-
-export default defineConfig({
-  test: {
-    typecheck: {
-      include: ["**/*.{test,spec}.?(c|m)js?(x)"]
+export function force(delayed) {
+  while (delayed._content._isLazy) {
+    const delayedInner = delayed._content._thunk();
+    if (delayed._content._isLazy) {
+      delayed._content._isLazy = delayedInner._content._isLazy;
+      delayed._content._thunk = delayedInner._content._thunk;
+      delayed._content._value = delayedInner._content._value;
+      delayedInner._content = delayed._content;
     }
-  },
-})
+  }
+
+  return delayed._content._value;
+}
+
+export function delayForce(thunk) {
+  return _delayForce(() => {
+    const result = thunk();
+    if (isDelayed(result)) {
+      return result;
+    }
+    throw TypeError(`expects delayed, but got: ${result}`);
+  });
+}
+
+export function delay(thunk) {
+  return _delayForce(() => Delayed.resolve(thunk()));
+}
+
+export function map(proc, delayed0, ...delayeds) {
+  switch (delayeds.length) {
+    case 0: {
+      return map1(proc, delayed0);
+    }
+    case 1: {
+      return map2(proc, delayed0, delayeds[0]);
+    }
+    default: {
+      return _mapN(proc, delayed0, delayeds);
+    }
+  }
+}
+
+export function map1(proc, delayed0) {
+  return delay(() => proc(force(delayed0)));
+}
+
+export function map2(proc, delayed0, delayed1) {
+  return delay(() => proc(force(delayed0), force(delayed1)));
+}
+
+function _mapN(proc, delayed0, delayeds) {
+  return delay(() => {
+    const { length } = delayeds;
+    const value0 = force(delayed0);
+    const values = new Array(length);
+    for (let i = 0; i < length; ++i) {
+      values[i] = force(delayeds[i]);
+    }
+    return proc(value0, ...values);
+  });
+}
+
+export function flatMap(proc, delayed0, ...delayeds) {
+  switch (delayeds.length) {
+    case 0: {
+      return flatMap1(proc, delayed0);
+    }
+    case 1: {
+      return flatMap2(proc, delayed0, delayeds[0]);
+    }
+    default: {
+      return _flatMapN(proc, delayed0, delayeds);
+    }
+  }
+}
+
+export function flatMap1(proc, delayed0) {
+  return delayForce(() => proc(force(delayed0)));
+}
+
+export function flatMap2(proc, delayed0, delayed1) {
+  return delayForce(() => proc(force(delayed0), force(delayed1)));
+}
+
+function _flatMapN(proc, delayed0, delayeds) {
+  return delayForce(() => {
+    const { length } = delayeds;
+    const value0 = force(delayed0);
+    const values = new Array(length);
+    for (let i = 0; i < length; ++i) {
+      values[i] = force(delayeds[i]);
+    }
+    return proc(value0, ...values);
+  });
+}
+
+export function forEach(proc, delayed0, ...delayeds) {
+  switch (delayeds.length) {
+    case 0: {
+      forEach1(proc, delayed0);
+      break;
+    }
+    case 1: {
+      forEach2(proc, delayed0, delayeds[0]);
+      break;
+    }
+    default: {
+      _forEachN(proc, delayed0, delayeds);
+      break;
+    }
+  }
+}
+
+export function forEach1(proc, delayed0) {
+  proc(force(delayed0));
+}
+
+export function forEach2(proc, delayed0, delayed1) {
+  proc(force(delayed0), force(delayed1));
+}
+
+function _forEachN(proc, delayed0, delayeds) {
+  const { length } = delayeds;
+  const value0 = force(delayed0);
+  const values = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    values[i] = force(delayeds[i]);
+  }
+  proc(value0, ...values);
+}
+
+function _delayForce(thunk) {
+  return new Delayed({ _isLazy: true, _thunk: thunk, _value: void 0 });
+}
