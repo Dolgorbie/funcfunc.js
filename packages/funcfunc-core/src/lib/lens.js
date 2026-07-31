@@ -1,32 +1,32 @@
 import { toUInt } from "./asfunc";
 
-export const idlens = lens((target) => target, (_target, value) => value);
+export const idlens = lens((target) => target, (target, swapper) => swapper(target));
 
-export function lens(ref, swap, thisArg = void 0) {
+export function lens(deref, swap, thisArg = void 0) {
   if (thisArg === void 0) {
-    return { ref, swap };
+    return { deref, swap };
   }
-  return { ref: ref.bind(thisArg), swap: swap.bind(thisArg) };
+  return { deref: deref.bind(thisArg), swap: swap.bind(thisArg) };
 }
 
 export function isLens(x) {
-  return x != null && typeof x === "object" && typeof x.ref === "function" && typeof x.swap === "function";
+  return x != null && typeof x === "object" && typeof x.deref === "function" && typeof x.swap === "function";
 }
 
-export function ref(lns, target) {
-  return lns.ref(target);
+export function deref(lns, target) {
+  return lns.deref(target);
 }
 
-export function xref(target, lns) {
-  return lns.ref(target);
+export function xderef(target, lns) {
+  return lns.deref(target);
 }
 
 export function swap(lns, target, swapper) {
-  return lns.swap(target, swapper(lns.ref(target)));
+  return lns.swap(target, swapper);
 }
 
 export function xswap(target, lns, swapper) {
-  return lns.swap(target, swapper(lns.ref(target)));
+  return lns.swap(target, swapper);
 }
 
 export function upd(lns, target, value) {
@@ -86,30 +86,30 @@ class _ChainLens {
     this._lenses = lenses;
   }
 
-  ref(target) {
+  deref(target) {
     const { _lenses } = this;
     const { length } = _lenses
 
     let t = target;
     for (let i = 0; i < length; ++i) {
-      t = _lenses[i].ref(t);
+      t = _lenses[i].deref(t);
     }
     return t;
   }
 
-  upd(target, value) {
+  swap(target, swapper) {
     const { _lenses } = this;
     const { length } = _lenses
-    return _chainUpd(_lenses, length, value, 0, target);
+    return _chainSwap(_lenses, length, swapper, 0, target);
   }
 }
 
-function _chainUpd(lenses, length, value, i, target) {
+function _chainSwap(lenses, length, swapper, i, target) {
   if (i === length) {
-    return value;
+    return swapper(target);
   }
   const lensI = lenses[i];
-  return lensI.upd(target, _chainUpd(lenses, length, value, i + 1, lensI.ref(target)));
+  return lensI.swap(target, (value) => _chainSwap(lenses, length, swapper, i + 1, value));
 }
 
 class _PropLens {
@@ -119,7 +119,7 @@ class _PropLens {
     this._prop = prop;
   }
 
-  ref(target) {
+  deref(target) {
     if (target == null || typeof target !== "object") {
       return void 0;
     }
@@ -154,7 +154,7 @@ class _IndexLens {
     this._index = toUInt(index);
   }
 
-  ref(target) {
+  deref(target) {
     if (!Array.isArray(target)) {
       return void 0;
     }
