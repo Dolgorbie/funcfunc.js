@@ -7,4 +7,7 @@ find funcfunc-core \( \
                      -o -name '.DS_Store' \
                    \) -prune \
                    -o -type f \
--exec sh -c 'echo ; echo ; echo \#\# FILE: {} ================================ ; echo ; cat {}' \; > codes.txt
+                   -print \
+| sort \
+| xargs -I{} sh -c 'echo ; echo ; echo \#\# FILE: {} ================================ ; echo ; cat {}' \
+> codes.txt

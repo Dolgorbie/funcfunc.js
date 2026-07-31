@@ -2,15 +2,15 @@ import { toUInt } from "./asfunc";
 
 export const idlens = lens((target) => target, (_target, value) => value);
 
-export function lens(ref, upd, thisArg = void 0) {
+export function lens(ref, swap, thisArg = void 0) {
   if (thisArg === void 0) {
-    return { ref, upd };
+    return { ref, swap };
   }
-  return { ref: ref.bind(thisArg), upd: upd.bind(thisArg) };
+  return { ref: ref.bind(thisArg), swap: swap.bind(thisArg) };
 }
 
 export function isLens(x) {
-  return x != null && typeof x === "object" && typeof x.ref === "function" && typeof x.upd === "function";
+  return x != null && typeof x === "object" && typeof x.ref === "function" && typeof x.swap === "function";
 }
 
 export function ref(lns, target) {
@@ -21,20 +21,20 @@ export function xref(target, lns) {
   return lns.ref(target);
 }
 
-export function upd(lns, target, value) {
-  return lns.upd(target, value);
-}
-
-export function xupd(target, lns, value) {
-  return lns.upd(target, value);
-}
-
 export function swap(lns, target, swapper) {
-  return lns.upd(target, swapper(lns.ref(target)));
+  return lns.swap(target, swapper(lns.ref(target)));
 }
 
 export function xswap(target, lns, swapper) {
-  return lns.upd(target, swapper(lns.ref(target)));
+  return lns.swap(target, swapper(lns.ref(target)));
+}
+
+export function upd(lns, target, value) {
+  return lns.swap(target, () => value);
+}
+
+export function xupd(target, lns, value) {
+  return lns.swap(target, () => value);
 }
 
 export function chain(...lenses) {
@@ -126,18 +126,24 @@ class _PropLens {
     return target[this._prop];
   }
 
-  upd(target, value) {
+  swap(target, swapper) {
     const { _prop } = this;
 
     if (target == null || typeof target !== "object") {
-      return { [_prop]: value };
+      return { [_prop]: swapper() };
     }
 
-    if (_prop in target && Object.is(target[_prop], value)) {
+    if (!(_prop in target)) {
+      return { ...target, [_prop]: swapper() };
+    }
+
+    const prev = target[_prop]
+    const next = swapper(prev);
+    if (Object.is(prev, next)) {
       return target;
     }
 
-    return { ...target, [_prop]: value };
+    return { ...target, [_prop]: next };
   }
 }
 
@@ -155,26 +161,28 @@ class _IndexLens {
     return target[this._index];
   }
 
-  upd(target, value) {
+  swap(target, swapper) {
     const { _index } = this;
 
-    if (!Array.isArray(target)) {
-      const res = new Array(_index + 1);
-      res[_index] = value;
+    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
+      const res = [];
+      res[_index] = swapper();
       return res;
     }
 
-    const { length } = target;
-    if (_index in target && Object.is(target[_index], value)) {
+    if (!(_index in target)) {
+      const res = Array.prototype.slice.call(target);
+      res[_index] = swapper();
+      return res;
+    }
+
+    const prev = target[_index];
+    const next = swapper(prev);
+    if (Object.is(prev, next)) {
       return target;
     }
-
-    const res = [...target];
-    if (length <= _index) {
-      res.length = _index + 1;
-    }
-    res[_index] = value;
+    const res = Array.prototype.slice.call(target);
+    res[_index] = next;
     return res;
-
   }
 }
