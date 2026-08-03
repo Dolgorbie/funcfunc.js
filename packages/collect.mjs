@@ -7,8 +7,10 @@ const outPathPrefix = join(import.meta.dirname, "codes");
 async function main() {
   const allItems = await readdir(join(import.meta.dirname, "funcfunc-core"), { recursive: true, withFileTypes: true });
   const targetFiles = allItems
-    .filter((x) => !/^(?:.*\/funcfunc-core\/package-lock.json|.*\/funcfunc-core\/dist\/.*|.*\/funcfunc-core\/node_modules\/.*|.*\/.DS_Store)$/.test(join(x.parentPath, x.name)) && x.isFile())
+    .filter((x) => x.isFile())
     .map(({ parentPath, name }) => join(parentPath, name))
+    .map((s) => s.replace(/\\/g, "/"))
+    .filter((x) => !/^(?:.*\/funcfunc-core\/package-lock.json|.*\/funcfunc-core\/dist\/.*|.*\/funcfunc-core\/node_modules\/.*|.*\/.DS_Store)$/.test(x))
     .toSorted();
   const groupedFiles = targetFiles.reduce((acc, path, i) => i % 3 === 0 ? [...acc, [path]] : [...acc.slice(0, -1), [...acc.at(-1), path]], []);
 
@@ -20,9 +22,9 @@ async function main() {
       for (const f of files) {
         console.log("begin writing", f);
         const idata = readFile(f, "utf-8");
-        await ofile.writeFile(`\f## BEGIN-FILE: ${relative(import.meta.dirname, f)}\n\n`);
+        await ofile.writeFile(`\f## BEGIN-FILE: ${relative(import.meta.dirname, f).replace(/\\/g, "/")}\n\n`);
         await ofile.writeFile(await idata);
-        await ofile.writeFile(`\n## END-FILE: ${relative(import.meta.dirname, f)}\n`);
+        await ofile.writeFile(`\n## END-FILE: ${relative(import.meta.dirname, f).replace(/\\/g, "/")}\n`);
         console.log("complete writing", f);
       }
     } finally {

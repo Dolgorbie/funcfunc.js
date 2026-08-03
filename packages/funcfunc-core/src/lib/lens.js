@@ -1,43 +1,42 @@
-import { filter, iota } from "./array-utils";
+import { every2 } from "./array-utils";
 import { mod2, toInt } from "./asfunc";
 import { fail, isFailed } from "./failable";
-import { map1 } from "./iterator-utils";
 
-export const idlens = lens((target) => target, (target, swapper) => swapper(target));
+export const idlens = lens((target) => target, (target, func) => func(target));
 
-export function lens(deref, swap, thisArg = void 0) {
+export function lens(view, update, thisArg = void 0) {
   if (thisArg === void 0) {
-    return { deref, swap };
+    return { view, update };
   }
-  return { deref: deref.bind(thisArg), swap: swap.bind(thisArg) };
+  return { view: view.bind(thisArg), update: update.bind(thisArg) };
 }
 
 export function isLens(x) {
-  return x != null && typeof x === "object" && typeof x.deref === "function" && typeof x.swap === "function";
+  return x != null && typeof x === "object" && typeof x.view === "function" && typeof x.update === "function";
 }
 
-export function deref(lns, target) {
-  return lns.deref(target);
+export function view(lns, target) {
+  return lns.view(target);
 }
 
-export function xderef(target, lns) {
-  return lns.deref(target);
+export function xview(target, lns) {
+  return lns.view(target);
 }
 
-export function swap(lns, target, swapper) {
-  return lns.swap(target, swapper);
+export function update(lns, target, func) {
+  return lns.update(target, func);
 }
 
-export function xswap(target, lns, swapper) {
-  return lns.swap(target, swapper);
+export function xupdate(target, lns, func) {
+  return lns.update(target, func);
 }
 
-export function upd(lns, target, value) {
-  return lns.swap(target, () => value);
+export function puton(lns, target, value) {
+  return lns.update(target, () => value);
 }
 
-export function xupd(target, lns, value) {
-  return lns.swap(target, () => value);
+export function xputon(target, lns, value) {
+  return lns.update(target, () => value);
 }
 
 export function chain(...lenses) {
@@ -59,7 +58,7 @@ export function path(...segments) {
         break;
       }
       case "function": {
-        segments[i] = new _Trav(seg);
+        segments[i] = new _ArrayTrav(seg);
         break;
       }
       default: {
@@ -67,7 +66,6 @@ export function path(...segments) {
       }
     }
   }
-
   return _chainLens(segments);
 }
 
@@ -86,7 +84,7 @@ export function opath(...segments) {
         break;
       }
       case "function": {
-        segments[i] = new _TravOpts(seg);
+        segments[i] = new _ArrayTravOpts(seg);
         break;
       }
       default: {
@@ -94,6 +92,7 @@ export function opath(...segments) {
       }
     }
   }
+  return _chainLens(segments);
 }
 
 function _chainLens(lenses) {
@@ -118,7 +117,7 @@ class _ChainLens {
     this._lenses = lenses;
   }
 
-  deref(target) {
+  view(target) {
     const { _lenses } = this;
     const { length } = _lenses
 
@@ -127,24 +126,24 @@ class _ChainLens {
       if (isFailed(t)) {
         return t;
       }
-      t = _lenses[i].deref(t);
+      t = _lenses[i].view(t);
     }
     return t;
   }
 
-  swap(target, swapper) {
+  update(target, func) {
     const { _lenses } = this;
     const { length } = _lenses
-    return _chainSwap(_lenses, length, swapper, 0, target);
+    return _chainUpdate(_lenses, length, func, 0, target);
   }
 }
 
-function _chainSwap(lenses, length, swapper, i, target) {
+function _chainUpdate(lenses, length, func, i, target) {
   if (i === length) {
-    return swapper(target);
+    return func(target);
   }
   const lensI = lenses[i];
-  return lensI.swap(target, (value) => _chainSwap(lenses, length, swapper, i + 1, value));
+  return lensI.update(target, (value) => _chainUpdate(lenses, length, func, i + 1, value));
 }
 
 class _PropLens {
@@ -154,26 +153,26 @@ class _PropLens {
     this._prop = prop;
   }
 
-  deref(target) {
+  view(target) {
     if (target == null || typeof target !== "object") {
       return void 0;
     }
     return target[this._prop];
   }
 
-  swap(target, swapper) {
+  update(target, func) {
     const { _prop } = this;
 
     if (target == null || typeof target !== "object") {
-      return { [_prop]: swapper() };
+      return { [_prop]: func() };
     }
 
     if (!(_prop in target)) {
-      return { ...target, [_prop]: swapper() };
+      return { ...target, [_prop]: func() };
     }
 
     const prev = target[_prop]
-    const next = swapper(prev);
+    const next = func(prev);
     if (Object.is(prev, next)) {
       return target;
     }
@@ -189,7 +188,7 @@ class _IndexLens {
     this._index = toInt(index);
   }
 
-  deref(target) {
+  view(target) {
     if (target == null || typeof target !== "object" || typeof target.length !== "number") {
       return void 0;
     }
@@ -198,12 +197,12 @@ class _IndexLens {
     return target[_index < 0 ? mod2(_index, target.length) : _index];
   }
 
-  swap(target, swapper) {
+  update(target, func) {
     const { _index } = this;
 
     if (target == null || typeof target !== "object" || typeof target.length !== "number") {
       const res = [];
-      res[_index] = swapper();
+      res[_index] = func();
       return res;
     }
 
@@ -211,12 +210,12 @@ class _IndexLens {
 
     if (!(i in target)) {
       const res = Array.prototype.slice.call(target);
-      res[i] = swapper();
+      res[i] = func();
       return res;
     }
 
     const prev = target[i];
-    const next = swapper(prev);
+    const next = func(prev);
     if (Object.is(prev, next)) {
       return target;
     }
@@ -226,45 +225,60 @@ class _IndexLens {
   }
 }
 
-class _Trav {
+class _ArrayTrav {
   _filter;
 
   constructor(filter) {
     this._filter = filter;
   }
 
-  deref(target) {
-    if (target != null && typeof target === "object") {
-      const { length } = target;
-      const { _filter } = this;
-      if (typeof length === "number") {
-        const prevRange = iota(length);
-        const nextRange = filter(_filter, prevRange);
-        if (prevRange.length === nextRange.length) {
-          return target;
-        }
-        return Array.from(map1((i) => target[i], nextRange));
-      }
-      const prevKeys = Object.keys(target);
-      const nextKeys = filter(_filter, prevKeys);
-      if (prevKeys.length === nextKeys.length) {
-        return target;
-      }
-      return Object.fromEntries(map1((key) => [key, target[key]], nextKeys));
+  view(target) {
+    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
+      return void 0;
     }
-    return void 0;
+
+    const { _filter } = this;
+    const { length } = target;
+
+    let i = 0;
+    const res = new Array(length);
+    for (let j = 0; j < length; ++j) {
+      const value = target[j];
+      if (_filter(value, j, length)) {
+        res[i++] = value;
+      }
+    }
+
+    if (i === length) {
+      return target;
+    }
+
+    res.length = i;
+    return res;
   }
 
-  swap(target, swapper) {
-    if (target != null && typeof target === "object") {
-      const { length } = target;
-      const { _filter } = this;
-      if (typeof length === "number") {
-        return Array.from(map1((i) => _filter(i) ? swapper(target[i]) : target[i], iota(length)));
-      }
-      return Object.fromEntries((key) => [key, _filter(key) ? swapper(target[key]) : target[key]], Object.keys(target));
+  update(target, func) {
+    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
+      return target;
     }
-    return swapper();
+    const { _filter } = this;
+    const { length } = target;
+
+    let i = 0;
+    const res = new Array(length);
+    for (let j = 0; j < length; ++j) {
+      const value = target[j];
+      if (_filter(value, j, length)) {
+        res[i++] = func(value);
+      }
+    }
+
+    if (i === length && every2(Object.is, target, res)) {
+      return target;
+    }
+
+    res.length = i;
+    return res;
   }
 }
 
@@ -275,7 +289,7 @@ class _PropOpts {
     this._prop = prop;
   }
 
-  deref(target) {
+  view(target) {
     if (target != null && typeof target === "object") {
       const { _prop } = this;
       if (_prop in target) {
@@ -285,12 +299,12 @@ class _PropOpts {
     return fail();
   }
 
-  swap(target, swapper) {
+  update(target, func) {
     if (target != null && typeof target === "object") {
       const { _prop } = this;
       if (_prop in target) {
         const prev = target[_prop]
-        const next = swapper(prev);
+        const next = func(prev);
         if (!Object.is(prev, next)) {
           return { ...target, [_prop]: next };
         }
@@ -307,7 +321,7 @@ class _IndexOpts {
     this._index = toInt(index);
   }
 
-  deref(target) {
+  view(target) {
     if (target != null && typeof target === "object") {
       const { length } = target;
       if (typeof length === "number") {
@@ -321,7 +335,7 @@ class _IndexOpts {
     return fail();
   }
 
-  swap(target, swapper) {
+  update(target, func) {
     if (target != null && typeof target === "object") {
       const { length } = target;
       if (typeof length === "number") {
@@ -329,7 +343,7 @@ class _IndexOpts {
         const i = _index < 0 ? mod2(_index, length) : _index;
         if (i in target) {
           const prev = target[i];
-          const next = swapper(prev);
+          const next = func(prev);
           if (!Object.is(prev, next)) {
             const res = Array.prototype.slice.call(target);
             res[i] = next;
@@ -342,44 +356,59 @@ class _IndexOpts {
   }
 }
 
-class _TravOpts {
+class _ArrayTravOpts {
   _filter;
 
   constructor(filter) {
     this._filter = filter;
   }
 
-  deref(target) {
-    if (target != null && typeof target === "object") {
-      const { length } = target;
-      const { _filter } = this;
-      if (typeof length === "number") {
-        const prevRange = iota(length);
-        const nextRange = filter(_filter, prevRange);
-        if (prevRange.length === nextRange.length) {
-          return target;
-        }
-        return Array.from(map1((i) => target[i], nextRange));
-      }
-      const prevKeys = Object.keys(target);
-      const nextKeys = filter(_filter, prevKeys);
-      if (prevKeys.length === nextKeys.length) {
-        return target;
-      }
-      return Object.fromEntries(map1((key) => [key, target[key]], nextKeys));
+  view(target) {
+    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
+      return fail();
     }
-    return fail();
+
+    const { _filter } = this;
+    const { length } = target;
+
+    let i = 0;
+    const res = new Array(length);
+    for (let j = 0; j < length; ++j) {
+      const value = target[j];
+      if (_filter(value, j, length)) {
+        res[i++] = value;
+      }
+    }
+
+    if (i === length) {
+      return target;
+    }
+
+    res.length = i;
+    return res;
   }
 
-  swap(target, swapper) {
-    if (target != null && typeof target === "object") {
-      const { length } = target;
-      const { _filter } = this;
-      if (typeof length === "number") {
-        return Array.from(map1((i) => _filter(i) ? swapper(target[i]) : target[i], iota(length)));
-      }
-      return Object.fromEntries((key) => [key, _filter(key) ? swapper(target[key]) : target[key]], Object.keys(target));
+  update(target, func) {
+    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
+      return target;
     }
-    return target;
+    const { _filter } = this;
+    const { length } = target;
+
+    let i = 0;
+    const res = new Array(length);
+    for (let j = 0; j < length; ++j) {
+      const value = target[j];
+      if (_filter(value, j, length)) {
+        res[i++] = func(value);
+      }
+    }
+
+    if (i === length && every2(Object.is, target, res)) {
+      return target;
+    }
+
+    res.length = i;
+    return res;
   }
 }

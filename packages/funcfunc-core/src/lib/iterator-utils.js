@@ -16,46 +16,46 @@ export function* iterableOf(...values) {
   }
 }
 
-export function repeat(count, value) {
+export function grepeat(count, value) {
   if (count === void 0 || count === Number.POSITIVE_INFINITY) {
-    return _repeatInf(value);
+    return _grepeatInf(value);
   }
-  return _repeatFinite(toUInt(count), value);
+  return _grepeatFinite(toUInt(count), value);
 }
 
-function* _repeatInf(value) {
+function* _grepeatInf(value) {
   for (; ;) {
     yield value;
   }
 }
 
-function* _repeatFinite(count, value) {
+function* _grepeatFinite(count, value) {
   for (let i = 0; i < count; ++i) {
     yield value;
   }
 }
 
-export function iota(count, start = 0, step = 1) {
+export function giota(count, start = 0, step = 1) {
   if (count === void 0 || count === Number.POSITIVE_INFINITY) {
-    return _iotaInf(+start, +step);
+    return _giotaInf(+start, +step);
   }
-  return _iotaFinite(toUInt(count), +start, +step);
+  return _giotaFinite(toUInt(count), +start, +step);
 }
 
-function* _iotaInf(start, step) {
+function* _giotaInf(start, step) {
   for (let i = 0; ; ++i) {
     yield step * i + start;
   }
 }
 
-function* _iotaFinite(count, start, step) {
+function* _giotaFinite(count, start, step) {
   for (let i = 0; i < count; ++i) {
     yield step * i + start;
   }
 }
 
 
-export function* unfold(gen, seed, tailGen = void 0) {
+export function* gunfold(gen, seed, tailGen = void 0) {
   let res;
   while ((res = gen(seed)), !res.done) {
     const { value } = res;
@@ -69,7 +69,7 @@ export function* unfold(gen, seed, tailGen = void 0) {
 
 // splicing ================
 
-export function* take(count, iter) {
+export function* gtake(count, iter) {
   count = toUInt(count);
   iter = iter[Symbol.iterator]();
 
@@ -87,7 +87,7 @@ export function* take(count, iter) {
   }
 }
 
-export function* drop(count, iter) {
+export function* gdrop(count, iter) {
   count = toUInt(count);
   iter = iter[Symbol.iterator]();
 
@@ -110,17 +110,17 @@ export function* drop(count, iter) {
 
 // composition ================
 
-export function* flat(iters) {
+export function* gflat(iters) {
   for (const iter of iters) {
     yield* iter;
   }
 }
 
-export function concat(...iters) {
-  return flat(iters);
+export function gconcat(...iters) {
+  return gflat(iters);
 }
 
-export function* zip(iter0, ...iters) {
+export function* gzip(iter0, ...iters) {
   const nIters = iters.length;
 
   for (let i = 0; i < nIters; ++i) {
@@ -149,13 +149,13 @@ export function* zip(iter0, ...iters) {
   }
 }
 
-export function entries(...iters) {
-  return zip(iota(), ...iters);
+export function gentries(...iters) {
+  return gzip(giota(), ...iters);
 }
 
 // filtering ================
 
-export function* filter(pred, iter) {
+export function* gfilter(pred, iter) {
   for (const v of iter) {
     if (pred(v)) {
       yield v;
@@ -163,7 +163,7 @@ export function* filter(pred, iter) {
   }
 }
 
-export function* findTail(pred, iter) {
+export function* gfindTail(pred, iter) {
   iter = iter[Symbol.iterator]();
 
   try {
@@ -184,7 +184,7 @@ export function* findTail(pred, iter) {
   }
 }
 
-export function* takeWhile(pred, iter) {
+export function* gtakeWhile(pred, iter) {
   for (const v of iter) {
     if (!pred(v)) {
       break;
@@ -193,7 +193,7 @@ export function* takeWhile(pred, iter) {
   }
 }
 
-export function* dropWhile(pred, iter) {
+export function* gdropWhile(pred, iter) {
   iter = iter[Symbol.iterator]();
 
   try {
@@ -214,7 +214,7 @@ export function* dropWhile(pred, iter) {
   }
 }
 
-export function* unique(iter) {
+export function* gunique(iter) {
   const appeared = new Set();
 
   for (const v of iter) {
@@ -228,27 +228,27 @@ export function* unique(iter) {
 
 // mapping ================
 
-export function map(proc, iter0, ...iters) {
+export function gmap(proc, iter0, ...iters) {
   switch (iters.length) {
     case 0: {
-      return map1(proc, iter0);
+      return gmap1(proc, iter0);
     }
     case 1: {
-      return map2(proc, iter0, iters[0]);
+      return gmap2(proc, iter0, iters[0]);
     }
     default: {
-      return _mapN(proc, iter0, iters);
+      return _gmapN(proc, iter0, iters);
     }
   }
 }
 
-export function* map1(proc, iter0) {
+export function* gmap1(proc, iter0) {
   for (const value0 of iter0) {
     yield proc(value0);
   }
 }
 
-export function* map2(proc, iter0, iter1) {
+export function* gmap2(proc, iter0, iter1) {
   iter1 = iter1[Symbol.iterator]();
 
   try {
@@ -264,7 +264,7 @@ export function* map2(proc, iter0, iter1) {
   }
 }
 
-function* _mapN(proc, iter0, iters) {
+function* _gmapN(proc, iter0, iters) {
   const nIters = iters.length;
 
   for (let i = 0; i < nIters; ++i) {
@@ -290,27 +290,27 @@ function* _mapN(proc, iter0, iters) {
   }
 }
 
-export function flatMap(proc, iter0, ...iters) {
+export function gflatMap(proc, iter0, ...iters) {
   switch (iters.length) {
     case 0: {
-      return flatMap1(proc, iter0);
+      return gflatMap1(proc, iter0);
     }
     case 1: {
-      return flatMap2(proc, iter0, iters[0]);
+      return gflatMap2(proc, iter0, iters[0]);
     }
     default: {
-      return _flatMapN(proc, iter0, iters);
+      return _gflatMapN(proc, iter0, iters);
     }
   }
 }
 
-export function* flatMap1(proc, iter0) {
+export function* gflatMap1(proc, iter0) {
   for (const value0 of iter0) {
     yield* proc(value0);
   }
 }
 
-export function* flatMap2(proc, iter0, iter1) {
+export function* gflatMap2(proc, iter0, iter1) {
   iter1 = iter1[Symbol.iterator]();
 
   try {
@@ -326,7 +326,7 @@ export function* flatMap2(proc, iter0, iter1) {
   }
 }
 
-function* _flatMapN(proc, iter0, iters) {
+function* _gflatMapN(proc, iter0, iters) {
   const nIters = iters.length;
 
   for (let i = 0; i < nIters; ++i) {
@@ -354,28 +354,28 @@ function* _flatMapN(proc, iter0, iters) {
 
 // reduction ================
 
-export function reduce(proc, init, iter0, ...iters) {
+export function greduce(proc, init, iter0, ...iters) {
   switch (iters.length) {
     case 0: {
-      return reduce1(proc, init, iter0);
+      return greduce1(proc, init, iter0);
     }
     case 1: {
-      return reduce2(proc, init, iter0, iters[0]);
+      return greduce2(proc, init, iter0, iters[0]);
     }
     default: {
-      return _reduceN(proc, init, iter0, iters);
+      return _greduceN(proc, init, iter0, iters);
     }
   }
 }
 
-export function reduce1(proc, init, iter0) {
+export function greduce1(proc, init, iter0) {
   for (const value0 of iter0) {
     init = proc(init, value0);
   }
   return init;
 }
 
-export function reduce2(proc, init, iter0, iter1) {
+export function greduce2(proc, init, iter0, iter1) {
   iter1 = iter1[Symbol.iterator]();
 
   try {
@@ -392,7 +392,7 @@ export function reduce2(proc, init, iter0, iter1) {
   }
 }
 
-function _reduceN(proc, init, iter0, iters) {
+function _greduceN(proc, init, iter0, iters) {
   const nIters = iters.length;
 
   for (let i = 0; i < nIters; ++i) {
@@ -419,29 +419,29 @@ function _reduceN(proc, init, iter0, iters) {
   }
 }
 
-export function forEach(proc, iter0, ...iters) {
+export function gforEach(proc, iter0, ...iters) {
   switch (iters.length) {
     case 0: {
-      forEach1(proc, iter0);
+      gforEach1(proc, iter0);
       break;
     }
     case 1: {
-      forEach2(proc, iter0, iters[0]);
+      gforEach2(proc, iter0, iters[0]);
       break;
     }
     default: {
-      _forEachN(proc, iter0, iters);
+      _gforEachN(proc, iter0, iters);
     }
   }
 }
 
-export function forEach1(proc, iter0) {
+export function gforEach1(proc, iter0) {
   for (const value0 of iter0) {
     proc(value0);
   }
 }
 
-export function forEach2(proc, iter0, iter1) {
+export function gforEach2(proc, iter0, iter1) {
   iter1 = iter1[Symbol.iterator]();
 
   try {
@@ -457,7 +457,7 @@ export function forEach2(proc, iter0, iter1) {
   }
 }
 
-function _forEachN(proc, iter0, iters) {
+function _gforEachN(proc, iter0, iters) {
   const nIters = iters.length;
 
   for (let i = 0; i < nIters; ++i) {
@@ -483,21 +483,21 @@ function _forEachN(proc, iter0, iters) {
   }
 }
 
-export function every(pred, iter0, ...iters) {
+export function gevery(pred, iter0, ...iters) {
   switch (iters.length) {
     case 0: {
-      return every1(pred, iter0);
+      return gevery1(pred, iter0);
     }
     case 1: {
-      return every2(pred, iter0, iters[0]);
+      return gevery2(pred, iter0, iters[0]);
     }
     default: {
-      return _everyN(pred, iter0, iters);
+      return _geveryN(pred, iter0, iters);
     }
   }
 }
 
-export function every1(pred, iter0) {
+export function gevery1(pred, iter0) {
   let result = true;
   for (const value0 of iter0) {
     result = pred(value0);
@@ -508,7 +508,7 @@ export function every1(pred, iter0) {
   return result;
 }
 
-export function every2(pred, iter0, iter1) {
+export function gevery2(pred, iter0, iter1) {
   iter1 = iter1[Symbol.iterator]();
 
   let result = true;
@@ -529,7 +529,7 @@ export function every2(pred, iter0, iter1) {
   }
 }
 
-function _everyN(pred, iter0, iters) {
+function _geveryN(pred, iter0, iters) {
   const nIters = iters.length;
 
   for (let i = 0; i < nIters; ++i) {
@@ -561,21 +561,21 @@ function _everyN(pred, iter0, iters) {
   }
 }
 
-export function some(pred, iter0, ...iters) {
+export function gsome(pred, iter0, ...iters) {
   switch (iters.length) {
     case 0: {
-      return some1(pred, iter0);
+      return gsome1(pred, iter0);
     }
     case 1: {
-      return some2(pred, iter0, iters[0]);
+      return gsome2(pred, iter0, iters[0]);
     }
     default: {
-      return _someN(pred, iter0, iters);
+      return _gsomeN(pred, iter0, iters);
     }
   }
 }
 
-export function some1(pred, iter0) {
+export function gsome1(pred, iter0) {
   let result = false;
   for (const value0 of iter0) {
     result = pred(value0);
@@ -586,7 +586,7 @@ export function some1(pred, iter0) {
   return result;
 }
 
-export function some2(pred, iter0, iter1) {
+export function gsome2(pred, iter0, iter1) {
   iter1 = iter1[Symbol.iterator]();
 
   let result = false;
@@ -607,7 +607,7 @@ export function some2(pred, iter0, iter1) {
   }
 }
 
-function _someN(pred, iter0, iters) {
+function _gsomeN(pred, iter0, iters) {
   const nIters = iters.length;
 
   for (let i = 0; i < nIters; ++i) {
@@ -640,7 +640,7 @@ function _someN(pred, iter0, iters) {
 
 const _join_buffer_size = 10000;
 
-export function join(sep, iter) {
+export function gjoin(sep, iter) {
   const result = [];
   const buffer = new Array(_join_buffer_size);
   let i = 0;

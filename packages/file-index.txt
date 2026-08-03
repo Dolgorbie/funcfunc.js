@@ -3,7 +3,7 @@ codes00.txt:12:## BEGIN-FILE: funcfunc-core/jsconfig.json
 codes00.txt:21:## BEGIN-FILE: funcfunc-core/package.json
 codes01.txt:1:## BEGIN-FILE: funcfunc-core/rollup.config.mjs
 codes01.txt:52:## BEGIN-FILE: funcfunc-core/src/lib/array-utils.js
-codes01.txt:699:## BEGIN-FILE: funcfunc-core/src/lib/asfunc.js
+codes01.txt:695:## BEGIN-FILE: funcfunc-core/src/lib/asfunc.js
 codes02.txt:1:## BEGIN-FILE: funcfunc-core/src/lib/chan/core.js
 codes02.txt:338:## BEGIN-FILE: funcfunc-core/src/lib/chan/utils.js
 codes02.txt:438:## BEGIN-FILE: funcfunc-core/src/lib/classnames/aggregators.js
@@ -16,9 +16,9 @@ codes04.txt:482:## BEGIN-FILE: funcfunc-core/src/lib/delay.js
 codes05.txt:1:## BEGIN-FILE: funcfunc-core/src/lib/delegate.js
 codes05.txt:40:## BEGIN-FILE: funcfunc-core/src/lib/failable.js
 codes05.txt:294:## BEGIN-FILE: funcfunc-core/src/lib/iterator-utils.js
-codes06.txt:1:## BEGIN-FILE: funcfunc-core/src/lib/lazylist.js
-codes06.txt:346:## BEGIN-FILE: funcfunc-core/src/lib/lens.js
-codes06.txt:735:## BEGIN-FILE: funcfunc-core/src/lib/list.js
+codes06.txt:1:## BEGIN-FILE: funcfunc-core/src/lib/lazylist-utils.js
+codes06.txt:333:## BEGIN-FILE: funcfunc-core/src/lib/lens.js
+codes06.txt:751:## BEGIN-FILE: funcfunc-core/src/lib/list.js
 codes07.txt:1:## BEGIN-FILE: funcfunc-core/src/lib/multi.js
 codes07.txt:88:## BEGIN-FILE: funcfunc-core/src/lib/nullable.js
 codes07.txt:308:## BEGIN-FILE: funcfunc-core/src/lib/queue/double-stack-queue.js

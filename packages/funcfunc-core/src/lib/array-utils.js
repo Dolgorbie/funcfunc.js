@@ -2,10 +2,6 @@ import { toUInt } from "./asfunc";
 
 // helpers ================
 
-const _slice = Array.prototype.slice;
-
-const _join = Array.prototype.join;
-
 function _lengthMin(array0, arrays) {
   const nArrays = arrays.length;
 
@@ -86,7 +82,7 @@ export function take(count, array) {
   if (count >= array.length) {
     return array;
   }
-  return _slice.call(array, 0, count);
+  return Array.prototype.slice.call(array, 0, count);
 }
 
 export function drop(count, array) {
@@ -94,7 +90,7 @@ export function drop(count, array) {
   if (count === 0) {
     return array;
   }
-  return _slice.call(array, count);
+  return Array.prototype.slice.call(array, count);
 }
 
 export function takeRight(count, array) {
@@ -103,7 +99,7 @@ export function takeRight(count, array) {
   if (count >= length) {
     return array;
   }
-  return _slice.call(array, length - count);
+  return Array.prototype.slice.call(array, length - count);
 }
 
 export function dropRight(count, array) {
@@ -111,7 +107,7 @@ export function dropRight(count, array) {
   if (count === 0) {
     return array;
   }
-  return _slice.call(array, 0, array.length - count);
+  return Array.prototype.slice.call(array, 0, array.length - count);
 }
 
 // composition ================
@@ -211,7 +207,7 @@ export function findTail(pred, array) {
   if (i === 0) {
     return array;
   }
-  return _slice.call(array, i);
+  return Array.prototype.slice.call(array, i);
 }
 
 export function takeWhile(pred, array) {
@@ -225,7 +221,7 @@ export function takeWhile(pred, array) {
   if (i === length) {
     return array;
   }
-  return _slice.call(array, 0, i);
+  return Array.prototype.slice.call(array, 0, i);
 }
 
 export function dropWhile(pred, array) {
@@ -239,7 +235,7 @@ export function dropWhile(pred, array) {
   if (i === 0) {
     return array;
   }
-  return _slice.call(array, i);
+  return Array.prototype.slice.call(array, i);
 }
 
 export function unique(array) {
@@ -621,7 +617,7 @@ function _someN(pred, array0, arrays) {
 }
 
 export function join(sep, array) {
-  return _join.call(array, sep);
+  return Array.prototype.join.call(array, sep);
 }
 
 // misc ================
