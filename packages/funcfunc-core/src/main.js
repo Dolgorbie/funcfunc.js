@@ -12,7 +12,7 @@ export * as DelayListReduceRight from "./lib/delay-list-reduce-right";
 export * as Delegate from "./lib/delegate";
 export * as Failable from "./lib/failable";
 export * as IteratorUtils from "./lib/iterator-utils";
-export * as LazyList from "./lib/lazylist";
+export * as LazyListUtils from "./lib/lazylist-utils";
 export * as Lens from "./lib/lens";
 export * as List from "./lib/list";
 export * as Multi from "./lib/multi";

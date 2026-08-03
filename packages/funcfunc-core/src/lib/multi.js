@@ -1,5 +1,5 @@
 import { is } from "./asfunc";
-import { car, cdr, flatMap1, isPair, lastPair, listOf, map1, setCdr, some1 } from "./list";
+import { car, cdr, isPair, lastPair, lflatMap1, listOf, lmap1, lsome1, setCdr } from "./list";
 
 export function multi({ dispatch, defaultImpl = _defaultImpl }) {
   const implMap = new Map();
@@ -29,9 +29,9 @@ export function derive(child, parent) {
     _hierarchy.set(child, (hier = listOf(child)));
   }
 
-  const parents = map1(car, cdr(hier));
+  const parents = lmap1(car, cdr(hier));
 
-  if (some1((p) => is(p, parent), parents)) {
+  if (lsome1((p) => is(p, parent), parents)) {
     return;
   }
 
@@ -62,8 +62,8 @@ const _hierarchy = new Map();
 export function* traverseHierarchy(hierarchy) {
   const current = car(hierarchy);
   yield current;
-  for (let ancestors = cdr(hierarchy); isPair(ancestors); ancestors = flatMap1(cdr, ancestors)) {
-    const parents = map1(car, ancestors);
+  for (let ancestors = cdr(hierarchy); isPair(ancestors); ancestors = lflatMap1(cdr, ancestors)) {
+    const parents = lmap1(car, ancestors);
     yield* parents;
   }
 }

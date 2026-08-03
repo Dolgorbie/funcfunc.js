@@ -1,11 +1,13 @@
 import terser from "@rollup/plugin-terser";
 import { globSync } from "node:fs";
+import { extname, join, relative, } from "node:path";
 import { defineConfig } from "rollup";
 
-const libbasedir = `${import.meta.dirname}/src/lib`;
-const libfiles = globSync(`${libbasedir}/**/*.js`);
+const libbasedir = join(import.meta.dirname, "/src/lib");
+const libfiles = globSync(join(libbasedir, "/**/*.js"));
 const libentries = Object.fromEntries(
   libfiles.map((path) => [
+    relative(libbasedir, path.substring(0, path.length - extname(path).length)),
     path.substring(libbasedir.length + 1, path.length - 3),
     path]));
 

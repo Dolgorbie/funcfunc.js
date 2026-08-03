@@ -1,0 +1,57 @@
+## BEGIN-FILE: funcfunc-core/eslint.config.mjs
+
+import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
+import globals from "globals";
+
+export default defineConfig([
+  { files: ["**/*.{js,mjs,cjs}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
+]);
+
+## END-FILE: funcfunc-core/eslint.config.mjs
+## BEGIN-FILE: funcfunc-core/jsconfig.json
+
+{
+  "extends": [
+    "../../jsconfig.base.json"
+  ]
+}
+
+## END-FILE: funcfunc-core/jsconfig.json
+## BEGIN-FILE: funcfunc-core/package.json
+
+{
+  "name": "funcfunc",
+  "version": "0.0.1",
+  "description": "functional programing framework",
+  "author": "Kuwabiraki Yûki",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/main.js",
+  "exports": {
+    ".": {
+      "default": "./dist/main.js",
+      "import": "./dist/main.js"
+    },
+    "./*": {
+      "default": "./dist/lib/*.js",
+      "import": "./dist/lib/*.js"
+    }
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "test": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@rollup/plugin-multi-entry": "^7.1.0",
+    "@rollup/plugin-terser": "^1.0.0",
+    "eslint": "^10.4.0",
+    "globals": "^17.6.0",
+    "rollup": "^4.60.4",
+    "vitest": "^4.1.7"
+  }
+}
+
+## END-FILE: funcfunc-core/package.json

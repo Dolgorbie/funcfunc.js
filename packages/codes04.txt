@@ -1,0 +1,635 @@
+## BEGIN-FILE: funcfunc-core/src/lib/core.js
+
+export function doNothing() {
+}
+
+export function itself(x) {
+  return x;
+}
+
+export function constant(x) {
+  return () => x;
+}
+
+export function call(proc, ...args) {
+  return proc(...args);
+}
+
+export function call1(proc, arg0) {
+  return proc(arg0);
+}
+
+export function call2(proc, arg0, arg1) {
+  return proc(arg0, arg1);
+}
+
+export function call3(proc, arg0, arg1, arg2) {
+  return proc(arg0, arg1, arg2);
+}
+
+export function call4(proc, arg0, arg1, arg2, arg3) {
+  return proc(arg0, arg1, arg2, arg3);
+}
+
+export function xcall(arg0, proc, ...args) {
+  return proc(arg0, ...args);
+}
+
+export function xcall1(arg0, proc) {
+  return proc(arg0);
+}
+
+export function xcall2(arg0, proc, arg1) {
+  return proc(arg0, arg1);
+}
+
+export function xcall3(arg0, proc, arg1, arg2) {
+  return proc(arg0, arg1, arg2);
+}
+
+export function xcall4(arg0, proc, arg1, arg2, arg3) {
+  return proc(arg0, arg1, arg2, arg3);
+}
+
+export function apply(proc, args) {
+  return proc(...args);
+}
+
+export function xapply(args, proc) {
+  return proc(...args);
+}
+
+export function methodF(method) {
+  return (self, ...args) => method.call(self, ...args);
+}
+
+export function methodF0(method) {
+  return (self) => method.call(self);
+}
+
+export function methodF1(method) {
+  return (self, arg0) => method.call(self, arg0);
+}
+
+export function methodF2(method) {
+  return (self, arg0, arg1) => method.call(self, arg0, arg1);
+}
+
+export function methodF3(method) {
+  return (self, arg0, arg1, arg2) => method.call(self, arg0, arg1, arg2);
+}
+
+export function methodF4(method) {
+  return (self, arg0, arg1, arg2, arg3) => method.call(self, arg0, arg1, arg2, arg3);
+}
+
+export function refF(methodName) {
+  return (self, ...args) => self[methodName](...args);
+}
+
+export function refF0(methodName) {
+  return (self) => self[methodName]();
+}
+
+export function refF1(methodName) {
+  return (self, arg0) => self[methodName](arg0);
+}
+
+export function refF2(methodName) {
+  return (self, arg0, arg1) => self[methodName](arg0, arg1);
+}
+
+export function refF3(methodName) {
+  return (self, arg0, arg1, arg2) => self[methodName](arg0, arg1, arg2);
+}
+
+export function refF4(methodName) {
+  return (self, arg0, arg1, arg2, arg3) => self[methodName](arg0, arg1, arg2, arg3);
+}
+
+export function newF(clazz) {
+  return (...args) => new clazz(...args);
+}
+
+export function newF0(clazz) {
+  return () => new clazz();
+}
+
+export function newF1(clazz) {
+  return (arg0) => new clazz(arg0);
+}
+
+export function newF2(clazz) {
+  return (arg0, arg1) => new clazz(arg0, arg1);
+}
+
+export function newF3(clazz) {
+  return (arg0, arg1, arg2) => new clazz(arg0, arg1, arg2);
+}
+
+export function newF4(clazz) {
+  return (arg0, arg1, arg2, arg3) => new clazz(arg0, arg1, arg2, arg3);
+}
+
+export function curry2(proc) {
+  return (arg0) => (...args) => proc(arg0, ...args);
+}
+
+export function curry3(proc) {
+  return (arg0) => (arg1) => (...args) => proc(arg0, arg1, ...args);
+}
+
+export function curry4(proc) {
+  return (arg0) => (arg1) => (arg2) => (...args) => proc(arg0, arg1, arg2, ...args);
+}
+
+export function uncurry2(proc) {
+  return (arg0, ...args) => proc(arg0)(...args);
+}
+
+export function uncurry3(proc) {
+  return (arg0, arg1, ...args) => proc(arg0)(arg1)(...args);
+}
+
+export function uncurry4(proc) {
+  return (arg0, arg1, arg2, ...args) => proc(arg0)(arg1)(arg2)(...args);
+}
+
+export function pa(proc, ...args) {
+  return (...params) => proc(...args, ...params);
+}
+
+export function pa1(proc, ...args) {
+  return (param0) => proc(...args, param0);
+}
+
+export function pa2(proc, ...args) {
+  return (param0, param1) => proc(...args, param0, param1);
+}
+
+export function pa3(proc, ...args) {
+  return (param0, param1, param2) => proc(...args, param0, param1, param2);
+}
+
+export function pa4(proc, ...args) {
+  return (param0, param1, param2, param3) => proc(...args, param0, param1, param2, param3);
+}
+
+export function xpa(proc, ...args) {
+  return (...params) => proc(...params, ...args);
+}
+
+export function xpa1(proc, ...args) {
+  return (param0) => proc(param0, ...args);
+}
+
+export function xpa2(proc, ...args) {
+  return (param0, params1) => proc(param0, params1, ...args);
+}
+
+export function xpa3(proc, ...args) {
+  return (param0, params1, param2) => proc(param0, params1, param2, ...args);
+}
+
+export function xpa4(proc, ...args) {
+  return (param0, params1, param2, param3) => proc(param0, params1, param2, param3, ...args);
+}
+
+export function pipe(...procs) {
+  const { length } = procs;
+  if (length === 0) {
+    return itself;
+  }
+  return (...args) => {
+    let res = procs[0](...args);
+    for (let i = 1; i < length; ++i) {
+      res = procs[i](res);
+    }
+    return res;
+  };
+}
+
+export function cmp(...procs) {
+  const { length } = procs;
+  if (length === 0) {
+    return itself;
+  }
+  return (...args) => {
+    let res = procs[length - 1](...args);
+    for (let i = length - 2; i >= 0; --i) {
+      res = procs[i](res);
+    }
+    return res;
+  };
+}
+
+export function not(pred) {
+  return (...args) => !pred(...args);
+}
+
+export function not1(pred) {
+  return (arg0) => !pred(arg0);
+}
+
+export function not2(pred) {
+  return (arg0, arg1) => !pred(arg0, arg1);
+}
+
+export function not3(pred) {
+  return (arg0, arg1, arg2) => !pred(arg0, arg1, arg2);
+}
+
+export function not4(pred) {
+  return (arg0, arg1, arg2, arg3) => !pred(arg0, arg1, arg2, arg3);
+}
+
+export function and(...preds) {
+  const n = preds.length;
+
+  return (...args) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](...args);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function and1(...preds) {
+  const n = preds.length;
+
+  return (arg0) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function and2(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function and3(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1, arg2) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function and4(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1, arg2, arg3) => {
+    let result = true;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2, arg3);
+      if (!result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function or(...preds) {
+  const n = preds.length;
+
+  return (...args) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](...args);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function or1(...preds) {
+  const n = preds.length;
+
+  return (arg0) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function or2(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function or3(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1, arg2) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+export function or4(...preds) {
+  const n = preds.length;
+
+  return (arg0, arg1, arg2, arg3) => {
+    let result = false;
+
+    for (let i = 0; i < n; ++i) {
+      result = preds[i](arg0, arg1, arg2, arg3);
+      if (result) {
+        return result;
+      }
+    }
+
+    return result;
+  };
+}
+
+## END-FILE: funcfunc-core/src/lib/core.js
+## BEGIN-FILE: funcfunc-core/src/lib/delay-list-reduce-right.js
+
+import { delayForce } from "./delay";
+import { car, cdr, isPair } from "./list";
+
+export function delayReduceRight(proc, delayedInit, list0, ...lists) {
+  switch (lists.length) {
+    case 0: {
+      return delayReduceRight1(proc, delayedInit, list0);
+    }
+    case 1: {
+      return delayReduceRight2(proc, delayedInit, list0, lists[0]);
+    }
+    default: {
+      return _delayReduceRightN(proc, delayedInit, list0, lists);
+    }
+  }
+}
+
+export function delayReduceRight1(proc, delayedInit, list0) {
+  return delayForce(() => {
+    if (!isPair(list0)) {
+      return delayedInit;
+    }
+    return proc(delayReduceRight1(proc, delayedInit, cdr(list0)), car(list0));
+  });
+}
+
+export function delayReduceRight2(proc, delayedInit, list0, list1) {
+  return delayForce(() => {
+    if (!isPair(list0) || !isPair(list1)) {
+      return delayedInit;
+    }
+    return proc(delayReduceRight2(proc, delayedInit, cdr(list0), cdr(list1)), car(list0), car(list1));
+  });
+}
+
+function _delayReduceRightN(proc, delayedInit, list0, lists) {
+  return delayForce(() => {
+    if (!isPair(list0)) {
+      return delayedInit;
+    }
+
+    const value0 = car(list0);
+    const rest0 = cdr(list0);
+
+    const nLists = lists.length;
+
+    const values = new Array(nLists);
+    const rests = new Array(nLists);
+    for (let i = 0; i < nLists; ++i) {
+      const tmpI = lists[i];
+      if (!isPair(tmpI)) {
+        return delayedInit;
+      }
+
+      values[i] = car(tmpI);
+      rests[i] = cdr(tmpI);
+    }
+
+    return proc(_delayReduceRightN(proc, delayedInit, rest0, rests), value0, ...values);
+  });
+}
+
+## END-FILE: funcfunc-core/src/lib/delay-list-reduce-right.js
+## BEGIN-FILE: funcfunc-core/src/lib/delay.js
+
+import { constant } from "./core";
+
+export class Delayed {
+  constructor(content) {
+    this._content = content;
+  }
+
+  static resolve(value) {
+    return new Delayed({ _isLazy: false, _thunk: constant(value), _value: value });
+  }
+}
+
+export function isDelayed(x) {
+  return x instanceof Delayed;
+}
+
+export function force(delayed) {
+  while (delayed._content._isLazy) {
+    const delayedInner = delayed._content._thunk();
+    if (delayed._content._isLazy) {
+      delayed._content._isLazy = delayedInner._content._isLazy;
+      delayed._content._thunk = delayedInner._content._thunk;
+      delayed._content._value = delayedInner._content._value;
+      delayedInner._content = delayed._content;
+    }
+  }
+
+  return delayed._content._value;
+}
+
+export function delayForce(thunk) {
+  return _delayForce(() => {
+    const result = thunk();
+    if (isDelayed(result)) {
+      return result;
+    }
+    throw TypeError(`expects delayed, but got: ${result}`);
+  });
+}
+
+export function delay(thunk) {
+  return _delayForce(() => Delayed.resolve(thunk()));
+}
+
+export function map(proc, delayed0, ...delayeds) {
+  switch (delayeds.length) {
+    case 0: {
+      return map1(proc, delayed0);
+    }
+    case 1: {
+      return map2(proc, delayed0, delayeds[0]);
+    }
+    default: {
+      return _mapN(proc, delayed0, delayeds);
+    }
+  }
+}
+
+export function map1(proc, delayed0) {
+  return delay(() => proc(force(delayed0)));
+}
+
+export function map2(proc, delayed0, delayed1) {
+  return delay(() => proc(force(delayed0), force(delayed1)));
+}
+
+function _mapN(proc, delayed0, delayeds) {
+  return delay(() => {
+    const { length } = delayeds;
+    const value0 = force(delayed0);
+    const values = new Array(length);
+    for (let i = 0; i < length; ++i) {
+      values[i] = force(delayeds[i]);
+    }
+    return proc(value0, ...values);
+  });
+}
+
+export function flatMap(proc, delayed0, ...delayeds) {
+  switch (delayeds.length) {
+    case 0: {
+      return flatMap1(proc, delayed0);
+    }
+    case 1: {
+      return flatMap2(proc, delayed0, delayeds[0]);
+    }
+    default: {
+      return _flatMapN(proc, delayed0, delayeds);
+    }
+  }
+}
+
+export function flatMap1(proc, delayed0) {
+  return delayForce(() => proc(force(delayed0)));
+}
+
+export function flatMap2(proc, delayed0, delayed1) {
+  return delayForce(() => proc(force(delayed0), force(delayed1)));
+}
+
+function _flatMapN(proc, delayed0, delayeds) {
+  return delayForce(() => {
+    const { length } = delayeds;
+    const value0 = force(delayed0);
+    const values = new Array(length);
+    for (let i = 0; i < length; ++i) {
+      values[i] = force(delayeds[i]);
+    }
+    return proc(value0, ...values);
+  });
+}
+
+export function forEach(proc, delayed0, ...delayeds) {
+  switch (delayeds.length) {
+    case 0: {
+      forEach1(proc, delayed0);
+      break;
+    }
+    case 1: {
+      forEach2(proc, delayed0, delayeds[0]);
+      break;
+    }
+    default: {
+      _forEachN(proc, delayed0, delayeds);
+      break;
+    }
+  }
+}
+
+export function forEach1(proc, delayed0) {
+  proc(force(delayed0));
+}
+
+export function forEach2(proc, delayed0, delayed1) {
+  proc(force(delayed0), force(delayed1));
+}
+
+function _forEachN(proc, delayed0, delayeds) {
+  const { length } = delayeds;
+  const value0 = force(delayed0);
+  const values = new Array(length);
+  for (let i = 0; i < length; ++i) {
+    values[i] = force(delayeds[i]);
+  }
+  proc(value0, ...values);
+}
+
+function _delayForce(thunk) {
+  return new Delayed({ _isLazy: true, _thunk: thunk, _value: void 0 });
+}
+
+## END-FILE: funcfunc-core/src/lib/delay.js

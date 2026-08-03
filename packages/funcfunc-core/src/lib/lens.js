@@ -1,4 +1,7 @@
-import { toUInt } from "./asfunc";
+import { filter, iota } from "./array-utils";
+import { mod2, toInt } from "./asfunc";
+import { fail, isFailed } from "./failable";
+import { map1 } from "./iterator-utils";
 
 export const idlens = lens((target) => target, (target, swapper) => swapper(target));
 
@@ -41,27 +44,56 @@ export function chain(...lenses) {
   return _chainLens(lenses);
 }
 
-export function pathLens(...propOrIndex) {
-  const { length } = propOrIndex;
+export function path(...segments) {
+  const { length } = segments;
   for (let i = 0; i < length; ++i) {
-    const segment = propOrIndex[i];
-    switch (typeof segment) {
+    const seg = segments[i];
+    switch (typeof seg) {
       case "string":
       case "symbol": {
-        propOrIndex[i] = new _PropLens(segment);
+        segments[i] = new _PropLens(seg);
         break;
       }
       case "number": {
-        propOrIndex[i] = new _IndexLens(segment);
+        segments[i] = new _IndexLens(seg);
+        break;
+      }
+      case "function": {
+        segments[i] = new _Trav(seg);
         break;
       }
       default: {
-        throw TypeError(`expects string, symbol, or number, but got: ${segment}`);
+        // DO NOTHING
       }
     }
   }
 
-  return _chainLens(propOrIndex);
+  return _chainLens(segments);
+}
+
+export function opath(...segments) {
+  const { length } = segments;
+  for (let i = 0; i < length; ++i) {
+    const seg = segments[i];
+    switch (typeof seg) {
+      case "string":
+      case "symbol": {
+        segments[i] = new _PropOpts(seg);
+        break;
+      }
+      case "number": {
+        segments[i] = new _IndexOpts(seg);
+        break;
+      }
+      case "function": {
+        segments[i] = new _TravOpts(seg);
+        break;
+      }
+      default: {
+        // DO NOTHING
+      }
+    }
+  }
 }
 
 function _chainLens(lenses) {
@@ -92,6 +124,9 @@ class _ChainLens {
 
     let t = target;
     for (let i = 0; i < length; ++i) {
+      if (isFailed(t)) {
+        return t;
+      }
       t = _lenses[i].deref(t);
     }
     return t;
@@ -151,14 +186,16 @@ class _IndexLens {
   _index;
 
   constructor(index) {
-    this._index = toUInt(index);
+    this._index = toInt(index);
   }
 
   deref(target) {
-    if (!Array.isArray(target)) {
+    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
       return void 0;
     }
-    return target[this._index];
+
+    const { _index } = this;
+    return target[_index < 0 ? mod2(_index, target.length) : _index];
   }
 
   swap(target, swapper) {
@@ -170,19 +207,179 @@ class _IndexLens {
       return res;
     }
 
-    if (!(_index in target)) {
+    const i = _index < 0 ? mod2(_index, target.length) : _index;
+
+    if (!(i in target)) {
       const res = Array.prototype.slice.call(target);
-      res[_index] = swapper();
+      res[i] = swapper();
       return res;
     }
 
-    const prev = target[_index];
+    const prev = target[i];
     const next = swapper(prev);
     if (Object.is(prev, next)) {
       return target;
     }
     const res = Array.prototype.slice.call(target);
-    res[_index] = next;
+    res[i] = next;
     return res;
+  }
+}
+
+class _Trav {
+  _filter;
+
+  constructor(filter) {
+    this._filter = filter;
+  }
+
+  deref(target) {
+    if (target != null && typeof target === "object") {
+      const { length } = target;
+      const { _filter } = this;
+      if (typeof length === "number") {
+        const prevRange = iota(length);
+        const nextRange = filter(_filter, prevRange);
+        if (prevRange.length === nextRange.length) {
+          return target;
+        }
+        return Array.from(map1((i) => target[i], nextRange));
+      }
+      const prevKeys = Object.keys(target);
+      const nextKeys = filter(_filter, prevKeys);
+      if (prevKeys.length === nextKeys.length) {
+        return target;
+      }
+      return Object.fromEntries(map1((key) => [key, target[key]], nextKeys));
+    }
+    return void 0;
+  }
+
+  swap(target, swapper) {
+    if (target != null && typeof target === "object") {
+      const { length } = target;
+      const { _filter } = this;
+      if (typeof length === "number") {
+        return Array.from(map1((i) => _filter(i) ? swapper(target[i]) : target[i], iota(length)));
+      }
+      return Object.fromEntries((key) => [key, _filter(key) ? swapper(target[key]) : target[key]], Object.keys(target));
+    }
+    return swapper();
+  }
+}
+
+class _PropOpts {
+  _prop;
+
+  constructor(prop) {
+    this._prop = prop;
+  }
+
+  deref(target) {
+    if (target != null && typeof target === "object") {
+      const { _prop } = this;
+      if (_prop in target) {
+        return target[_prop];
+      }
+    }
+    return fail();
+  }
+
+  swap(target, swapper) {
+    if (target != null && typeof target === "object") {
+      const { _prop } = this;
+      if (_prop in target) {
+        const prev = target[_prop]
+        const next = swapper(prev);
+        if (!Object.is(prev, next)) {
+          return { ...target, [_prop]: next };
+        }
+      }
+    }
+    return target;
+  }
+}
+
+class _IndexOpts {
+  _index;
+
+  constructor(index) {
+    this._index = toInt(index);
+  }
+
+  deref(target) {
+    if (target != null && typeof target === "object") {
+      const { length } = target;
+      if (typeof length === "number") {
+        const { _index } = this;
+        const i = _index < 0 ? mod2(_index, length) : _index;
+        if (i in target) {
+          return target[i];
+        }
+      }
+    }
+    return fail();
+  }
+
+  swap(target, swapper) {
+    if (target != null && typeof target === "object") {
+      const { length } = target;
+      if (typeof length === "number") {
+        const { _index } = this;
+        const i = _index < 0 ? mod2(_index, length) : _index;
+        if (i in target) {
+          const prev = target[i];
+          const next = swapper(prev);
+          if (!Object.is(prev, next)) {
+            const res = Array.prototype.slice.call(target);
+            res[i] = next;
+            return res;
+          }
+        }
+      }
+    }
+    return target;
+  }
+}
+
+class _TravOpts {
+  _filter;
+
+  constructor(filter) {
+    this._filter = filter;
+  }
+
+  deref(target) {
+    if (target != null && typeof target === "object") {
+      const { length } = target;
+      const { _filter } = this;
+      if (typeof length === "number") {
+        const prevRange = iota(length);
+        const nextRange = filter(_filter, prevRange);
+        if (prevRange.length === nextRange.length) {
+          return target;
+        }
+        return Array.from(map1((i) => target[i], nextRange));
+      }
+      const prevKeys = Object.keys(target);
+      const nextKeys = filter(_filter, prevKeys);
+      if (prevKeys.length === nextKeys.length) {
+        return target;
+      }
+      return Object.fromEntries(map1((key) => [key, target[key]], nextKeys));
+    }
+    return fail();
+  }
+
+  swap(target, swapper) {
+    if (target != null && typeof target === "object") {
+      const { length } = target;
+      const { _filter } = this;
+      if (typeof length === "number") {
+        return Array.from(map1((i) => _filter(i) ? swapper(target[i]) : target[i], iota(length)));
+      }
+      return Object.fromEntries((key) => [key, _filter(key) ? swapper(target[key]) : target[key]], Object.keys(target));
+    }
+    return target;
   }
 }

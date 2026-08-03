@@ -1,0 +1,38 @@
+codes00.txt:3:import js from "@eslint/js";
+codes00.txt:4:import { defineConfig } from "eslint/config";
+codes00.txt:5:import globals from "globals";
+codes00.txt:34:      "import": "./dist/main.js"
+codes00.txt:38:      "import": "./dist/lib/*.js"
+codes01.txt:3:import terser from "@rollup/plugin-terser";
+codes01.txt:4:import { globSync } from "node:fs";
+codes01.txt:5:import { extname, join, relative, } from "node:path";
+codes01.txt:6:import { defineConfig } from "rollup";
+codes01.txt:8:const libbasedir = join(import.meta.dirname, "/src/lib");
+codes01.txt:54:import { toUInt } from "./asfunc";
+codes02.txt:3:import { every1, map1 } from "../array-utils";
+codes02.txt:4:import { asyncFailable, fail, isSuccess } from "../failable";
+codes02.txt:5:import { DStackQueue } from "../queue/double-stack-queue";
+codes02.txt:340:import { flatMap1, forEach1, map1 } from "../array-utils";
+codes02.txt:341:import { asyncFailable, force, isFailed, reasons } from "../failable";
+codes02.txt:342:import { isEndOfChan, TakeError } from "./core";
+codes03.txt:44:import * as A from "./aggregators";
+codes03.txt:45:import { createClassNamesCombinator } from "./core";
+codes03.txt:46:import * as T from "./transformers";
+codes04.txt:419:import { delayForce } from "./delay";
+codes04.txt:420:import { car, cdr, isPair } from "./list";
+codes04.txt:484:import { constant } from "./core";
+codes05.txt:296:import { toUInt } from "./asfunc";
+codes06.txt:3:import { toUInt } from "./asfunc";
+codes06.txt:4:import { car, cdr, cons, isPair, lcons, listOf, nil } from "./list";
+codes06.txt:348:import { filter, iota } from "./array-utils";
+codes06.txt:349:import { mod2, toInt } from "./asfunc";
+codes06.txt:350:import { fail, isFailed } from "./failable";
+codes06.txt:351:import { map1 } from "./iterator-utils";
+codes06.txt:737:import { toUInt } from "./asfunc";
+codes07.txt:3:import { is } from "./asfunc";
+codes07.txt:4:import { car, cdr, flatMap1, isPair, lastPair, listOf, map1, setCdr, some1 } from "./list";
+codes07.txt:90:import { isNull, isUndef } from "./asfunc";
+codes07.txt:310:import { fail, isSuccess, orValue } from "../failable";
+codes08.txt:136:import { every2, forEach1, map1 } from "./array-utils";
+codes09.txt:3:import { fail, isFailed, isSuccess, reasons } from "../failable";
+codes09.txt:172:import { defineConfig } from "vitest/config";

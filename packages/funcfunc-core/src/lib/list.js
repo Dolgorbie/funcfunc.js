@@ -2,18 +2,14 @@ import { toUInt } from "./asfunc";
 
 // core ================
 
-const _nil = {
+const nil = {
   [Symbol.iterator]() {
     return new _ListIter(this);
   }
 }
 
-export function nil() {
-  return _nil;
-}
-
 export function isNil(x) {
-  return x === _nil;
+  return x === nil;
 }
 
 export class Pair {
@@ -47,7 +43,7 @@ class _ListIter extends Iterator {
   }
 
   return(value) {
-    this._list = _nil;
+    this._list = nil;
     return { value, done: true };
   }
 }
@@ -161,7 +157,7 @@ export function length(list) {
 
 export function arrayToList(array) {
   const { length } = array;
-  let result = _nil;
+  let result = nil;
   for (let i = length - 1; i >= 0; --i) {
     result = cons(array[i], result);
   }
@@ -172,21 +168,21 @@ export function listOf(...values) {
   return arrayToList(values);
 }
 
-export function repeat(count, value) {
+export function lrepeat(count, value) {
   count = toUInt(count);
-  let result = _nil;
+  let result = nil;
   for (let i = 0; i < count; ++i) {
     result = cons(value, result);
   }
   return result;
 }
 
-export function iota(count, start = 0, step = 1) {
+export function liota(count, start = 0, step = 1) {
   count = toUInt(count);
   start = +start;
   step = +step;
 
-  let result = _nil;
+  let result = nil;
   for (let i = count - 1; i >= 0; --i) {
     result = cons(step * i + start, result);
   }
@@ -194,18 +190,18 @@ export function iota(count, start = 0, step = 1) {
   return result;
 }
 
-export function unfold(gen, seed, tailGen = void 0) {
-  let acc = _nil;
+export function lunfold(gen, seed, tailGen = void 0) {
+  let acc = nil;
   let res;
   while ((res = gen(seed)), !res.done) {
     const { value } = res;
     acc = cons(value, acc);
     seed = "seed" in res ? res.seed : value;
   }
-  return reverseI(acc, tailGen === void 0 ? _nil : tailGen(seed));
+  return lreverseI(acc, tailGen === void 0 ? nil : tailGen(seed));
 }
 
-export function unfoldRight(gen, seed, tail = _nil) {
+export function lunfoldRight(gen, seed, tail = nil) {
   let res;
   while ((res = gen(seed)), !res.done) {
     const { value } = res;
@@ -217,28 +213,28 @@ export function unfoldRight(gen, seed, tail = _nil) {
 
 // splicing ================
 
-export function take(count, list) {
+export function ltake(count, list) {
   count = toUInt(count);
   let tmp = list;
-  let result = _nil;
+  let result = nil;
   for (let i = 0; i < count; ++i) {
-    if (tmp === _nil) {
+    if (tmp === nil) {
       return list;
     }
     if (!isPair(tmp)) {
-      return reverseI(result);
+      return lreverseI(result);
     }
     result = cons(car(tmp), result);
     tmp = cdr(tmp);
   }
-  return tmp === _nil ? list : reverseI(result);
+  return tmp === nil ? list : lreverseI(result);
 }
 
-export function takeI(count, list) {
+export function ltakeI(count, list) {
   count = toUInt(count);
 
   if (count === 0) {
-    return _nil;
+    return nil;
   }
 
   let tmp = list;
@@ -249,12 +245,12 @@ export function takeI(count, list) {
     tmp = cdr(tmp);
   }
   if (isPair(tmp)) {
-    setCdr(tmp, _nil);
+    setCdr(tmp, nil);
   }
   return list;
 }
 
-export function drop(count, list) {
+export function ldrop(count, list) {
   count = toUInt(count);
   for (let i = 0; i < count; ++i) {
     if (!isPair(list)) {
@@ -265,34 +261,34 @@ export function drop(count, list) {
   return list;
 }
 
-export function takeRight(count, list) {
-  return reverseI(takeI(count, reverse(list)));
+export function ltakeRight(count, list) {
+  return lreverseI(ltakeI(count, lreverse(list)));
 }
 
-export function takeRightI(count, list) {
-  return reverseI(takeI(count, reverseI(list)));
+export function ltakeRightI(count, list) {
+  return lreverseI(ltakeI(count, lreverseI(list)));
 }
 
-export function dropRight(count, list) {
-  return reverseI(drop(count, reverse(list)));
+export function ldropRight(count, list) {
+  return lreverseI(ldrop(count, lreverse(list)));
 }
 
-export function dropRightI(count, list) {
-  return reverseI(drop(count, reverseI(list)));
+export function ldropRightI(count, list) {
+  return lreverseI(ldrop(count, lreverseI(list)));
 }
 
 // composition ================
 
-export function flat(listOfList) {
-  let result = _nil;
+export function lflat(listOfList) {
+  let result = nil;
   for (let tmp = listOfList; isPair(tmp); tmp = cdr(tmp)) {
-    result = reverse(car(tmp), result);
+    result = lreverse(car(tmp), result);
   }
-  return reverseI(result);
+  return lreverseI(result);
 }
 
-export function flatI(lists) {
-  let acc = _nil;
+export function lflatI(lists) {
+  let acc = nil;
   let tmp;
   for (tmp = lists; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
@@ -315,7 +311,7 @@ export function flatI(lists) {
   return result;
 }
 
-export function concat(list0, ...lists) {
+export function lconcat(list0, ...lists) {
   const nLists = lists.length;
   if (nLists === 0) {
     return list0;
@@ -323,13 +319,13 @@ export function concat(list0, ...lists) {
 
   let acc = lists[nLists - 1];
   for (let i = nLists - 2; i >= 0; --i) {
-    acc = reverseI(reverse(lists[i]), acc);
+    acc = lreverseI(lreverse(lists[i]), acc);
   }
 
-  return reverseI(reverse(list0), acc);
+  return lreverseI(lreverse(list0), acc);
 }
 
-export function concatI(list0, ...lists) {
+export function lconcatI(list0, ...lists) {
   const nLists = lists.length;
   if (nLists === 0) {
     return list0;
@@ -354,10 +350,10 @@ export function concatI(list0, ...lists) {
   return result;
 }
 
-export function zip(list0, ...lists) {
+export function lzip(list0, ...lists) {
   const nLists = lists.length;
   const values = new Array(nLists + 1);
-  let result = _nil;
+  let result = nil;
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
     values[0] = car(tmp0);
     for (let i = 0; i < nLists; ++i) {
@@ -370,14 +366,14 @@ export function zip(list0, ...lists) {
     }
     result = cons(listOf(...values), result);
   }
-  return reverseI(result);
+  return lreverseI(result);
 }
 
-export function entries(list0, ...lists) {
+export function lentries(list0, ...lists) {
   const nLists = lists.length;
   const values = new Array(nLists + 2);
   let index = 0;
-  let result = _nil;
+  let result = nil;
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
     values[0] = index;
     values[1] = car(tmp0);
@@ -392,13 +388,13 @@ export function entries(list0, ...lists) {
     result = cons(listOf(...values), result);
     index += 1;
   }
-  return reverseI(result);
+  return lreverseI(result);
 }
 
 // filtering ================
 
-export function reverseFilter(pred, list) {
-  let result = _nil;
+export function lreverseFilter(pred, list) {
+  let result = nil;
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
     if (pred(x)) {
@@ -408,11 +404,11 @@ export function reverseFilter(pred, list) {
   return result;
 }
 
-export function filter(pred, list) {
-  return reverseI(reverseFilter(pred, list));
+export function lfilter(pred, list) {
+  return lreverseI(lreverseFilter(pred, list));
 }
 
-export function filterI(pred, list) {
+export function lfilterI(pred, list) {
   let result;
   for (result = list; isPair(result); result = cdr(result)) {
     if (pred(car(result))) {
@@ -421,7 +417,7 @@ export function filterI(pred, list) {
   }
 
   if (!isPair(result)) {
-    return _nil;
+    return nil;
   }
 
   let accepted = result;
@@ -432,21 +428,21 @@ export function filterI(pred, list) {
     }
   }
 
-  setCdr(accepted, _nil);
+  setCdr(accepted, nil);
   return result;
 }
 
-export function findTail(pred, list) {
+export function lfindTail(pred, list) {
   for (let result = list; isPair(result); result = cdr(result)) {
     if (pred(car(result))) {
       return result;
     }
   }
-  return _nil;
+  return nil;
 }
 
-export function reverseTakeWhile(pred, list) {
-  let result = _nil;
+export function lreverseTakeWhile(pred, list) {
+  let result = nil;
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
     if (!pred(x)) {
@@ -457,13 +453,13 @@ export function reverseTakeWhile(pred, list) {
   return result;
 }
 
-export function takeWhile(pred, list) {
-  return reverseI(reverseTakeWhile(pred, list));
+export function ltakeWhile(pred, list) {
+  return lreverseI(lreverseTakeWhile(pred, list));
 }
 
-export function takeWhileI(pred, list) {
+export function ltakeWhileI(pred, list) {
   if (!isPair(list) || !pred(car(list))) {
-    return _nil;
+    return nil;
   }
 
   let accepted = list;
@@ -473,21 +469,21 @@ export function takeWhileI(pred, list) {
     }
     accepted = tmp;
   }
-  setCdr(accepted, _nil);
+  setCdr(accepted, nil);
   return list;
 }
 
-export function dropWhile(pred, list) {
+export function ldropWhile(pred, list) {
   for (let result = list; isPair(result); result = cdr(result)) {
     if (!pred(car(result))) {
       return result;
     }
   }
-  return _nil;
+  return nil;
 }
 
-export function remove(target, list) {
-  let head = _nil;
+export function lremove(target, list) {
+  let head = nil;
   let tail;
   for (tail = list; isPair(tail); tail = cdr(tail)) {
     const x = car(tail);
@@ -498,13 +494,13 @@ export function remove(target, list) {
   }
 
   if (isPair(tail)) {
-    return reverseI(head, cdr(tail));
+    return lreverseI(head, cdr(tail));
   }
 
-  return reverseI(head);
+  return lreverseI(head);
 }
 
-export function removeI(target, list) {
+export function lremoveI(target, list) {
   if (!isPair(list)) {
     return list;
   }
@@ -525,9 +521,9 @@ export function removeI(target, list) {
   return list;
 }
 
-export function unique(list) {
+export function lunique(list) {
   const appeared = new Set();
-  let result = _nil;
+  let result = nil;
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
     if (appeared.has(x)) {
@@ -536,57 +532,57 @@ export function unique(list) {
     appeared.add(x);
     result = cons(x, result);
   }
-  return reverseI(result);
+  return lreverseI(result);
 }
 
 // mapping ================
 
-export function map(proc, list0, ...lists) {
-  return reverseI(reverseMap(proc, list0, ...lists));
+export function lmap(proc, list0, ...lists) {
+  return lreverseI(lreverseMap(proc, list0, ...lists));
 }
 
-export function map1(proc, list0) {
-  return reverseI(reverseMap1(proc, list0));
+export function lmap1(proc, list0) {
+  return lreverseI(lreverseMap1(proc, list0));
 }
 
-export function map2(proc, list0, list1) {
-  return reverseI(reverseMap2(proc, list0, list1));
+export function lmap2(proc, list0, list1) {
+  return lreverseI(lreverseMap2(proc, list0, list1));
 }
 
-export function reverseMap(proc, list0, ...lists) {
+export function lreverseMap(proc, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return reverseMap1(proc, list0);
+      return lreverseMap1(proc, list0);
     }
     case 1: {
-      return reverseMap2(proc, list0, lists[0]);
+      return lreverseMap2(proc, list0, lists[0]);
     }
     default: {
-      return _reverseMapN(proc, list0, lists);
+      return _lreverseMapN(proc, list0, lists);
     }
   }
 }
 
-export function reverseMap1(proc, list0) {
-  let result = _nil;
+export function lreverseMap1(proc, list0) {
+  let result = nil;
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
     result = cons(proc(car(tmp)), result);
   }
   return result;
 }
 
-export function reverseMap2(proc, list0, list1) {
-  let result = _nil;
+export function lreverseMap2(proc, list0, list1) {
+  let result = nil;
   for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
     result = cons(proc(car(tmp0), car(tmp1)), result);
   }
   return result;
 }
 
-function _reverseMapN(proc, list0, lists) {
+function _lreverseMapN(proc, list0, lists) {
   const nLists = lists.length;
 
-  let result = _nil;
+  let result = nil;
   const values = new Array(nLists);
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
     const value0 = car(tmp0);
@@ -603,30 +599,30 @@ function _reverseMapN(proc, list0, lists) {
   return result;
 }
 
-export function mapI(proc, list0, ...lists) {
+export function lmapI(proc, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return map1I(proc, list0);
+      return lmap1I(proc, list0);
     }
     case 1: {
-      return map2I(proc, list0, lists[0]);
+      return lmap2I(proc, list0, lists[0]);
     }
     default: {
-      return _mapNI(proc, list0, lists);
+      return _lmapNI(proc, list0, lists);
     }
   }
 }
 
-export function map1I(proc, list0) {
+export function lmap1I(proc, list0) {
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
     setCar(tmp, proc(car(tmp)));
   }
   return list0;
 }
 
-export function map2I(proc, list0, list1) {
+export function lmap2I(proc, list0, list1) {
   if (!isPair(list0) || !isPair(list1)) {
-    return _nil;
+    return nil;
   }
 
   let last;
@@ -634,20 +630,20 @@ export function map2I(proc, list0, list1) {
     setCar(tmp0, proc(car(tmp0), car(tmp1)));
     last = tmp0;
   }
-  setCdr(last, _nil);
+  setCdr(last, nil);
   return list0;
 }
 
-function _mapNI(proc, list0, lists) {
+function _lmapNI(proc, list0, lists) {
   if (!isPair(list0)) {
-    return _nil;
+    return nil;
   }
 
   const nLists = lists.length;
 
   for (let i = 0; i < nLists; ++i) {
     if (!isPair(lists[i])) {
-      return _nil;
+      return nil;
     }
   }
 
@@ -668,56 +664,56 @@ function _mapNI(proc, list0, lists) {
     last = tmp0;
   }
 
-  setCdr(last, _nil);
+  setCdr(last, nil);
   return list0;
 }
 
-export function flatMap(proc, list0, ...lists) {
-  return reverseI(reverseFlatMap(proc, list0, ...lists));
+export function lflatMap(proc, list0, ...lists) {
+  return lreverseI(lreverseFlatMap(proc, list0, ...lists));
 }
 
-export function flatMap1(proc, list0) {
-  return reverseI(reverseFlatMap1(proc, list0));
+export function lflatMap1(proc, list0) {
+  return lreverseI(lreverseFlatMap1(proc, list0));
 }
 
-export function flatMap2(proc, list0, list1) {
-  return reverseI(reverseFlatMap2(proc, list0, list1));
+export function lflatMap2(proc, list0, list1) {
+  return lreverseI(lreverseFlatMap2(proc, list0, list1));
 }
 
-export function reverseFlatMap(proc, list0, ...lists) {
+export function lreverseFlatMap(proc, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return reverseFlatMap1(proc, list0);
+      return lreverseFlatMap1(proc, list0);
     }
     case 1: {
-      return reverseFlatMap2(proc, list0, lists[0]);
+      return lreverseFlatMap2(proc, list0, lists[0]);
     }
     default: {
-      return _reverseFlatMapN(proc, list0, lists);
+      return _lreverseFlatMapN(proc, list0, lists);
     }
   }
 }
 
-export function reverseFlatMap1(proc, list0) {
-  let result = _nil;
+export function lreverseFlatMap1(proc, list0) {
+  let result = nil;
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
-    result = reverse(proc(car(tmp)), result);
+    result = lreverse(proc(car(tmp)), result);
   }
   return result;
 }
 
-export function reverseFlatMap2(proc, list0, list1) {
-  let result = _nil;
+export function lreverseFlatMap2(proc, list0, list1) {
+  let result = nil;
   for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
-    result = reverse(proc(car(tmp0), car(tmp1)), result);
+    result = lreverse(proc(car(tmp0), car(tmp1)), result);
   }
   return result;
 }
 
-function _reverseFlatMapN(proc, list0, lists) {
+function _lreverseFlatMapN(proc, list0, lists) {
   const nLists = lists.length;
 
-  let result = _nil;
+  let result = nil;
   const values = new Array(nLists);
   Outer: for (let tmp0 = list0; isPair(tmp0); tmp0 = cdr(tmp0)) {
     const value0 = car(tmp0);
@@ -729,27 +725,27 @@ function _reverseFlatMapN(proc, list0, lists) {
       values[i] = car(tmpI);
       lists[i] = cdr(tmpI);
     }
-    result = reverse(proc(value0, ...values), result);
+    result = lreverse(proc(value0, ...values), result);
   }
   return result;
 }
 
-export function flatMapI(proc, list0, ...lists) {
+export function lflatMapI(proc, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return flatMap1I(proc, list0);
+      return lflatMap1I(proc, list0);
     }
     case 1: {
-      return flatMap2I(proc, list0, lists[0]);
+      return lflatMap2I(proc, list0, lists[0]);
     }
     default: {
-      return _flatMapNI(proc, list0, lists);
+      return _lflatMapNI(proc, list0, lists);
     }
   }
 }
 
-export function flatMap1I(proc, list0) {
-  let result = _nil;
+export function lflatMap1I(proc, list0) {
+  let result = nil;
   let last;
 
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
@@ -766,8 +762,8 @@ export function flatMap1I(proc, list0) {
   return result;
 }
 
-export function flatMap2I(proc, list0, list1) {
-  let result = _nil;
+export function lflatMap2I(proc, list0, list1) {
+  let result = nil;
   let last;
 
   for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
@@ -784,9 +780,9 @@ export function flatMap2I(proc, list0, list1) {
   return result;
 }
 
-function _flatMapNI(proc, list0, lists) {
+function _lflatMapNI(proc, list0, lists) {
   const nLists = lists.length;
-  let result = _nil;
+  let result = nil;
   let last;
   const values = new Array(nLists);
 
@@ -816,35 +812,35 @@ function _flatMapNI(proc, list0, lists) {
 
 // reduction ================
 
-export function reduce(proc, init, list0, ...lists) {
+export function lreduce(proc, init, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return reduce1(proc, init, list0);
+      return lreduce1(proc, init, list0);
     }
     case 1: {
-      return reduce2(proc, init, list0, lists[0]);
+      return lreduce2(proc, init, list0, lists[0]);
     }
     default: {
-      return _reduceN(proc, init, list0, lists);
+      return _lreduceN(proc, init, list0, lists);
     }
   }
 }
 
-export function reduce1(proc, init, list0) {
+export function lreduce1(proc, init, list0) {
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
     init = proc(init, car(tmp));
   }
   return init;
 }
 
-export function reduce2(proc, init, list0, list1) {
+export function lreduce2(proc, init, list0, list1) {
   for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
     init = proc(init, car(tmp0), car(tmp1));
   }
   return init;
 }
 
-function _reduceN(proc, init, list0, lists) {
+function _lreduceN(proc, init, list0, lists) {
   const nLists = lists.length;
 
   const values = new Array(nLists);
@@ -863,35 +859,35 @@ function _reduceN(proc, init, list0, lists) {
   return init;
 }
 
-export function reduceRight(proc, init, list0, ...lists) {
+export function lreduceRight(proc, init, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return reduceRight1(proc, init, list0);
+      return lreduceRight1(proc, init, list0);
     }
     case 1: {
-      return reduceRight2(proc, init, list0, lists[0]);
+      return lreduceRight2(proc, init, list0, lists[0]);
     }
     default: {
-      return _reduceRightN(proc, init, list0, lists);
+      return _lreduceRightN(proc, init, list0, lists);
     }
   }
 }
 
-export function reduceRight1(proc, init, list0) {
+export function lreduceRight1(proc, init, list0) {
   if (isPair(list0)) {
-    return proc(reduceRight1(proc, init, cdr(list0)), car(list0));
+    return proc(lreduceRight1(proc, init, cdr(list0)), car(list0));
   }
   return init;
 }
 
-export function reduceRight2(proc, init, list0, list1) {
+export function lreduceRight2(proc, init, list0, list1) {
   if (isPair(list0) && isPair(list1)) {
-    return proc(reduceRight2(proc, init, cdr(list0), cdr(list1)), car(list0), car(list1));
+    return proc(lreduceRight2(proc, init, cdr(list0), cdr(list1)), car(list0), car(list1));
   }
   return init;
 }
 
-function _reduceRightN(proc, init, list0, lists) {
+function _lreduceRightN(proc, init, list0, lists) {
   const nLists = lists.length;
 
   if (!isPair(list0)) {
@@ -912,36 +908,36 @@ function _reduceRightN(proc, init, list0, lists) {
     rests[i] = cdr(tmpI);
   }
 
-  return proc(_reduceRightN(proc, init, rest0, rests), value0, ...values);
+  return proc(_lreduceRightN(proc, init, rest0, rests), value0, ...values);
 }
 
-export function forEach(proc, list0, ...lists) {
+export function lforEach(proc, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return forEach1(proc, list0);
+      return lforEach1(proc, list0);
     }
     case 1: {
-      return forEach2(proc, list0, lists[0]);
+      return lforEach2(proc, list0, lists[0]);
     }
     default: {
-      return _forEachN(proc, list0, lists);
+      return _lforEachN(proc, list0, lists);
     }
   }
 }
 
-export function forEach1(proc, list0) {
+export function lforEach1(proc, list0) {
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
     proc(car(tmp));
   }
 }
 
-export function forEach2(proc, list0, list1) {
+export function lforEach2(proc, list0, list1) {
   for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
     proc(car(tmp0), car(tmp1));
   }
 }
 
-function _forEachN(proc, list0, lists) {
+function _lforEachN(proc, list0, lists) {
   const nLists = lists.length;
 
   const values = new Array(nLists);
@@ -960,21 +956,21 @@ function _forEachN(proc, list0, lists) {
   }
 }
 
-export function every(pred, list0, ...lists) {
+export function levery(pred, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return every1(pred, list0);
+      return levery1(pred, list0);
     }
     case 1: {
       return every2(pred, list0, lists[0]);
     }
     default: {
-      return _everyN(pred, list0, lists);
+      return _leveryN(pred, list0, lists);
     }
   }
 }
 
-export function every1(pred, list0) {
+export function levery1(pred, list0) {
   let result = true;
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
     result = pred(car(tmp));
@@ -997,7 +993,7 @@ export function every2(pred, list0, list1) {
   return result;
 }
 
-function _everyN(pred, list0, lists) {
+function _leveryN(pred, list0, lists) {
   const nLists = lists.length;
   const values = new Array(nLists);
 
@@ -1021,21 +1017,21 @@ function _everyN(pred, list0, lists) {
   return result;
 }
 
-export function some(pred, list0, ...lists) {
+export function lsome(pred, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return some1(pred, list0);
+      return lsome1(pred, list0);
     }
     case 1: {
-      return some2(pred, list0, lists[0]);
+      return lsome2(pred, list0, lists[0]);
     }
     default: {
-      return _someN(pred, list0, lists);
+      return _lsomeN(pred, list0, lists);
     }
   }
 }
 
-export function some1(pred, list0) {
+export function lsome1(pred, list0) {
   let result = false;
   for (let tmp = list0; isPair(tmp); tmp = cdr(tmp)) {
     result = pred(car(tmp));
@@ -1046,7 +1042,7 @@ export function some1(pred, list0) {
   return result;
 }
 
-export function some2(pred, list0, list1) {
+export function lsome2(pred, list0, list1) {
   let result = false;
 
   for (let tmp0 = list0, tmp1 = list1; isPair(tmp0) && isPair(tmp1); tmp0 = cdr(tmp0), tmp1 = cdr(tmp1)) {
@@ -1058,7 +1054,7 @@ export function some2(pred, list0, list1) {
   return result;
 }
 
-function _someN(pred, list0, lists) {
+function _lsomeN(pred, list0, lists) {
   const nLists = lists.length;
   const values = new Array(nLists);
 
@@ -1082,7 +1078,7 @@ function _someN(pred, list0, lists) {
   return result;
 }
 
-export function join(sep, list) {
+export function ljoin(sep, list) {
   const acc = [];
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     acc.push(car(tmp));
@@ -1092,7 +1088,7 @@ export function join(sep, list) {
 
 // misc ================
 
-export function reverse(list, last = _nil) {
+export function lreverse(list, last = nil) {
   let acc = last;
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     acc = cons(car(tmp), acc);
@@ -1100,7 +1096,7 @@ export function reverse(list, last = _nil) {
   return acc;
 }
 
-export function reverseI(list, last = _nil) {
+export function lreverseI(list, last = nil) {
   let acc = last;
   let tmp = list;
 

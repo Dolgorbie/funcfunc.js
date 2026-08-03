@@ -1,0 +1,475 @@
+codes01.txt:75:export function arrayOf(...values) {
+codes01.txt:79:export function repeat(count, value) {
+codes01.txt:83:export function iota(count, start = 0, step = 1) {
+codes01.txt:96:export function unfold(gen, seed, tailGen = void 0) {
+codes01.txt:116:export function unfoldRight(gen, seed, tail = []) {
+codes01.txt:137:export function take(count, array) {
+codes01.txt:145:export function drop(count, array) {
+codes01.txt:153:export function takeRight(count, array) {
+codes01.txt:162:export function dropRight(count, array) {
+codes01.txt:172:export function flat(arrays) {
+codes01.txt:202:export function concat(...arrays) {
+codes01.txt:206:export function zip(array0, ...arrays) {
+codes01.txt:223:export function entries(array0, ...arrays) {
+codes01.txt:243:export function filter(pred, array) {
+codes01.txt:255:export function findTail(pred, array) {
+codes01.txt:270:export function takeWhile(pred, array) {
+codes01.txt:284:export function dropWhile(pred, array) {
+codes01.txt:298:export function unique(array) {
+codes01.txt:311:export function map(proc, array0, ...arrays) {
+codes01.txt:327:export function map1(proc, array0) {
+codes01.txt:336:export function map2(proc, array0, array1) {
+codes01.txt:362:export function flatMap(proc, array0, ...arrays) {
+codes01.txt:376:export function flatMap1(proc, array0) {
+codes01.txt:389:export function flatMap2(proc, array0, array1) {
+codes01.txt:424:export function reduce(proc, init, array0, ...arrays) {
+codes01.txt:438:export function reduce1(proc, init, array0) {
+codes01.txt:448:export function reduce2(proc, init, array0, array1) {
+codes01.txt:473:export function reduceRight(proc, init, array0, ...arrays) {
+codes01.txt:487:export function reduceRight1(proc, init, array0) {
+codes01.txt:497:export function reduceRight2(proc, init, array0, array1) {
+codes01.txt:522:export function forEach(proc, array0, ...arrays) {
+codes01.txt:536:export function forEach1(proc, array0) {
+codes01.txt:543:export function forEach2(proc, array0, array1) {
+codes01.txt:564:export function every(pred, array0, ...arrays) {
+codes01.txt:578:export function every1(pred, array0) {
+codes01.txt:590:export function every2(pred, array0, array1) {
+codes01.txt:620:export function some(pred, array0, ...arrays) {
+codes01.txt:634:export function some1(pred, array0) {
+codes01.txt:646:export function some2(pred, array0, array1) {
+codes01.txt:676:export function join(sep, array) {
+codes01.txt:682:export function reverse(array) {
+codes01.txt:691:export function* reverseIter(array) {
+codes01.txt:701:export const isArray = Array.isArray;
+codes01.txt:703:export const is = Object.is;
+codes01.txt:704:export const objectFromEntries = Object.fromEntries;
+codes01.txt:705:export const objectEntries = Object.entries;
+codes01.txt:706:export const objectKeys = Object.keys;
+codes01.txt:707:export const objectValues = Object.values;
+codes01.txt:708:export const objectHasOwn = Object.hasOwn;
+codes01.txt:709:export const objectPrototypeOf = Object.getPrototypeOf;
+codes01.txt:712:export function eq(x, y) {
+codes01.txt:716:export function like(x, y) {
+codes01.txt:720:export function same(x, y) {
+codes01.txt:724:export function isNull(x) {
+codes01.txt:728:export function isUndef(x) {
+codes01.txt:732:export function isBigint(x) {
+codes01.txt:736:export function isBoolean(x) {
+codes01.txt:740:export function isFunction(x) {
+codes01.txt:744:export function isNumber(x) {
+codes01.txt:748:export function isObject(x) {
+codes01.txt:752:export function isString(x) {
+codes01.txt:756:export function isSymbol(x) {
+codes01.txt:760:export function isInstanceOf(obj, clazz) {
+codes01.txt:764:export function isAssignableFrom(clazz, obj) {
+codes01.txt:768:export function newInstance(clazz, ...args) {
+codes01.txt:772:export function newInstance0(clazz) {
+codes01.txt:776:export function newInstance1(clazz, arg0) {
+codes01.txt:780:export function newInstance2(clazz, arg0, arg1) {
+codes01.txt:784:export function newInstance3(clazz, arg0, arg1, arg2) {
+codes01.txt:788:export function newInstance4(clazz, arg0, arg1, arg2, arg3) {
+codes01.txt:792:export function ref(obj, key) {
+codes01.txt:796:export function xref(key, obj) {
+codes01.txt:800:export function add(x0, ...xs) {
+codes01.txt:804:export function add2(x0, x1) {
+codes01.txt:808:export function sub(x0, ...xs) {
+codes01.txt:812:export function sub2(x0, x1) {
+codes01.txt:816:export function mul(x0, ...xs) {
+codes01.txt:820:export function mul2(x0, x1) {
+codes01.txt:824:export function div(x0, ...xs) {
+codes01.txt:828:export function div2(x0, x1) {
+codes01.txt:832:export function quot(x0, ...xs) {
+codes01.txt:836:export function quot2(x0, x1) {
+codes01.txt:840:export function rem(x0, ...xs) {
+codes01.txt:844:export function rem2(x0, x1) {
+codes01.txt:848:export function idiv(x0, ...xs) {
+codes01.txt:852:export function idiv2(x0, x1) {
+codes01.txt:856:export function mod(x0, ...xs) {
+codes01.txt:860:export function mod2(x0, x1) {
+codes01.txt:864:export function toNumber(value) {
+codes01.txt:868:export function toInt(value) {
+codes01.txt:872:export function toUInt(value) {
+codes01.txt:876:export function toBoolean(value) {
+codes01.txt:880:export function toString(value) {
+codes02.txt:9:export function isEndOfChan(value) {
+codes02.txt:13:export function isChan(obj) {
+codes02.txt:17:export function tryPost(chan, value) {
+codes02.txt:21:export function xtryPost(value, chan) {
+codes02.txt:25:export function tryTake(chan) {
+codes02.txt:29:export function post(chan, value) {
+codes02.txt:33:export function xpost(value, chan) {
+codes02.txt:37:export function take(chan, signal = void 0) {
+codes02.txt:41:export function xtake(signal, chan) {
+codes02.txt:45:export async function alts(...chans) {
+codes02.txt:93:export class Chan {
+codes02.txt:307:export class ChanError extends Error {
+codes02.txt:314:export class PostError extends ChanError {
+codes02.txt:321:export class ClosedPostError extends PostError {
+codes02.txt:327:export class TakeError extends ChanError {
+codes02.txt:344:export function merge(output, ...inputs) {
+codes02.txt:381:export function mult(input, options = {}, ...outputs) {
+codes02.txt:440:export function autoBem(names) {
+codes03.txt:48:export const c = createClassNamesCombinator({ transformers: [T.omitFalsy] });
+codes03.txt:50:export const clegacy = createClassNamesCombinator({ transformers: [T.omitFalsy, T.collectActiveKeys] });
+codes03.txt:52:export function cprops(styles) {
+codes03.txt:56:export function cprefix(prefix) {
+codes03.txt:60:export function cvariants(variantDefs) {
+codes03.txt:64:export function cbem(prefix) {
+codes03.txt:68:export const cautoBem = createClassNamesCombinator({ transformers: [T.omitFalsy], aggregator: A.autoBem });
+codes03.txt:70:export const craw = createClassNamesCombinator();
+codes03.txt:75:export function omitFalsy(name) {
+codes03.txt:79:export function collectActiveKeys(name) {
+codes03.txt:96:export function mapObject(styles) {
+codes03.txt:100:export function addPrefix(prefix) {
+codes03.txt:104:export function mapVariants(variantDefs) {
+codes03.txt:132:export function addBemBlock(block) {
+codes03.txt:141:export function replaceRegex(regex, replace) {
+codes04.txt:3:export function doNothing() {
+codes04.txt:6:export function itself(x) {
+codes04.txt:10:export function constant(x) {
+codes04.txt:14:export function call(proc, ...args) {
+codes04.txt:18:export function call1(proc, arg0) {
+codes04.txt:22:export function call2(proc, arg0, arg1) {
+codes04.txt:26:export function call3(proc, arg0, arg1, arg2) {
+codes04.txt:30:export function call4(proc, arg0, arg1, arg2, arg3) {
+codes04.txt:34:export function xcall(arg0, proc, ...args) {
+codes04.txt:38:export function xcall1(arg0, proc) {
+codes04.txt:42:export function xcall2(arg0, proc, arg1) {
+codes04.txt:46:export function xcall3(arg0, proc, arg1, arg2) {
+codes04.txt:50:export function xcall4(arg0, proc, arg1, arg2, arg3) {
+codes04.txt:54:export function apply(proc, args) {
+codes04.txt:58:export function xapply(args, proc) {
+codes04.txt:62:export function methodF(method) {
+codes04.txt:66:export function methodF0(method) {
+codes04.txt:70:export function methodF1(method) {
+codes04.txt:74:export function methodF2(method) {
+codes04.txt:78:export function methodF3(method) {
+codes04.txt:82:export function methodF4(method) {
+codes04.txt:86:export function refF(methodName) {
+codes04.txt:90:export function refF0(methodName) {
+codes04.txt:94:export function refF1(methodName) {
+codes04.txt:98:export function refF2(methodName) {
+codes04.txt:102:export function refF3(methodName) {
+codes04.txt:106:export function refF4(methodName) {
+codes04.txt:110:export function newF(clazz) {
+codes04.txt:114:export function newF0(clazz) {
+codes04.txt:118:export function newF1(clazz) {
+codes04.txt:122:export function newF2(clazz) {
+codes04.txt:126:export function newF3(clazz) {
+codes04.txt:130:export function newF4(clazz) {
+codes04.txt:134:export function curry2(proc) {
+codes04.txt:138:export function curry3(proc) {
+codes04.txt:142:export function curry4(proc) {
+codes04.txt:146:export function uncurry2(proc) {
+codes04.txt:150:export function uncurry3(proc) {
+codes04.txt:154:export function uncurry4(proc) {
+codes04.txt:158:export function pa(proc, ...args) {
+codes04.txt:162:export function pa1(proc, ...args) {
+codes04.txt:166:export function pa2(proc, ...args) {
+codes04.txt:170:export function pa3(proc, ...args) {
+codes04.txt:174:export function pa4(proc, ...args) {
+codes04.txt:178:export function xpa(proc, ...args) {
+codes04.txt:182:export function xpa1(proc, ...args) {
+codes04.txt:186:export function xpa2(proc, ...args) {
+codes04.txt:190:export function xpa3(proc, ...args) {
+codes04.txt:194:export function xpa4(proc, ...args) {
+codes04.txt:198:export function pipe(...procs) {
+codes04.txt:212:export function cmp(...procs) {
+codes04.txt:226:export function not(pred) {
+codes04.txt:230:export function not1(pred) {
+codes04.txt:234:export function not2(pred) {
+codes04.txt:238:export function not3(pred) {
+codes04.txt:242:export function not4(pred) {
+codes04.txt:246:export function and(...preds) {
+codes04.txt:263:export function and1(...preds) {
+codes04.txt:280:export function and2(...preds) {
+codes04.txt:297:export function and3(...preds) {
+codes04.txt:314:export function and4(...preds) {
+codes04.txt:331:export function or(...preds) {
+codes04.txt:348:export function or1(...preds) {
+codes04.txt:365:export function or2(...preds) {
+codes04.txt:382:export function or3(...preds) {
+codes04.txt:399:export function or4(...preds) {
+codes04.txt:422:export function delayReduceRight(proc, delayedInit, list0, ...lists) {
+codes04.txt:436:export function delayReduceRight1(proc, delayedInit, list0) {
+codes04.txt:445:export function delayReduceRight2(proc, delayedInit, list0, list1) {
+codes04.txt:486:export class Delayed {
+codes04.txt:496:export function isDelayed(x) {
+codes04.txt:500:export function force(delayed) {
+codes04.txt:514:export function delayForce(thunk) {
+codes04.txt:524:export function delay(thunk) {
+codes04.txt:528:export function map(proc, delayed0, ...delayeds) {
+codes04.txt:542:export function map1(proc, delayed0) {
+codes04.txt:546:export function map2(proc, delayed0, delayed1) {
+codes04.txt:562:export function flatMap(proc, delayed0, ...delayeds) {
+codes04.txt:576:export function flatMap1(proc, delayed0) {
+codes04.txt:580:export function flatMap2(proc, delayed0, delayed1) {
+codes04.txt:596:export function forEach(proc, delayed0, ...delayeds) {
+codes04.txt:613:export function forEach1(proc, delayed0) {
+codes04.txt:617:export function forEach2(proc, delayed0, delayed1) {
+codes05.txt:3:export function delegate(principalClass, agentName, methodNames) {
+codes05.txt:44:export function fail(...reasons) {
+codes05.txt:52:export function failable(proc, ...args) {
+codes05.txt:69:export function failable0(thunk) {
+codes05.txt:77:export function failable1(proc, arg0) {
+codes05.txt:85:export function failable2(proc, arg0, arg1) {
+codes05.txt:101:export async function asyncFailable(promise) {
+codes05.txt:109:export function isFailed(failable) {
+codes05.txt:113:export function isSuccess(failable) {
+codes05.txt:117:export function force(failable) {
+codes05.txt:125:export function reasons(failure) {
+codes05.txt:132:export function map(proc, failable0, ...failables) {
+codes05.txt:146:export function map1(proc, failable0) {
+codes05.txt:150:export function map2(proc, failable0, failable1) {
+codes05.txt:179:export function tryMap(proc, failable0, ...failables) {
+codes05.txt:193:export function tryMap1(proc, failable0) {
+codes05.txt:201:export function tryMap2(proc, failable0, failable1) {
+codes05.txt:224:export function orCalc(failable, ifFailed) {
+codes05.txt:231:export function all(failables) {
+codes05.txt:243:export function any(failables) {
+codes05.txt:308:export function* iterableOf(...values) {
+codes05.txt:314:export function repeat(count, value) {
+codes05.txt:333:export function iota(count, start = 0, step = 1) {
+codes05.txt:353:export function* unfold(gen, seed, tailGen = void 0) {
+codes05.txt:367:export function* take(count, iter) {
+codes05.txt:385:export function* drop(count, iter) {
+codes05.txt:408:export function* flat(iters) {
+codes05.txt:414:export function concat(...iters) {
+codes05.txt:418:export function* zip(iter0, ...iters) {
+codes05.txt:447:export function entries(...iters) {
+codes05.txt:453:export function* filter(pred, iter) {
+codes05.txt:461:export function* findTail(pred, iter) {
+codes05.txt:482:export function* takeWhile(pred, iter) {
+codes05.txt:491:export function* dropWhile(pred, iter) {
+codes05.txt:512:export function* unique(iter) {
+codes05.txt:526:export function map(proc, iter0, ...iters) {
+codes05.txt:540:export function* map1(proc, iter0) {
+codes05.txt:546:export function* map2(proc, iter0, iter1) {
+codes05.txt:588:export function flatMap(proc, iter0, ...iters) {
+codes05.txt:602:export function* flatMap1(proc, iter0) {
+codes05.txt:608:export function* flatMap2(proc, iter0, iter1) {
+codes05.txt:652:export function reduce(proc, init, iter0, ...iters) {
+codes05.txt:666:export function reduce1(proc, init, iter0) {
+codes05.txt:673:export function reduce2(proc, init, iter0, iter1) {
+codes05.txt:717:export function forEach(proc, iter0, ...iters) {
+codes05.txt:733:export function forEach1(proc, iter0) {
+codes05.txt:739:export function forEach2(proc, iter0, iter1) {
+codes05.txt:781:export function every(pred, iter0, ...iters) {
+codes05.txt:795:export function every1(pred, iter0) {
+codes05.txt:806:export function every2(pred, iter0, iter1) {
+codes05.txt:859:export function some(pred, iter0, ...iters) {
+codes05.txt:873:export function some1(pred, iter0) {
+codes05.txt:884:export function some2(pred, iter0, iter1) {
+codes05.txt:938:export function join(sep, iter) {
+codes06.txt:8:export { listOf as llistOf } from "./list";
+codes06.txt:10:export function lrepeat(count, value) {
+codes06.txt:17:export function lrepeatInf(value) {
+codes06.txt:28:export function liota(count, start = 0, step = 1) {
+codes06.txt:35:export function liotaInf(start, step) {
+codes06.txt:57:export function iterableToLazyList(iterable) {
+codes06.txt:71:export function lunfold(gen, seed, tailGen = void 0) {
+codes06.txt:82:export function ltake(count, list) {
+codes06.txt:89:export { drop as ldrop } from "./list";
+codes06.txt:93:export function lflat(listOfList) {
+codes06.txt:101:export function lconcat(list0, ...lists) {
+codes06.txt:115:export function lconcat2(list0, thunk) {
+codes06.txt:129:export function lzip(list0, ...lists) {
+codes06.txt:185:export function lfilter(pred, list) {
+codes06.txt:195:export function ltakeWhile(pred, list) {
+codes06.txt:206:export function lunique(list) {
+codes06.txt:228:export {
+codes06.txt:235:export function lmap(proc, list0, ...lists) {
+codes06.txt:249:export function lmap1(proc, list0) {
+codes06.txt:256:export function lmap2(proc, list0, list1) {
+codes06.txt:290:export function lflatMap(proc, list0, ...lists) {
+codes06.txt:304:export function lflatMap1(proc, list0) {
+codes06.txt:311:export function lflatMap2(proc, list0, list1) {
+codes06.txt:353:export const idlens = lens((target) => target, (target, swapper) => swapper(target));
+codes06.txt:355:export function lens(deref, swap, thisArg = void 0) {
+codes06.txt:362:export function isLens(x) {
+codes06.txt:366:export function deref(lns, target) {
+codes06.txt:370:export function xderef(target, lns) {
+codes06.txt:374:export function swap(lns, target, swapper) {
+codes06.txt:378:export function xswap(target, lns, swapper) {
+codes06.txt:382:export function upd(lns, target, value) {
+codes06.txt:386:export function xupd(target, lns, value) {
+codes06.txt:390:export function chain(...lenses) {
+codes06.txt:394:export function path(...segments) {
+codes06.txt:421:export function opath(...segments) {
+codes06.txt:747:export function nil() {
+codes06.txt:751:export function isNil(x) {
+codes06.txt:755:export class Pair {
+codes06.txt:823:export function isPair(x) {
+codes06.txt:827:export function cons(x, y) {
+codes06.txt:831:export function lcons(x, thunk) {
+codes06.txt:835:export function car(pair) {
+codes06.txt:839:export function cdr(pair) {
+codes06.txt:850:export function setCar(pair, value) {
+codes06.txt:854:export function setCdr(pair, value) {
+codes06.txt:859:export function lastPair(pair) {
+codes06.txt:866:export function iter(list) {
+codes06.txt:870:export function improperIter(improperList) {
+codes06.txt:874:export function at(list, index) {
+codes06.txt:884:export function xat(index, list) {
+codes06.txt:888:export function length(list) {
+codes06.txt:898:export function arrayToList(array) {
+codes06.txt:907:export function listOf(...values) {
+codes06.txt:911:export function repeat(count, value) {
+codes06.txt:920:export function iota(count, start = 0, step = 1) {
+codes06.txt:933:export function unfold(gen, seed, tailGen = void 0) {
+codes06.txt:944:export function unfoldRight(gen, seed, tail = _nil) {
+codes06.txt:956:export function take(count, list) {
+codes06.txt:973:export function takeI(count, list) {
+codes06.txt:993:export function drop(count, list) {
+codes06.txt:1004:export function takeRight(count, list) {
+codes06.txt:1008:export function takeRightI(count, list) {
+codes06.txt:1012:export function dropRight(count, list) {
+codes06.txt:1016:export function dropRightI(count, list) {
+codes06.txt:1022:export function flat(listOfList) {
+codes06.txt:1030:export function flatI(lists) {
+codes06.txt:1054:export function concat(list0, ...lists) {
+codes06.txt:1068:export function concatI(list0, ...lists) {
+codes06.txt:1093:export function zip(list0, ...lists) {
+codes06.txt:1112:export function entries(list0, ...lists) {
+codes06.txt:1136:export function reverseFilter(pred, list) {
+codes06.txt:1147:export function filter(pred, list) {
+codes06.txt:1151:export function filterI(pred, list) {
+codes06.txt:1175:export function findTail(pred, list) {
+codes06.txt:1184:export function reverseTakeWhile(pred, list) {
+codes06.txt:1196:export function takeWhile(pred, list) {
+codes06.txt:1200:export function takeWhileI(pred, list) {
+codes06.txt:1216:export function dropWhile(pred, list) {
+codes06.txt:1225:export function remove(target, list) {
+codes06.txt:1243:export function removeI(target, list) {
+codes06.txt:1264:export function unique(list) {
+codes06.txt:1280:export function map(proc, list0, ...lists) {
+codes06.txt:1284:export function map1(proc, list0) {
+codes06.txt:1288:export function map2(proc, list0, list1) {
+codes06.txt:1292:export function reverseMap(proc, list0, ...lists) {
+codes06.txt:1306:export function reverseMap1(proc, list0) {
+codes06.txt:1314:export function reverseMap2(proc, list0, list1) {
+codes06.txt:1342:export function mapI(proc, list0, ...lists) {
+codes06.txt:1356:export function map1I(proc, list0) {
+codes06.txt:1363:export function map2I(proc, list0, list1) {
+codes06.txt:1411:export function flatMap(proc, list0, ...lists) {
+codes06.txt:1415:export function flatMap1(proc, list0) {
+codes06.txt:1419:export function flatMap2(proc, list0, list1) {
+codes06.txt:1423:export function reverseFlatMap(proc, list0, ...lists) {
+codes06.txt:1437:export function reverseFlatMap1(proc, list0) {
+codes06.txt:1445:export function reverseFlatMap2(proc, list0, list1) {
+codes06.txt:1473:export function flatMapI(proc, list0, ...lists) {
+codes06.txt:1487:export function flatMap1I(proc, list0) {
+codes06.txt:1505:export function flatMap2I(proc, list0, list1) {
+codes06.txt:1555:export function reduce(proc, init, list0, ...lists) {
+codes06.txt:1569:export function reduce1(proc, init, list0) {
+codes06.txt:1576:export function reduce2(proc, init, list0, list1) {
+codes06.txt:1602:export function reduceRight(proc, init, list0, ...lists) {
+codes06.txt:1616:export function reduceRight1(proc, init, list0) {
+codes06.txt:1623:export function reduceRight2(proc, init, list0, list1) {
+codes06.txt:1654:export function forEach(proc, list0, ...lists) {
+codes06.txt:1668:export function forEach1(proc, list0) {
+codes06.txt:1674:export function forEach2(proc, list0, list1) {
+codes06.txt:1699:export function every(pred, list0, ...lists) {
+codes06.txt:1713:export function every1(pred, list0) {
+codes06.txt:1724:export function every2(pred, list0, list1) {
+codes06.txt:1760:export function some(pred, list0, ...lists) {
+codes06.txt:1774:export function some1(pred, list0) {
+codes06.txt:1785:export function some2(pred, list0, list1) {
+codes06.txt:1821:export function join(sep, list) {
+codes06.txt:1831:export function reverse(list, last = _nil) {
+codes06.txt:1839:export function reverseI(list, last = _nil) {
+codes07.txt:28:export function derive(child, parent) {
+codes07.txt:64:export function* traverseHierarchy(hierarchy) {
+codes07.txt:73:export function isa(target, type) {
+codes07.txt:92:export { isNull, isUndef };
+codes07.txt:94:export function isNullish(x) {
+codes07.txt:98:export function isFalsy(x) {
+codes07.txt:102:export function nullMap(proc, x0, ...xs) {
+codes07.txt:116:export function nullMap1(proc, x0) {
+codes07.txt:123:export function nullMap2(proc, x0, x1) {
+codes07.txt:143:export function undefMap(proc, x0, ...xs) {
+codes07.txt:157:export function undefMap1(proc, x0) {
+codes07.txt:164:export function undefMap2(proc, x0, x1) {
+codes07.txt:184:export function nullishMap(proc, x0, ...xs) {
+codes07.txt:198:export function nullishMap1(proc, x0) {
+codes07.txt:205:export function nullishMap2(proc, x0, x1) {
+codes07.txt:225:export function falsyMap(proc, x0, ...xs) {
+codes07.txt:239:export function falsyMap1(proc, x0) {
+codes07.txt:246:export function falsyMap2(proc, x0, x1) {
+codes07.txt:266:export function falseMap(proc, x0, ...xs) {
+codes07.txt:280:export function falseMap1(proc, x0) {
+codes07.txt:287:export function falseMap2(proc, x0, x1) {
+codes07.txt:314:export class DStackQueue {
+codes08.txt:5:export class RingQueue {
+codes08.txt:138:export function atom(init) {
+codes08.txt:142:export function track(handler, ...nodes) {
+codes08.txt:146:export function focus(lns, node) {
+codes08.txt:150:export function effect(handler, ...nodes) {
+codes08.txt:154:export function deref(node) {
+codes08.txt:161:export function swap(node, swapper, ...args) {
+codes08.txt:168:export function xswap(swapper, node, ...args) {
+codes08.txt:172:export function reset(node, value) {
+codes08.txt:176:export function retain(node) {
+codes08.txt:180:export function release(node) {
+codes08.txt:352:export class Atom {
+codes08.txt:388:export class Track {
+codes08.txt:480:export class Focus {
+codes08.txt:577:export class Effect {
+codes08.txt:655:export function stop() {
+codes08.txt:659:export function isStopped(value) {
+codes08.txt:665:export function transduce(xform, rf, init, iter) {
+codes08.txt:679:export function takeTS(count) {
+codes08.txt:693:export function dropTS(count) {
+codes08.txt:709:export function flatT() {
+codes08.txt:721:export function entriesTS() {
+codes08.txt:733:export function filterT(pred) {
+codes08.txt:742:export function findTailTS(pred) {
+codes08.txt:759:export function takeWhileT(pred) {
+codes08.txt:768:export function dropWhileTS(pred) {
+codes08.txt:785:export function uniqueTS() {
+codes08.txt:801:export function mapT(proc) {
+codes08.txt:807:export function flatMapT(proc) {
+codes09.txt:5:export function all(...validators) {
+codes09.txt:21:export function allSettled(...validators) {
+codes09.txt:42:export function any(...validators) {
+codes09.txt:58:export function isTypeof(type) {
+codes09.txt:64:export const isBoolean = isTypeof("boolean");
+codes09.txt:65:export const isNumber = isTypeof("number");
+codes09.txt:66:export const isBigint = isTypeof("bigint");
+codes09.txt:67:export const isString = isTypeof("string");
+codes09.txt:68:export const isSymbol = isTypeof("symbol");
+codes09.txt:69:export const isFunction = isTypeof("function");
+codes09.txt:71:export function isNull() {
+codes09.txt:77:export function nonNull() {
+codes09.txt:83:export function isUndef() {
+codes09.txt:89:export function nonUndef() {
+codes09.txt:95:export function isNullish() {
+codes09.txt:101:export function nonNullish() {
+codes09.txt:107:export function isObject() {
+codes09.txt:113:export function isArray() {
+codes09.txt:119:export function isIterOf(validator) {
+codes09.txt:134:export class ValidationError extends Error {
+codes09.txt:144:export * as ArrayUtils from "./lib/array-utils";
+codes09.txt:145:export * as Asfunc from "./lib/asfunc";
+codes09.txt:146:export * as Chan from "./lib/chan/core";
+codes09.txt:147:export * as ChanUtils from "./lib/chan/utils";
+codes09.txt:148:export * as ClassnamesAggregators from "./lib/classnames/aggregators";
+codes09.txt:149:export * as Classnames from "./lib/classnames/core";
+codes09.txt:150:export * as ClassnamesPresets from "./lib/classnames/presets";
+codes09.txt:151:export * as ClassnamesTransformers from "./lib/classnames/transformers";
+codes09.txt:152:export * from "./lib/core";
+codes09.txt:153:export * as Delay from "./lib/delay";
+codes09.txt:154:export * as DelayListReduceRight from "./lib/delay-list-reduce-right";
+codes09.txt:155:export * as Delegate from "./lib/delegate";
+codes09.txt:156:export * as Failable from "./lib/failable";
+codes09.txt:157:export * as IteratorUtils from "./lib/iterator-utils";
+codes09.txt:158:export * as LazyList from "./lib/lazylist";
+codes09.txt:159:export * as Lens from "./lib/lens";
+codes09.txt:160:export * as List from "./lib/list";
+codes09.txt:161:export * as Multi from "./lib/multi";
+codes09.txt:162:export * as Nullable from "./lib/nullable";
+codes09.txt:163:export * as DoubleStackQueue from "./lib/queue/double-stack-queue";
+codes09.txt:164:export * as RingQueue from "./lib/queue/ring-queue";
+codes09.txt:165:export * as Sigtree from "./lib/sigtree";
+codes09.txt:166:export * as Transducer from "./lib/transducer";
+codes09.txt:167:export * as Validate from "./lib/validate/core";
