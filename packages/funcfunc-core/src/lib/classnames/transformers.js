@@ -1,9 +1,11 @@
+import { isPlainObject } from "../asfunc";
+
 export function omitFalsy(name) {
   return name || [];
 }
 
 export function collectActiveKeys(name) {
-  if (name === null || typeof name !== "object") {
+  if (!isPlainObject(name)) {
     return name;
   }
 
@@ -29,30 +31,47 @@ export function addPrefix(prefix) {
 
 export function mapVariants(variantDefs) {
   return (variants) => {
-    if (variants == null || typeof variants !== "object") {
+    if (!isPlainObject(variants)) {
       return variants;
     }
 
-    const keys = Object.keys(variants);
-    const { length } = keys;
-    for (let i = 0; i < length; ++i) {
-      const keyI = keys[i];
-      if (!(keyI in variantDefs)) {
-        console.warn("unrecognized key", keyI);
-        continue;
-      }
-
-      const defK = variantDefs[keyI];
-      const varI = variants[keyI];
-      if (!(varI in defK)) {
-        console.warn("unrecognized variant", defK, varI);
-        continue;
-      }
-
-      keys[i] = defK[varI];
-    }
-    return keys;
+    const acc = [];
+    _loopMapVariants(acc, variants, Object.keys(variants), variantDefs);
+    return acc;
   };
+}
+
+function _loopMapVariants(acc, variants, categories, defs) {
+  for (const cat of categories) {
+    if (!(cat in defs)) {
+      continue;
+    }
+
+    const varStyles = defs[cat];
+    const varName = variants[cat];
+    if (!(varName in varStyles)) {
+      console.warn("unrecognized variant", varStyles, varName);
+      continue;
+    }
+
+    const style = varStyles[varName];
+    if (Array.isArray(style)) {
+      for (const s of style) {
+        _pushMapVariantsResult(acc, variants, categories, s);
+      }
+      continue;
+    }
+    _pushMapVariantsResult(acc, variants, categories, style);
+  }
+}
+
+function _pushMapVariantsResult(acc, variants, categories, style) {
+  if (isPlainObject(style)) {
+    _loopMapVariants(acc, variants, categories, style);
+    return;
+  }
+
+  acc.push(style);
 }
 
 export function addBemBlock(block) {

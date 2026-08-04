@@ -1,13 +1,4 @@
-export const isArray = Array.isArray;
-
 export const is = Object.is;
-export const objectFromEntries = Object.fromEntries;
-export const objectEntries = Object.entries;
-export const objectKeys = Object.keys;
-export const objectValues = Object.values;
-export const objectHasOwn = Object.hasOwn;
-export const objectPrototypeOf = Object.getPrototypeOf;
-
 
 export function eq(x, y) {
   return x === y;
@@ -56,6 +47,12 @@ export function isString(x) {
 export function isSymbol(x) {
   return typeof x === "symbol";
 }
+
+export function isPlainObject(x) {
+  return x != null && typeof x === "object" && Object.getPrototypeOf(x) === Object.prototype;
+}
+
+export const isArray = Array.isArray;
 
 export function isInstanceOf(obj, clazz) {
   return obj instanceof clazz;

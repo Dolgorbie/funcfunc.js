@@ -21,9 +21,6 @@ function _loopTranses(acc, transformers, offsetTranses, name) {
   for (let i = offsetTranses; i < length; ++i) {
     const trans = transformers[i];
     name = trans(name);
-    if (name === false) {
-      return;
-    }
     if (Array.isArray(name)) {
       _loopNames(acc, transformers, i + 1, name);
       return;
