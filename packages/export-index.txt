@@ -40,57 +40,52 @@ codes01.txt:642:export function some2(pred, array0, array1) {
 codes01.txt:672:export function join(sep, array) {
 codes01.txt:678:export function reverse(array) {
 codes01.txt:687:export function* reverseIter(array) {
-codes01.txt:697:export const isArray = Array.isArray;
-codes01.txt:699:export const is = Object.is;
-codes01.txt:700:export const objectFromEntries = Object.fromEntries;
-codes01.txt:701:export const objectEntries = Object.entries;
-codes01.txt:702:export const objectKeys = Object.keys;
-codes01.txt:703:export const objectValues = Object.values;
-codes01.txt:704:export const objectHasOwn = Object.hasOwn;
-codes01.txt:705:export const objectPrototypeOf = Object.getPrototypeOf;
-codes01.txt:708:export function eq(x, y) {
-codes01.txt:712:export function like(x, y) {
-codes01.txt:716:export function same(x, y) {
-codes01.txt:720:export function isNull(x) {
-codes01.txt:724:export function isUndef(x) {
-codes01.txt:728:export function isBigint(x) {
-codes01.txt:732:export function isBoolean(x) {
-codes01.txt:736:export function isFunction(x) {
-codes01.txt:740:export function isNumber(x) {
-codes01.txt:744:export function isObject(x) {
-codes01.txt:748:export function isString(x) {
-codes01.txt:752:export function isSymbol(x) {
-codes01.txt:756:export function isInstanceOf(obj, clazz) {
-codes01.txt:760:export function isAssignableFrom(clazz, obj) {
-codes01.txt:764:export function newInstance(clazz, ...args) {
-codes01.txt:768:export function newInstance0(clazz) {
-codes01.txt:772:export function newInstance1(clazz, arg0) {
-codes01.txt:776:export function newInstance2(clazz, arg0, arg1) {
-codes01.txt:780:export function newInstance3(clazz, arg0, arg1, arg2) {
-codes01.txt:784:export function newInstance4(clazz, arg0, arg1, arg2, arg3) {
-codes01.txt:788:export function ref(obj, key) {
-codes01.txt:792:export function xref(key, obj) {
-codes01.txt:796:export function add(x0, ...xs) {
-codes01.txt:800:export function add2(x0, x1) {
-codes01.txt:804:export function sub(x0, ...xs) {
-codes01.txt:808:export function sub2(x0, x1) {
-codes01.txt:812:export function mul(x0, ...xs) {
-codes01.txt:816:export function mul2(x0, x1) {
-codes01.txt:820:export function div(x0, ...xs) {
-codes01.txt:824:export function div2(x0, x1) {
-codes01.txt:828:export function quot(x0, ...xs) {
-codes01.txt:832:export function quot2(x0, x1) {
-codes01.txt:836:export function rem(x0, ...xs) {
-codes01.txt:840:export function rem2(x0, x1) {
-codes01.txt:844:export function idiv(x0, ...xs) {
-codes01.txt:848:export function idiv2(x0, x1) {
-codes01.txt:852:export function mod(x0, ...xs) {
-codes01.txt:856:export function mod2(x0, x1) {
-codes01.txt:860:export function toNumber(value) {
-codes01.txt:864:export function toInt(value) {
-codes01.txt:868:export function toUInt(value) {
-codes01.txt:872:export function toBoolean(value) {
-codes01.txt:876:export function toString(value) {
+codes01.txt:697:export const is = Object.is;
+codes01.txt:699:export function eq(x, y) {
+codes01.txt:703:export function like(x, y) {
+codes01.txt:707:export function same(x, y) {
+codes01.txt:711:export function isNull(x) {
+codes01.txt:715:export function isUndef(x) {
+codes01.txt:719:export function isBigint(x) {
+codes01.txt:723:export function isBoolean(x) {
+codes01.txt:727:export function isFunction(x) {
+codes01.txt:731:export function isNumber(x) {
+codes01.txt:735:export function isObject(x) {
+codes01.txt:739:export function isString(x) {
+codes01.txt:743:export function isSymbol(x) {
+codes01.txt:747:export function isPlainObject(x) {
+codes01.txt:751:export const isArray = Array.isArray;
+codes01.txt:753:export function isInstanceOf(obj, clazz) {
+codes01.txt:757:export function isAssignableFrom(clazz, obj) {
+codes01.txt:761:export function newInstance(clazz, ...args) {
+codes01.txt:765:export function newInstance0(clazz) {
+codes01.txt:769:export function newInstance1(clazz, arg0) {
+codes01.txt:773:export function newInstance2(clazz, arg0, arg1) {
+codes01.txt:777:export function newInstance3(clazz, arg0, arg1, arg2) {
+codes01.txt:781:export function newInstance4(clazz, arg0, arg1, arg2, arg3) {
+codes01.txt:785:export function ref(obj, key) {
+codes01.txt:789:export function xref(key, obj) {
+codes01.txt:793:export function add(x0, ...xs) {
+codes01.txt:797:export function add2(x0, x1) {
+codes01.txt:801:export function sub(x0, ...xs) {
+codes01.txt:805:export function sub2(x0, x1) {
+codes01.txt:809:export function mul(x0, ...xs) {
+codes01.txt:813:export function mul2(x0, x1) {
+codes01.txt:817:export function div(x0, ...xs) {
+codes01.txt:821:export function div2(x0, x1) {
+codes01.txt:825:export function quot(x0, ...xs) {
+codes01.txt:829:export function quot2(x0, x1) {
+codes01.txt:833:export function rem(x0, ...xs) {
+codes01.txt:837:export function rem2(x0, x1) {
+codes01.txt:841:export function idiv(x0, ...xs) {
+codes01.txt:845:export function idiv2(x0, x1) {
+codes01.txt:849:export function mod(x0, ...xs) {
+codes01.txt:853:export function mod2(x0, x1) {
+codes01.txt:857:export function toNumber(value) {
+codes01.txt:861:export function toInt(value) {
+codes01.txt:865:export function toUInt(value) {
+codes01.txt:869:export function toBoolean(value) {
+codes01.txt:873:export function toString(value) {
 codes02.txt:9:export function isEndOfChan(value) {
 codes02.txt:13:export function isChan(obj) {
 codes02.txt:17:export function tryPost(chan, value) {
@@ -109,21 +104,21 @@ codes02.txt:327:export class TakeError extends ChanError {
 codes02.txt:344:export function merge(output, ...inputs) {
 codes02.txt:381:export function mult(input, options = {}, ...outputs) {
 codes02.txt:440:export function autoBem(names) {
-codes03.txt:48:export const c = createClassNamesCombinator({ transformers: [T.omitFalsy] });
-codes03.txt:50:export const clegacy = createClassNamesCombinator({ transformers: [T.omitFalsy, T.collectActiveKeys] });
-codes03.txt:52:export function cprops(styles) {
-codes03.txt:56:export function cprefix(prefix) {
-codes03.txt:60:export function cvariants(variantDefs) {
-codes03.txt:64:export function cbem(prefix) {
-codes03.txt:68:export const cautoBem = createClassNamesCombinator({ transformers: [T.omitFalsy], aggregator: A.autoBem });
-codes03.txt:70:export const craw = createClassNamesCombinator();
-codes03.txt:75:export function omitFalsy(name) {
-codes03.txt:79:export function collectActiveKeys(name) {
-codes03.txt:96:export function mapObject(styles) {
-codes03.txt:100:export function addPrefix(prefix) {
-codes03.txt:104:export function mapVariants(variantDefs) {
-codes03.txt:132:export function addBemBlock(block) {
-codes03.txt:141:export function replaceRegex(regex, replace) {
+codes03.txt:45:export const c = createClassNamesCombinator({ transformers: [T.omitFalsy] });
+codes03.txt:47:export const clegacy = createClassNamesCombinator({ transformers: [T.omitFalsy, T.collectActiveKeys] });
+codes03.txt:49:export function cprops(styles) {
+codes03.txt:53:export function cprefix(prefix) {
+codes03.txt:57:export function cvariants(variantDefs) {
+codes03.txt:61:export function cbem(prefix) {
+codes03.txt:65:export const cautoBem = createClassNamesCombinator({ transformers: [T.omitFalsy], aggregator: A.autoBem });
+codes03.txt:67:export const craw = createClassNamesCombinator();
+codes03.txt:74:export function omitFalsy(name) {
+codes03.txt:78:export function collectActiveKeys(name) {
+codes03.txt:95:export function mapObject(styles) {
+codes03.txt:99:export function addPrefix(prefix) {
+codes03.txt:103:export function mapVariants(variantDefs) {
+codes03.txt:148:export function addBemBlock(block) {
+codes03.txt:157:export function replaceRegex(regex, replace) {
 codes04.txt:3:export function doNothing() {
 codes04.txt:6:export function itself(x) {
 codes04.txt:10:export function constant(x) {
@@ -405,29 +400,29 @@ codes08.txt:142:export function track(handler, ...nodes) {
 codes08.txt:146:export function focus(lns, node) {
 codes08.txt:150:export function effect(handler, ...nodes) {
 codes08.txt:154:export function deref(node) {
-codes08.txt:161:export function swap(node, swapper, ...args) {
-codes08.txt:168:export function xswap(swapper, node, ...args) {
+codes08.txt:161:export function swap(node, func, ...args) {
+codes08.txt:168:export function xswap(func, node, ...args) {
 codes08.txt:172:export function reset(node, value) {
 codes08.txt:176:export function retain(node) {
 codes08.txt:180:export function release(node) {
-codes08.txt:352:export class Atom {
-codes08.txt:388:export class Track {
-codes08.txt:480:export class Focus {
-codes08.txt:577:export class Effect {
-codes08.txt:655:export function stop() {
-codes08.txt:659:export function isStopped(value) {
-codes08.txt:665:export function transduce(xform, rf, init, iter) {
-codes08.txt:679:export function takeTS(count) {
-codes08.txt:693:export function dropTS(count) {
-codes08.txt:709:export function flatT() {
-codes08.txt:721:export function entriesTS() {
-codes08.txt:733:export function filterT(pred) {
-codes08.txt:742:export function findTailTS(pred) {
-codes08.txt:759:export function takeWhileT(pred) {
-codes08.txt:768:export function dropWhileTS(pred) {
-codes08.txt:785:export function uniqueTS() {
-codes08.txt:801:export function mapT(proc) {
-codes08.txt:807:export function flatMapT(proc) {
+codes08.txt:361:export class Atom {
+codes08.txt:396:export class Track {
+codes08.txt:491:export class Focus {
+codes08.txt:593:export class Effect {
+codes08.txt:675:export function stop() {
+codes08.txt:679:export function isStopped(value) {
+codes08.txt:685:export function transduce(xform, rf, init, iter) {
+codes08.txt:699:export function takeTS(count) {
+codes08.txt:713:export function dropTS(count) {
+codes08.txt:729:export function flatT() {
+codes08.txt:741:export function entriesTS() {
+codes08.txt:753:export function filterT(pred) {
+codes08.txt:762:export function findTailTS(pred) {
+codes08.txt:779:export function takeWhileT(pred) {
+codes08.txt:788:export function dropWhileTS(pred) {
+codes08.txt:805:export function uniqueTS() {
+codes08.txt:821:export function mapT(proc) {
+codes08.txt:827:export function flatMapT(proc) {
 codes09.txt:5:export function all(...validators) {
 codes09.txt:21:export function allSettled(...validators) {
 codes09.txt:42:export function any(...validators) {

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-grep -E -n -o -e '## BEGIN.*' codes*.txt > file-index.txt
+grep -E -n -o -e '## (BEGIN|END).*' codes*.txt > file-index.txt
 
 grep -E -n -o -e '^.*\bexport\b.*$' codes*.txt | grep -E -v -e 'default'  > export-index.txt
 
