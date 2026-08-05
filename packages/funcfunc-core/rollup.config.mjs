@@ -8,7 +8,6 @@ const libfiles = globSync(join(libbasedir, "/**/*.js"));
 const libentries = Object.fromEntries(
   libfiles.map((path) => [
     relative(libbasedir, path.substring(0, path.length - extname(path).length)),
-    path.substring(libbasedir.length + 1, path.length - 3),
     path]));
 
 export default defineConfig([

@@ -23,15 +23,15 @@ export function deref(node) {
   return res;
 }
 
-export function swap(node, swapper, ...args) {
+export function swap(node, func, ...args) {
   node._retain?.();
-  const res = node._swap(swapper, ...args);
+  const res = node._swap(func, ...args);
   node._release?.();
   return res;
 }
 
-export function xswap(swapper, node, ...args) {
-  return swap(node, swapper, ...args);
+export function xswap(func, node, ...args) {
+  return swap(node, func, ...args);
 }
 
 export function reset(node, value) {
@@ -47,9 +47,11 @@ export function release(node) {
 }
 
 class _RC {
+  __listener = null;
+  __count = 0;
+
   constructor(listener) {
     this.__listener = listener;
-    this.__count = 0;
   }
 
   _retain() {
@@ -69,35 +71,37 @@ class _RC {
 }
 
 class _Children {
+  __listener = null;
+  __set = new Set();
+
   constructor(listener) {
     this.__listener = listener;
-    this.__sigNodeSet = new Set();
   }
 
   _nodes() {
-    return this.__sigNodeSet.values();
+    return this.__set.values();
   }
 
-  _regChild(sigNode) {
-    const { __sigNodeSet: __children } = this;
+  _regisger(sigNode) {
+    const { __set: __children } = this;
     if (__children.has(sigNode)) {
       return;
     }
     __children.add(sigNode);
-    this.__listener._onRegChild?.(sigNode);
+    this.__listener._onRegister?.(sigNode);
   }
 
-  _removeChild(sigNode) {
-    const { __sigNodeSet: __children } = this;
+  _remove(sigNode) {
+    const { __set: __children } = this;
     if (!__children.has(sigNode)) {
       return;
     }
-    this.__listener._onRemoveChild?.(sigNode);
+    this.__listener._onRemove?.(sigNode);
     __children.delete(sigNode);
   }
 
-  _clearChildren() {
-    forEach1((c) => this._removeChild(c), [...this.__sigNodeSet]);
+  _clear() {
+    this.__set.forEach((c) => this._remove(c));
   }
 }
 
@@ -107,8 +111,10 @@ const _st_stale = 2;
 const _st_new = 3;
 
 class _Stm {
+  __listener = null;
+  __state = _st_disabled;
+
   constructor(listener) {
-    this.__state = _st_disabled;
     this.__listener = listener;
   }
 
@@ -187,10 +193,13 @@ class _Stm {
 }
 
 class _Deps {
+  __listener = null;
+  _depNodes = [];
+  _values = [];
+
   constructor(listener, depNodes) {
     this.__listener = listener;
     this._depNodes = depNodes;
-    this._values = [];
   }
 
   _collect() {
@@ -216,7 +225,7 @@ class _Deps {
 
 export class Atom {
   constructor(init) {
-    this._children = new _Children(this);
+    this._children = new _Children({});
     this._value = init;
   }
 
@@ -224,9 +233,9 @@ export class Atom {
     return this._value;
   }
 
-  _swap(swapper, ...args) {
+  _swap(func, ...args) {
     const { _value } = this;
-    const next = swapper(_value, ...args);
+    const next = func(_value, ...args);
 
     if (Object.is(_value, next)) {
       return _value;
@@ -235,30 +244,88 @@ export class Atom {
     this._value = next;
 
     const effs = new Set(_staleAndCollectEffects(this._children._nodes()));
-
     effs.forEach((eff) => eff._invoke());
 
-    return this._value;
+    return next;
   }
 
   _regChild(sigNode) {
-    return this._children._regChild(sigNode);
+    return this._children._regisger(sigNode);
   }
 
   _removeChild(sigNode) {
-    return this._children._removeChild(sigNode);
+    return this._children._remove(sigNode);
   }
 }
 
 export class Track {
-  constructor(handler, depNodes) {
-    this._stm = new _Stm(this);
-    this._rc = new _RC(this);
-    this._children = new _Children(this);
-    this._deps = new _Deps(depNodes);
+  _stm = new _Stm({
+    _onStart: () => {
+      forEach1((node) => node._regChild(this), this._deps._depNodes);
+    },
 
+    _onActivate: () => {
+      this._value = this._handler(...this._deps._collect());
+      return this._value;
+    },
+
+    _onRefresh: () => {
+      const { _deps } = this;
+      if (_deps._recollect()) {
+        const next = this._handler(..._deps._values);
+        if (!Object.is(this._value, next)) {
+          this._value = next;
+        }
+      }
+      return this._value;
+    },
+
+    _onSkipRefresh: () => {
+      return this._value;
+    },
+
+    _onStale: () => {
+      return _staleAndCollectEffects(this._children._nodes());
+    },
+
+    _onSkipStale: function* () {
+    },
+
+    _onDispose: () => {
+      const { _deps } = this;
+      forEach1((sigNode) => sigNode._removeChild(this), _deps._depNodes);
+      _deps._clearValues();
+      this._value = void 0;
+    },
+  });
+
+  _rc = new _RC({
+    _onInit: () => {
+      this._stm._start();
+    },
+
+    _onFinal: () => {
+      this._stm._dispose();
+    },
+  });
+
+  _children = new _Children({
+    _onRegister: () => {
+      this._retain();
+    },
+
+    _onRemove: () => {
+      this._release();
+    },
+  });
+
+  _deps = null;
+  _handler = null;
+  _value = void 0;
+
+  constructor(handler, depNodes) {
+    this._deps = new _Deps(depNodes);
     this._handler = handler;
-    this._value = void 0;
   }
 
   _deref() {
@@ -277,80 +344,83 @@ export class Track {
     this._rc._release();
   }
 
-  _regChild(sigNode) {
-    this._children._regChild(sigNode);
+  _regChild(node) {
+    this._children._regisger(node);
   }
 
-  _removeChild(sigNode) {
-    this._children._removeChild(sigNode);
+  _removeChild(node) {
+    this._children._remove(node);
   }
-
-  _onStart() {
-    forEach1((sigNode) => sigNode._regChild(this), this._deps._depNodes);
-  }
-
-  _onActivate() {
-    this._value = this._handler(...this._deps._collect());
-    return this._value;
-  }
-
-  _onRefresh() {
-    const { _deps } = this;
-    if (_deps._recollect()) {
-      const next = this._handler(..._deps._values);
-      if (!Object.is(this._value, next)) {
-        this._value = next;
-      }
-    }
-    return this._value;
-  }
-
-  _onSkipRefresh() {
-    return this._value;
-  }
-
-  _onStale() {
-    return _staleAndCollectEffects(this._children._nodes());
-  }
-
-  *_onSkipStale() {
-  }
-
-  _onDispose() {
-    const { _deps } = this;
-    forEach1((sigNode) => sigNode._removeChild(this), _deps._depNodes);
-    _deps._clearValues();
-    this._value = void 0;
-  }
-
-  _onInit() {
-    this._stm._start();
-  }
-
-  _onFinal() {
-    this._stm._dispose();
-  }
-
-  _onRegChild() {
-    this._retain();
-
-  }
-
-  _onRemoveChild() {
-    this._release();
-  }
-
 }
 
 export class Focus {
-  constructor(lens, depNode) {
-    this._stm = new _Stm(this);
-    this._rc = new _RC(this);
-    this._children = new _Children(this);
-    this._deps = new _Deps([depNode]);
+  _stm = new _Stm({
+    _onStart: () => {
+      this._deps._depNodes[0]._regChild(this);
+    },
 
+    _onActivate: () => {
+      this._value = this._lens.ref(this._deps._collect()[0]);
+      return this._value;
+    },
+
+    _onRefresh: () => {
+      const { _deps } = this;
+      if (_deps._recollect()) {
+        const next = this._lens.ref(_deps._values[0]);
+        if (!Object.is(this._value, next)) {
+          this._value = this._lens.ref(_deps._values[0]);
+        }
+      }
+      return this._value;
+    },
+
+    _onSkipRefresh: () => {
+      return this._value;
+    },
+
+    _onStale: () => {
+      return _staleAndCollectEffects(this._children._nodes());
+    },
+
+    _onSkipStale: function* () {
+    },
+
+    _onDispose: () => {
+      const { _deps } = this;
+      _deps._depNodes[0]._removeChild(this);
+      _deps._clearValues();
+      this._value = void 0;
+    },
+  });
+
+  _rc = new _RC({
+    _onInit: () => {
+      this._stm._start();
+    },
+
+    _onFinal: () => {
+      this._stm._dispose();
+    },
+  });
+
+  _children = new _Children({
+    _onRegister: () => {
+      this._retain();
+    },
+
+    _onRemove: () => {
+      this._release();
+    },
+  });
+
+  _deps = null;
+  _lens = null;
+  _value = void 0;
+
+  constructor(lens, depNode) {
+    this._deps = new _Deps([depNode]);
     this._lens = lens;
-    this._value = void 0;
   }
 
   _deref() {
@@ -358,9 +428,9 @@ export class Focus {
     return this._value;
   }
 
-  _swap(swapper, ...args) {
+  _swap(func, ...args) {
     const { _lens } = this;
-    const parentValue = this._deps._depNodes[0]._swap((dep) => _lens.upd(dep, swapper(_lens.ref(dep), ...args)));
+    const parentValue = this._deps._depNodes[0]._swap((dep) => _lens.upd(dep, func(_lens.ref(dep), ...args)));
     return _lens.ref(parentValue);
   }
 
@@ -377,76 +447,65 @@ export class Focus {
   }
 
   _regChild(sigNode) {
-    this._children._regChild(sigNode);
+    this._children._regisger(sigNode);
   }
 
   _removeChild(sigNode) {
-    this._children._removeChild(sigNode);
-  }
-
-  _onStart() {
-    this._deps._depNodes[0]._regChild(this);
-  }
-
-  _onActivate() {
-    this._value = this._lens.ref(this._deps._collect()[0]);
-    return this._value;
-  }
-
-  _onRefresh() {
-    const { _deps } = this;
-    if (_deps._recollect()) {
-      const next = this._lens.ref(_deps._values[0]);
-      if (!Object.is(this._value, next)) {
-        this._value = this._lens.ref(_deps._values[0]);
-      }
-    }
-    return this._value;
-  }
-
-  _onSkipRefresh() {
-    return this._value;
-  }
-
-  _onStale() {
-    return _staleAndCollectEffects(this._children._nodes());
-  }
-
-  *_onSkipStale() {
-  }
-
-  _onDispose() {
-    const { _deps } = this;
-    _deps._depNodes[0]._removeChild(this);
-    _deps._clearValues();
-    this._value = void 0;
-  }
-
-  _onInit() {
-    this._stm._start();
-  }
-
-  _onFinal() {
-    this._stm._dispose();
-  }
-
-  _onRegChild() {
-    this._retain();
-  }
-
-  _onRemoveChild() {
-    this._release();
+    this._children._remove(sigNode);
   }
 }
 
 export class Effect {
-  constructor(handler, depNodes) {
-    this._stm = new _Stm(this);
-    this._rc = new _RC(this);
-    this._deps = new _Deps(depNodes);
+  _stm = new _Stm({
+    _onStart: () => {
+      forEach1((sigNode) => sigNode._regChild(this), this._deps._depNodes);
+      this._invoke();
+    },
 
+    _onActivate: () => {
+      this._cleanup = this._handler(...this._deps._collect());
+    },
+
+    _onRefresh: () => {
+      const { _deps } = this;
+      if (_deps._recollect()) {
+        this._cleanup?.();
+        this._cleanup = this._handler(..._deps._values);
+      }
+    },
+
+    _onStale: function* () {
+      yield this;
+    },
+
+    _onSkipStale: function* () {
+    },
+
+    _onDispose: () => {
+      this._cleanup?.();
+      const { _deps } = this;
+      forEach1((sigNode) => sigNode._removeChild(this), _deps._depNodes);
+      _deps._clearValues();
+    },
+  });
+
+  _rc = new _RC({
+    _onInit: () => {
+      this._stm._start();
+    },
+
+    _onFinal: () => {
+      this._stm._dispose();
+    },
+  });
+
+  _deps = null;
+  _handler = null;
+  _cleanup = void 0;
+
+  constructor(handler, depNodes) {
+    this._deps = new _Deps(depNodes);
     this._handler = handler;
-    this._cleanup = void 0;
   }
 
   _invoke() {
@@ -463,44 +522,6 @@ export class Effect {
 
   _release() {
     this._rc._release();
-  }
-
-  _onStart() {
-    forEach1((sigNode) => sigNode._regChild(this), this._deps._depNodes);
-  }
-
-  _onActivate() {
-    this._cleanup = this._handler(...this._deps._collect());
-  }
-
-  _onRefresh() {
-    const { _deps } = this;
-    if (_deps._recollect()) {
-      this._cleanup?.();
-      this._cleanup = this._handler(..._deps._values);
-    }
-  }
-
-  *_onStale() {
-    yield this;
-  }
-
-  *_onSkipStale() {
-  }
-
-  _onDispose() {
-    this._cleanup?.();
-    const { _deps } = this;
-    forEach1((sigNode) => sigNode._removeChild(this), _deps._depNodes);
-    _deps._clearValues();
-  }
-
-  _onInit() {
-    this._stm._start();
-  }
-
-  _onFinal() {
-    this._stm._dispose();
   }
 }
 

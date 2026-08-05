@@ -2,7 +2,7 @@ import { toUInt } from "./asfunc";
 
 // core ================
 
-const nil = {
+export const nil = {
   [Symbol.iterator]() {
     return new _ListIter(this);
   }
