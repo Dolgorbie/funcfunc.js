@@ -1,182 +1,138 @@
-## BEGIN-FILE: funcfunc-core/src/lib/validate/core.js
+## BEGIN-FILE: funcfunc-react/src/lib/sigtree/components.jsx
 
-import { fail, isFailed, isSuccess, reasons } from "../failable";
+import { useMemo } from "react";
+import { useAtom, useFastValue, useFocus, usePathFocus, useTrack, useValue } from "./hooks";
 
-export function all(...validators) {
-  return (target, detail) => {
-    let tmp = target;
-
-    for (const v of validators) {
-      const res = v(tmp, detail);
-      if (isFailed(res)) {
-        return res;
-      }
-      tmp = res;
-    }
-
-    return tmp;
-  };
+export function WithAtom({ init, children }) {
+  const atom = useAtom(init);
+  return useMemo(() => children ? children(atom) : void 0, [children, atom]);
 }
 
-export function allSettled(...validators) {
-  return (target, detail) => {
-    let tmp = target;
-    const allReasons = [];
-
-    for (const v of validators) {
-      const res = v(tmp, detail);
-      if (isFailed(res)) {
-        allReasons.push(...reasons(res));
-        continue;
-      }
-      tmp = res;
-    }
-
-    if (allReasons.length === 0) {
-      return tmp;
-    }
-    return fail(...allReasons);
-  };
+export function WithValue({ atom, children }) {
+  const value = useValue(atom);
+  return useMemo(() => children ? children(value) : void 0, [children, value]);
 }
 
-export function any(...validators) {
-  return (target, detail) => {
-    const allReasons = [];
-
-    for (const v of validators) {
-      const res = v(target, detail);
-      if (isSuccess(res)) {
-        return res;
-      }
-      allReasons.push(...reasons(res));
-    }
-
-    return fail(...allReasons);
-  };
+export function WithFastValue({ atom, children }) {
+  const value = useFastValue(atom);
+  return useMemo(() => children ? children(value) : void 0, [children, value]);
 }
 
-export function isTypeof(type) {
-  return (target, detail) => {
-    return typeof target === type ? target : fail(new ValidationError(detail, `expects ${type}, but got ${typeof target}`));
-  };
+export function WithTrack({ atoms, handler, children }) {
+  const trk = useTrack(handler, atoms);
+  return useMemo(() => children ? children(trk) : void 0, [children, trk]);
 }
 
-export const isBoolean = isTypeof("boolean");
-export const isNumber = isTypeof("number");
-export const isBigint = isTypeof("bigint");
-export const isString = isTypeof("string");
-export const isSymbol = isTypeof("symbol");
-export const isFunction = isTypeof("function");
-
-export function isNull() {
-  return (target, detail) => {
-    return target === null ? target : fail(new ValidationError(detail, "expects null"));
-  };
+export function WithFocus({ atom, lens, children }) {
+  const fc = useFocus(lens, atom);
+  return useMemo(() => children ? children(fc) : void 0, [children, fc]);
 }
 
-export function nonNull() {
-  return (target, detail) => {
-    return target === null ? fail(new ValidationError(detail, "expects non-null")) : target;
-  };
+export function WithPathFocus({ atom, paths, children }) {
+  const fc = usePathFocus(atom, paths);
+  return useMemo(() => children ? children(fc) : void 0, [children, fc]);
 }
 
-export function isUndef() {
-  return (target, detail) => {
-    return target === void 0 ? target : fail(new ValidationError(detail, "expects undefined"));
-  };
+## END-FILE: funcfunc-react/src/lib/sigtree/components.jsx
+## BEGIN-FILE: funcfunc-react/src/lib/sigtree/hooks.js
+
+import { pathLens } from "funcfunc/lens";
+import { atom, deref, effect, focus, release, retain, track } from "funcfunc/sigtree";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+
+export function useAtom(init) {
+  const [atm] = useState(() => atom(typeof init === "function" ? init() : init));
+  return atm;
 }
 
-export function nonUndef() {
-  return (target, detail) => {
-    return target === void 0 ? fail(new ValidationError(detail, "expects non-undefined")) : target;
-  };
-}
+export function useFastValue(atm) {
+  const prevAtomRef = useRef();
+  const [value, setValue] = useState();
+  const eff = useMemo(() => effect((value) => setValue(() => value), atm), [atm]);
 
-export function isNullish() {
-  return (target, detail) => {
-    return target == null ? target : fail(new ValidationError(detail, "expects null or undefined"));
-  };
-}
+  useEffect(() => {
+    retain(eff);
+    return () => {
+      release(eff);
+    };
+  }, [eff]);
 
-export function nonNullish() {
-  return (target, detail) => {
-    return target == null ? fail(new ValidationError(detail, "expects non-null nor non-undefined")) : target;
-  };
-}
-
-export function isObject() {
-  return (target, detail) => {
-    return target != null && typeof target === "object" ? target : fail(new ValidationError(detail, "expects object"));
-  };
-}
-
-export function isArray() {
-  return (target, detail) => {
-    return Array.isArray(target) ? target : fail(new ValidationError(detail, "expects array"));
-  };
-}
-
-export function isIterOf(validator) {
-  return (target, detail) => {
-    const allReasons = [];
-    let i = 0;
-    for (const e of target) {
-      const res = validator(e, { ...detail, value: e, path: [...detail.path, i] })
-      if (isFailed) {
-        allReasons.push(...reasons(res));
-      }
-      i += 1;
-    }
-    return allReasons.length === 0 ? target : fail(...allReasons);
-  };
-}
-
-export class ValidationError extends Error {
-  constructor(detail, ...args) {
-    super(...args);
-    this.detail = detail;
+  if (prevAtomRef.current === void 0 || prevAtomRef.current !== atm) {
+    prevAtomRef.current = atm;
+    return deref(atm);
   }
+
+  return value;
 }
 
-## END-FILE: funcfunc-core/src/lib/validate/core.js
-## BEGIN-FILE: funcfunc-core/src/main.js
+export function useValue(atm) {
+  const subscribe = useCallback((listen) => {
+    const eff = effect(listen, atm);
+    retain(eff);
+    return () => {
+      release(eff);
+    };
+  }, [atm]);
 
-export * as ArrayUtils from "./lib/array-utils";
-export * as Asfunc from "./lib/asfunc";
-export * as Chan from "./lib/chan/core";
-export * as ChanUtils from "./lib/chan/utils";
-export * as ClassnamesAggregators from "./lib/classnames/aggregators";
-export * as Classnames from "./lib/classnames/core";
-export * as ClassnamesPresets from "./lib/classnames/presets";
-export * as ClassnamesTransformers from "./lib/classnames/transformers";
-export * from "./lib/core";
-export * as Delay from "./lib/delay";
-export * as DelayListReduceRight from "./lib/delay-list-reduce-right";
-export * as Delegate from "./lib/delegate";
-export * as Failable from "./lib/failable";
-export * as IteratorUtils from "./lib/iterator-utils";
-export * as LazyListUtils from "./lib/lazylist-utils";
-export * as Lens from "./lib/lens";
-export * as List from "./lib/list";
-export * as Multi from "./lib/multi";
-export * as Nullable from "./lib/nullable";
-export * as DoubleStackQueue from "./lib/queue/double-stack-queue";
-export * as RingQueue from "./lib/queue/ring-queue";
-export * as Sigtree from "./lib/sigtree";
-export * as Transducer from "./lib/transducer";
-export * as Validate from "./lib/validate/core";
+  const getSnapshot = useCallback(() => deref(atm), [atm]);
 
-## END-FILE: funcfunc-core/src/main.js
-## BEGIN-FILE: funcfunc-core/vitest.config.js
+  return useSyncExternalStore(subscribe, getSnapshot);
+}
+
+export function useTrack(handler, depNodes) {
+  const node = useMemo(() => track(handler, ...depNodes), [handler, ...depNodes]);
+
+  useEffect(() => {
+    retain(node);
+    return () => {
+      release(node);
+    };
+  }, [node]);
+
+  return node;
+}
+
+export function useFocus(lns, node) {
+  const fc = useMemo(() => focus(lns, node), [lns, node]);
+
+  useEffect(() => {
+    retain(fc);
+    return () => {
+      release(fc);
+    };
+  }, [fc]);
+
+  return fc;
+}
+
+export function usePathFocus(node, depPaths) {
+  const fc = useMemo(() => focus(pathLens(...depPaths), node), [node, ...depPaths]);
+
+  useEffect(() => {
+    retain(fc);
+    return () => {
+      release(fc);
+    };
+  }, [fc]);
+
+  return fc;
+}
+
+## END-FILE: funcfunc-react/src/lib/sigtree/hooks.js
+## BEGIN-FILE: funcfunc-react/src/main.js
+
+
+## END-FILE: funcfunc-react/src/main.js
+## BEGIN-FILE: funcfunc-react/vitest.config.js
 
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
     typecheck: {
-      include: ["**/*.{test,spec}.?(c|m)js?(x)"]
+      include: ["**/*.type.{test,spec}.?(c|m)[jt]s?(x)"]
     }
   },
 })
 
-## END-FILE: funcfunc-core/vitest.config.js
+## END-FILE: funcfunc-react/vitest.config.js

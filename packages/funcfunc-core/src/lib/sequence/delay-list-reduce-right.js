@@ -1,4 +1,4 @@
-import { delayForce } from "./delay";
+import { delayForce } from "../delay";
 import { car, cdr, isPair } from "./list";
 
 export function delayReduceRight(proc, delayedInit, list0, ...lists) {

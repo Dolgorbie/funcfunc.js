@@ -5,14 +5,17 @@ import { join, relative } from "node:path";
 const outPathPrefix = join(import.meta.dirname, "codes");
 
 async function main() {
-  const allItems = await readdir(join(import.meta.dirname, "funcfunc-core"), { recursive: true, withFileTypes: true });
+  const allItems = [
+    ...await readdir(join(import.meta.dirname, "funcfunc-core"), { recursive: true, withFileTypes: true }),
+    ...await readdir(join(import.meta.dirname, "funcfunc-react"), { recursive: true, withFileTypes: true })
+  ];
   const targetFiles = allItems
     .filter((x) => x.isFile())
     .map(({ parentPath, name }) => join(parentPath, name))
     .map((s) => s.replace(/\\/g, "/"))
     .filter((x) => !/^(?:.*\/funcfunc-core\/package-lock.json|.*\/funcfunc-core\/dist\/.*|.*\/funcfunc-core\/node_modules\/.*|.*\/.DS_Store)$/.test(x))
     .toSorted();
-  const groupedFiles = targetFiles.reduce((acc, path, i) => i % 3 === 0 ? [...acc, [path]] : [...acc.slice(0, -1), [...acc.at(-1), path]], []);
+  const groupedFiles = targetFiles.reduce((acc, path, i) => i % 4 === 0 ? [...acc, [path]] : [...acc.slice(0, -1), [...acc.at(-1), path]], []);
 
   await Promise.all(groupedFiles.map(async (files, i) => {
     const opath = `${outPathPrefix}${`${i}`.padStart(2, "0")}.txt`;

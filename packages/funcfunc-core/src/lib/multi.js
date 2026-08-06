@@ -1,5 +1,5 @@
 import { is } from "./asfunc";
-import { car, cdr, isPair, lastPair, lflatMap1, listOf, lmap1, lsome1, setCdr } from "./list";
+import { car, cdr, isPair, lastPair, lflatMap1, listOf, lmap1, lsome1, setCdr } from "./sequence/list";
 
 export function multi({ dispatch, defaultImpl = _defaultImpl }) {
   const implMap = new Map();

@@ -1,6 +1,6 @@
-import { every1, map1 } from "../array-utils";
 import { asyncFailable, fail, isSuccess } from "../failable";
 import { DStackQueue } from "../queue/double-stack-queue";
+import { every1, map1 } from "../sequence/array-utils";
 
 const _eoc = Symbol("end of chan");
 

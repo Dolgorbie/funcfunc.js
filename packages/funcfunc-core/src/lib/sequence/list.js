@@ -1,4 +1,4 @@
-import { toUInt } from "./asfunc";
+import { toUInt } from "../asfunc";
 
 // core ================
 

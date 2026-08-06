@@ -1,6 +1,6 @@
-import { every2 } from "./array-utils";
 import { mod2, toInt } from "./asfunc";
 import { fail, isFailed } from "./failable";
+import { every2 } from "./sequence/array-utils";
 
 export const idlens = lens((target) => target, (target, func) => func(target));
 

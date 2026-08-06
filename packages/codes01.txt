@@ -1,697 +1,3 @@
-## BEGIN-FILE: funcfunc-core/rollup.config.mjs
-
-import terser from "@rollup/plugin-terser";
-import { globSync } from "node:fs";
-import { extname, join, relative, } from "node:path";
-import { defineConfig } from "rollup";
-
-const libbasedir = join(import.meta.dirname, "/src/lib");
-const libfiles = globSync(join(libbasedir, "/**/*.js"));
-const libentries = Object.fromEntries(
-  libfiles.map((path) => [
-    relative(libbasedir, path.substring(0, path.length - extname(path).length)),
-    path.substring(libbasedir.length + 1, path.length - 3),
-    path]));
-
-export default defineConfig([
-  {
-    input: "src/main.js",
-    output: [
-      {
-        dir: "dist",
-        format: "es",
-      },
-      {
-        dir: "dist",
-        format: "es",
-        entryFileNames: "[name].min.js",
-        sourcemap: true,
-        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })],
-      },
-    ],
-  },
-  {
-    input: libentries,
-    output: [
-      {
-        dir: "dist/lib",
-        format: "es",
-      },
-      {
-        dir: "dist/lib",
-        format: "es",
-        entryFileNames: "[name].min.js",
-        sourcemap: true,
-        plugins: [terser({ mangle: { properties: { regex: /^_.*/ } } })],
-      },
-    ],
-  },
-]);
-
-## END-FILE: funcfunc-core/rollup.config.mjs
-## BEGIN-FILE: funcfunc-core/src/lib/array-utils.js
-
-import { toUInt } from "./asfunc";
-
-// helpers ================
-
-function _lengthMin(array0, arrays) {
-  const nArrays = arrays.length;
-
-  let { length } = array0;
-  for (let i = 0; i < nArrays; ++i) {
-    length = Math.min(length, arrays[i].length);
-  }
-
-  return length;
-}
-
-// creation ================
-
-export function arrayOf(...values) {
-  return values;
-}
-
-export function repeat(count, value) {
-  return new Array(toUInt(count)).fill(value);
-}
-
-export function iota(count, start = 0, step = 1) {
-  count = toUInt(count);
-  start = +start;
-  step = +step;
-
-  const result = new Array(count);
-  for (let i = 0; i < count; ++i) {
-    result[i] = step * i + start;
-  }
-
-  return result;
-}
-
-export function unfold(gen, seed, tailGen = void 0) {
-  const result = [];
-  let res;
-  while ((res = gen(seed)), !res.done) {
-    const { value } = res;
-    result.push(value);
-    seed = "seed" in res ? res.seed : value;
-  }
-
-  if (tailGen !== void 0) {
-    const tail = tailGen(seed);
-    let { length } = tail;
-    for (let i = 0; i < length; ++i) {
-      result.push(tail[i]);
-    }
-  }
-
-  return result;
-}
-
-export function unfoldRight(gen, seed, tail = []) {
-  const result = [];
-  let res;
-  while ((res = gen(seed)), !res.done) {
-    const { value } = res;
-    result.push(value);
-    seed = "seed" in res ? res.seed : value;
-  }
-
-  result.reverse();
-
-  const { length } = tail;
-  for (let i = 0; i < length; ++i) {
-    result.push(tail[i]);
-  }
-
-  return result;
-}
-
-// splicing ================
-
-export function take(count, array) {
-  count = toUInt(count);
-  if (count >= array.length) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, 0, count);
-}
-
-export function drop(count, array) {
-  count = toUInt(count);
-  if (count === 0) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, count);
-}
-
-export function takeRight(count, array) {
-  count = toUInt(count);
-  const { length } = array;
-  if (count >= length) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, length - count);
-}
-
-export function dropRight(count, array) {
-  count = toUInt(count);
-  if (count === 0) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, 0, array.length - count);
-}
-
-// composition ================
-
-export function flat(arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return arrays;
-    }
-    case 1: {
-      return arrays[0];
-    }
-    default: {
-      let length = 0;
-      const nOuter = arrays.length;
-      for (let i = 0; i < nOuter; ++i) {
-        length += arrays[i].length;
-      }
-
-      const result = new Array(length);
-      let jOffset = 0;
-      for (let i = 0; i < nOuter; ++i) {
-        const arrayI = arrays[i];
-        const nInner = arrayI.length;
-        for (let j = 0; j < nInner; ++j) {
-          result[j + jOffset] = arrayI[j];
-        }
-        jOffset += nInner;
-      }
-      return result;
-    }
-  }
-}
-
-export function concat(...arrays) {
-  return flat(arrays);
-}
-
-export function zip(array0, ...arrays) {
-  const nArrays = arrays.length;
-  const length = _lengthMin(array0, arrays);
-
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    const acc = new Array(nArrays + 1);
-    acc[0] = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      acc[j + 1] = arrays[j][i];
-    }
-    result[i] = acc;
-  }
-
-  return result;
-}
-
-export function entries(array0, ...arrays) {
-  const nArrays = arrays.length;
-  const length = _lengthMin(array0, arrays);
-
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    const acc = new Array(nArrays + 2);
-    acc[0] = i;
-    acc[1] = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      acc[j + 2] = arrays[j][i];
-    }
-    result[i] = acc;
-  }
-
-  return result;
-}
-
-// filtering ================
-
-export function filter(pred, array) {
-  const { length } = array;
-  const result = [];
-  for (let i = 0; i < length; ++i) {
-    const v = array[i];
-    if (pred(v)) {
-      result.push(v);
-    }
-  }
-  return result;
-}
-
-export function findTail(pred, array) {
-  const { length } = array;
-  let i;
-  for (i = 0; i < length; ++i) {
-    if (pred(array[i])) {
-      break;
-    }
-  }
-
-  if (i === 0) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, i);
-}
-
-export function takeWhile(pred, array) {
-  const { length } = array;
-  let i;
-  for (i = 0; i < length; ++i) {
-    if (!pred(array[i])) {
-      break;
-    }
-  }
-  if (i === length) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, 0, i);
-}
-
-export function dropWhile(pred, array) {
-  const { length } = array;
-  let i;
-  for (i = 0; i < length; ++i) {
-    if (!pred(array[i])) {
-      break;
-    }
-  }
-  if (i === 0) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, i);
-}
-
-export function unique(array) {
-  const { length } = array;
-  const resultSet = new Set();
-
-  for (let i = 0; i < length; ++i) {
-    resultSet.add(array[i]);
-  }
-
-  return [...resultSet];
-}
-
-// mapping ================
-
-export function map(proc, array0, ...arrays) {
-  const nArrays = arrays.length;
-
-  switch (nArrays) {
-    case 0: {
-      return map1(proc, array0);
-    }
-    case 1: {
-      return map2(proc, array0, arrays[0]);
-    }
-    default: {
-      return _mapN(proc, array0, arrays);
-    }
-  }
-}
-
-export function map1(proc, array0) {
-  const { length } = array0;
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    result[i] = proc(array0[i]);
-  }
-  return result;
-}
-
-export function map2(proc, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    result[i] = proc(array0[i], array1[i]);
-  }
-  return result;
-}
-
-function _mapN(proc, array0, arrays) {
-  const nArrays = arrays.length;
-  const length = _lengthMin(array0, arrays);
-
-  const result = new Array(length);
-  const values = new Array(nArrays);
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-
-    result[i] = proc(value0, ...values);
-  }
-  return result;
-}
-
-export function flatMap(proc, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return flatMap1(proc, array0);
-    }
-    case 1: {
-      return flatMap2(proc, array0, arrays[0]);
-    }
-    default: {
-      return _flatMapN(proc, array0, arrays);
-    }
-  }
-}
-
-export function flatMap1(proc, array0) {
-  const result = [];
-  const { length } = array0;
-  for (let i = 0; i < length; ++i) {
-    const tmp = proc(array0[i]);
-    const n = tmp.length;
-    for (let j = 0; j < n; ++j) {
-      result.push(tmp[j]);
-    }
-  }
-  return result;
-}
-
-export function flatMap2(proc, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-  const result = [];
-  for (let i = 0; i < length; ++i) {
-    const tmp = proc(array0[i], array1[i]);
-    const n = tmp.length;
-    for (let j = 0; j < n; ++j) {
-      result.push(tmp[j]);
-    }
-  }
-  return result;
-}
-
-function _flatMapN(proc, array0, arrays) {
-  const nArrays = arrays.length;
-
-  const length = _lengthMin(array0, arrays);
-  const result = [];
-  const values = new Array(nArrays);
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    const tmp = proc(value0, ...values);
-    const n = tmp.length;
-    for (let j = 0; j < n; ++j) {
-      result.push(tmp[j]);
-    }
-  }
-  return result;
-}
-
-// reduction ================
-
-export function reduce(proc, init, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return reduce1(proc, init, array0);
-    }
-    case 1: {
-      return reduce2(proc, init, array0, arrays[0]);
-    }
-    default: {
-      return _reduceN(proc, init, array0, arrays);
-    }
-  }
-}
-
-export function reduce1(proc, init, array0) {
-  const { length } = array0;
-
-  for (let i = 0; i < length; ++i) {
-    init = proc(init, array0[i]);
-  }
-
-  return init;
-}
-
-export function reduce2(proc, init, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-
-  for (let i = 0; i < length; ++i) {
-    init = proc(init, array0[i], array1[i]);
-  }
-
-  return init;
-}
-
-function _reduceN(proc, init, array0, arrays) {
-  const nArrays = arrays.length;
-
-  const length = _lengthMin(array0, arrays);
-  const values = new Array(nArrays);
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    init = proc(init, value0, ...values);
-  }
-  return init;
-}
-
-export function reduceRight(proc, init, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return reduceRight1(proc, init, array0);
-    }
-    case 1: {
-      return reduceRight2(proc, init, array0, arrays[0]);
-    }
-    default: {
-      return _reduceRightN(proc, init, array0, arrays);
-    }
-  }
-}
-
-export function reduceRight1(proc, init, array0) {
-  const { length } = array0;
-
-  for (let i = length - 1; i >= 0; --i) {
-    init = proc(init, array0[i]);
-  }
-
-  return init;
-}
-
-export function reduceRight2(proc, init, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-
-  for (let i = length - 1; i >= 0; --i) {
-    init = proc(init, array0[i], array1[i]);
-  }
-
-  return init;
-}
-
-function _reduceRightN(proc, init, array0, arrays) {
-  const nArrays = arrays.length;
-
-  const length = _lengthMin(array0, arrays);
-  const values = new Array(nArrays);
-  for (let i = length - 1; i >= 0; --i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    init = proc(init, value0, ...values);
-  }
-  return init;
-}
-
-export function forEach(proc, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return forEach1(proc, array0);
-    }
-    case 1: {
-      return forEach2(proc, array0, arrays[0]);
-    }
-    default: {
-      return _forEachN(proc, array0, arrays);
-    }
-  }
-}
-
-export function forEach1(proc, array0) {
-  const { length } = array0;
-  for (let i = 0; i < length; ++i) {
-    proc(array0[i]);
-  }
-}
-
-export function forEach2(proc, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-  for (let i = 0; i < length; ++i) {
-    proc(array0[i], array1[i]);
-  }
-}
-
-function _forEachN(proc, array0, arrays) {
-  const nArrays = arrays.length;
-
-  const length = _lengthMin(array0, arrays);
-  const values = new Array(nArrays);
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    proc(value0, ...values);
-  }
-}
-
-export function every(pred, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return every1(pred, array0);
-    }
-    case 1: {
-      return every2(pred, array0, arrays[0]);
-    }
-    default: {
-      return _everyN(pred, array0, arrays);
-    }
-  }
-}
-
-export function every1(pred, array0) {
-  const { length } = array0;
-  let result = true;
-  for (let i = 0; i < length; ++i) {
-    result = pred(array0[i]);
-    if (!result) {
-      break;
-    }
-  }
-  return result;
-}
-
-export function every2(pred, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-  let result = true;
-  for (let i = 0; i < length; ++i) {
-    result = pred(array0[i], array1[i]);
-    if (!result) {
-      break;
-    }
-  }
-  return result;
-}
-
-function _everyN(pred, array0, arrays) {
-  const length = _lengthMin(array0, arrays);
-  const nArrays = arrays.length;
-  const values = new Array(nArrays);
-  let result = true;
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    result = pred(value0, ...values);
-    if (!result) {
-      break;
-    }
-  }
-  return result;
-}
-
-export function some(pred, array0, ...arrays) {
-  switch (arrays.length) {
-    case 0: {
-      return some1(pred, array0);
-    }
-    case 1: {
-      return some2(pred, array0, arrays[0]);
-    }
-    default: {
-      return _someN(pred, array0, arrays);
-    }
-  }
-}
-
-export function some1(pred, array0) {
-  const { length } = array0;
-  let result = false;
-  for (let i = 0; i < length; ++i) {
-    result = pred(array0[i]);
-    if (result) {
-      break;
-    }
-  }
-  return result;
-}
-
-export function some2(pred, array0, array1) {
-  const length = Math.min(array0.length, array1.length);
-  let result = false;
-  for (let i = 0; i < length; ++i) {
-    result = pred(array0[i], array1[i]);
-    if (result) {
-      break;
-    }
-  }
-  return result;
-}
-
-function _someN(pred, array0, arrays) {
-  const length = _lengthMin(array0, arrays);
-  const nArrays = arrays.length;
-  const values = new Array(nArrays);
-  let result = false;
-  for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    result = pred(value0, ...values);
-    if (result) {
-      break;
-    }
-  }
-  return result;
-}
-
-export function join(sep, array) {
-  return Array.prototype.join.call(array, sep);
-}
-
-// misc ================
-
-export function reverse(array) {
-  const { length } = array;
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    result[i] = array[length - i - 1];
-  }
-  return result;
-}
-
-export function* reverseIter(array) {
-  const { length } = array;
-  for (let i = length - 1; i >= 0; --i) {
-    yield array[i];
-  }
-}
-
-## END-FILE: funcfunc-core/src/lib/array-utils.js
 ## BEGIN-FILE: funcfunc-core/src/lib/asfunc.js
 
 export const is = Object.is;
@@ -875,3 +181,461 @@ export function toString(value) {
 }
 
 ## END-FILE: funcfunc-core/src/lib/asfunc.js
+## BEGIN-FILE: funcfunc-core/src/lib/chan/core.js
+
+import { asyncFailable, fail, isSuccess } from "../failable";
+import { DStackQueue } from "../queue/double-stack-queue";
+import { every1, map1 } from "../sequence/array-utils";
+
+const _eoc = Symbol("end of chan");
+
+export function isEndOfChan(value) {
+  return value === _eoc;
+}
+
+export function isChan(obj) {
+  return obj instanceof Chan;
+}
+
+export function tryPost(chan, value) {
+  return chan.tryPost(value);
+}
+
+export function xtryPost(value, chan) {
+  return chan.tryPost(value);
+}
+
+export function tryTake(chan) {
+  return chan.tryTake();
+}
+
+export function post(chan, value) {
+  return chan.post(value);
+}
+
+export function xpost(value, chan) {
+  return chan.post(value);
+}
+
+export function take(chan, signal = void 0) {
+  return chan.take(signal);
+}
+
+export function xtake(signal, chan) {
+  return chan.take(signal);
+}
+
+export async function alts(...chans) {
+  const { length } = chans;
+  if (length === 0) {
+    throw Error("expects at least a chan, but got none");
+  }
+
+  const offset = Math.random() * length | 0
+  let countEOC = 0;
+  for (let i = 0; i < length; ++i) {
+    const chan = chans[(i + offset) % length];
+
+    const value = chan.tryTake();
+    if (isSuccess(value)) {
+      if (isEndOfChan(value)) {
+        countEOC += 1;
+      } else {
+        return { value, chan };
+      }
+    }
+  }
+
+  if (countEOC === length) {
+    return { value: _eoc, chan: chans[0] };
+  }
+
+  const abortCtrl = new AbortController();
+  const { signal } = abortCtrl;
+
+  try {
+    return await Promise.any(map1(async (chan) => {
+      const value = await chan.take(signal);
+      if (isEndOfChan(value)) {
+        throw chan;
+      }
+      abortCtrl.abort(Error("selected another chan by `alts`."));
+      return { value, chan };
+    }, chans));
+  } catch (error) {
+    if (error instanceof AggregateError) {
+      const { errors: contents } = error;
+      if (every1(isChan, contents)) {
+        return { value: _eoc, chan: contents[0] };
+      }
+    }
+    throw error;
+  }
+}
+
+export class Chan {
+  _postContQueue = new DStackQueue();
+  _takeContQueue = new DStackQueue();
+
+  _isClosed = false;
+  _afterCloseHooks = new Set();
+
+  _bufferQueue = null;
+  _signal = null;
+
+  constructor({ bufferQueue, signal } = {}) {
+    this._bufferQueue = bufferQueue;
+    this._signal = signal;
+
+    if (signal != null) {
+      this.close = this.close.bind(this);
+      signal.addEventListener("abort", this.close, { once: true });
+      this._afterCloseHooks.add(_removeAbortEventListener);
+    }
+  }
+
+  tryPost(value) {
+    if (this._isClosed) {
+      throw new ClosedPostError(this, value, "chan was already closed.");
+    }
+
+    const { _takeContQueue } = this;
+    if (_takeContQueue.size > 0) {
+      const resolve = _takeContQueue.pop();
+      resolve(value);
+      return true;
+    }
+
+    const { _bufferQueue } = this;
+    if (_bufferQueue != null) {
+      return _bufferQueue.push(value);
+    }
+    return false;
+  }
+
+  async post(value, signal = void 0) {
+    if (signal !== void 0 && signal.aborted) {
+      throw new PostError(this, value, "already aborted.", { cause: signal.reason });
+    }
+
+    const success = this.tryPost(value);
+    if (success) {
+      return void 0;
+    }
+
+    const { _postContQueue } = this;
+
+    if (signal === void 0) {
+      return await new Promise((resolve, reject) => {
+        _postContQueue.push([value, resolve, reject]);
+      });
+    }
+
+    return await new Promise((resolve, reject) => {
+      if (signal.aborted) {
+        throw new PostError(this, value, "aborted.", { cause: signal.reason });
+      }
+
+      const _cancel = () => {
+        _postContQueue.delete(postContQueueItem);
+        signal.removeEventListener("abort", _cancel);
+        reject(new PostError(this, value, "aborted.", { cause: signal.reason }));
+      }
+
+      const _customResolve = () => {
+        signal.removeEventListener("abort", _cancel);
+        resolve();
+      }
+
+      const _customReject = (reason) => {
+        signal.removeEventListener("abort", _cancel);
+        reject(reason);
+      }
+
+      const postContQueueItem = [value, _customResolve, _customReject];
+      signal.addEventListener("abort", _cancel, { once: true });
+      _postContQueue.push(postContQueueItem);
+    });
+  }
+
+  _postNoSig(value) {
+    const success = this.tryPost(value);
+    if (success) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      this._postContQueue.add([value, resolve, reject]);
+    });
+  }
+
+  tryTake() {
+    const { _bufferQueue } = this;
+    if (_bufferQueue != null && _bufferQueue.size > 0) {
+      const value = _bufferQueue.pop();
+
+      const { _postContQueue } = this;
+      if (_postContQueue.size > 0) {
+        const [nextValue, resolve] = _postContQueue.pop();
+        _bufferQueue.push(nextValue);
+        resolve();
+      }
+
+      return value;
+    }
+
+    if (this._isClosed) {
+      return _eoc;
+    }
+
+    const { _postContQueue } = this;
+    if (_postContQueue.size > 0) {
+      const [value, resolve] = _postContQueue.pop();
+      resolve();
+      return value;
+    }
+
+    return fail();
+  }
+
+  async take(signal = void 0) {
+    if (signal !== void 0 && signal.aborted) {
+      throw new TakeError(this, "already aborted.", { cause: signal.reason });
+    }
+
+    const value = this.tryTake();
+    if (isSuccess(value)) {
+      return value;
+    }
+
+    const { _takeContQueue } = this;
+
+    if (signal === void 0) {
+      return await new Promise((resolve) => {
+        _takeContQueue.push(resolve);
+      });
+    }
+
+    return await new Promise((resolve, reject) => {
+      if (signal.aborted) {
+        throw new TakeError(this, "aborted.", { cause: signal.reason });
+      }
+
+      const _cancel = () => {
+        _takeContQueue.delete(_customResolve);
+        signal.removeEventListener("abort", _cancel);
+        reject(new TakeError(this, "aborted.", { cause: signal.reason }));
+      }
+
+      const _customResolve = (value) => {
+        signal.removeEventListener("abort", _cancel);
+        resolve(value);
+      }
+
+      signal.addEventListener("abort", _cancel, { once: true });
+      _takeContQueue.add(_customResolve);
+    });
+  }
+
+  get closed() {
+    return this._isClosed;
+  }
+
+  close() {
+    if (this._isClosed) {
+      return;
+    }
+
+    const { _postContQueue, _takeContQueue } = this;
+
+    while (_postContQueue.size > 0) {
+      const [value, , reject] = _postContQueue.pop();
+      reject(new ClosedPostError(this, value, "closed"));
+    }
+
+    while (_takeContQueue.size > 0) {
+      const resolve = _takeContQueue.pop();
+      resolve(_eoc);
+    }
+
+    this._isClosed = true;
+    this._afterCloseHooks.forEach((callback) => callback(this));
+  }
+
+  addCloseHook(callback) {
+    this._afterCloseHooks.add(callback);
+  }
+
+  deleteCloseHook(callback) {
+    this._afterCloseHooks.delete(callback);
+  }
+
+  static fromPromise(promise, signal = void 0) {
+    const chan = new Chan({ signal });
+
+    (async () => {
+      try {
+        await chan.post(await asyncFailable(promise));
+      } catch (error) {
+        console.error("failed to post the error-result to chan:", chan, "which error is:", error);
+      } finally {
+        chan.close();
+      }
+    })();
+
+    return chan;
+  }
+}
+
+export class ChanError extends Error {
+  constructor(chan, ...args) {
+    super(...args);
+    this.chan = chan;
+  }
+}
+
+export class PostError extends ChanError {
+  constructor(chan, value, ...args) {
+    super(chan, ...args);
+    this.value = value;
+  }
+}
+
+export class ClosedPostError extends PostError {
+  constructor(...args) {
+    super(...args);
+  }
+}
+
+export class TakeError extends ChanError {
+  constructor(chan, ...args) {
+    super(chan, ...args);
+  }
+}
+
+function _removeAbortEventListener(chan) {
+  chan._signal.removeEventListener("abort", chan.close);
+}
+
+## END-FILE: funcfunc-core/src/lib/chan/core.js
+## BEGIN-FILE: funcfunc-core/src/lib/chan/utils.js
+
+import { asyncFailable, force, isFailed, reasons } from "../failable";
+import { flatMap1, forEach1, map1 } from "../sequence/array-utils";
+import { isEndOfChan, TakeError } from "./core";
+
+export function merge(output, ...inputs) {
+  const abortTakeController = new AbortController();
+  const { signal: abortTakeSignal } = abortTakeController;
+
+  const abortPostController = new AbortController();
+  const { signal: abortPostSignal } = abortPostController;
+
+  (async () => {
+    try {
+      await Promise.all(map1(async (chan) => {
+        for (; ;) {
+          const value = await asyncFailable(chan.take(abortTakeSignal));
+          if (isFailed(value)) {
+            const rss = reasons(value);
+            if (rss.length === 1 && rss[0] instanceof TakeError) {
+              return;
+            }
+            force(value);
+          }
+          if (isEndOfChan(value)) {
+            return;
+          }
+          await output.post({ value, chan }, abortPostSignal);
+        }
+      }, inputs));
+    } catch (error) {
+      abortTakeController.abort(error);
+      abortPostController.abort(error);
+    } finally {
+      forEach1((chan) => chan.close(), inputs);
+    }
+    output.close();
+  })();
+
+  return output;
+}
+
+export function mult(input, options = {}, ...outputs) {
+  const {
+    closeInput = false,
+    closeOutputs = false,
+    earlyStop = false,
+  } = options;
+
+  const abortTakeController = new AbortController();
+  const { signal: abortTakeSignal } = abortTakeController;
+  const abortPostController = new AbortController();
+  const { signal: abortPostSignal } = abortPostController;
+
+  (async () => {
+    try {
+      for (; ;) {
+        const value = await input.take(abortTakeSignal);
+        if (isEndOfChan(value)) {
+          return;
+        }
+
+        const res = await Promise.allSettled(map1(async (chan) => {
+          await chan.post(value, abortPostSignal);
+        }, outputs));
+
+        const errors = flatMap1((({ status, reason }) => status === "fulfilled" ? [] : [reason], res));
+        if (earlyStop && errors.length > 0) {
+          throw new AggregateError(errors);
+        }
+        if (errors.length === outputs.length) {
+          throw new AggregateError(errors);
+        }
+      }
+    } catch (error) {
+      abortTakeController.abort(error);
+      abortPostController.abort(error);
+    } finally {
+      if (closeInput) {
+        if (closeInput instanceof AbortController) {
+          closeInput.abort(Error("all output chans was closed."));
+        } else {
+          input.close();
+        }
+      }
+      if (closeOutputs) {
+        if (closeOutputs instanceof AbortController) {
+          closeOutputs.abort(Error("the input chan was closed."));
+        } else {
+          forEach1((chan) => chan.close(), outputs);
+        }
+      }
+    }
+  })();
+
+  return input;
+}
+
+## END-FILE: funcfunc-core/src/lib/chan/utils.js
+## BEGIN-FILE: funcfunc-core/src/lib/classnames/aggregators.js
+
+export function autoBem(names) {
+  const { length } = names;
+  if (length === 0) {
+    return "";
+  }
+  const [block] = names;
+  const acc = new Array(length);
+  acc[0] = block;
+  for (let i = 1; i < length; ++i) {
+    const name = names[i];
+    const isTarget = typeof name === "string" && name.match(/^(?:--|__)/);
+    acc[i] = isTarget ? `${block}${name}` : name;
+  }
+  return acc.join(" ");
+}
+
+export { defaultAggregator as joinWithSpaces } from "./core";
+
+## END-FILE: funcfunc-core/src/lib/classnames/aggregators.js

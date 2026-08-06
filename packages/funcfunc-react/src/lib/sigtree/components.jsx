@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useAtom, useFastValue, useFocus, usePathFocus, useTrack, useValue } from "./sigtree-hooks";
+import { useAtom, useFastValue, useFocus, usePathFocus, useTrack, useValue } from "./hooks";
 
 export function WithAtom({ init, children }) {
   const atom = useAtom(init);

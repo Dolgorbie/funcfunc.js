@@ -1,5 +1,5 @@
-import { flatMap1, forEach1, map1 } from "../array-utils";
 import { asyncFailable, force, isFailed, reasons } from "../failable";
+import { flatMap1, forEach1, map1 } from "../sequence/array-utils";
 import { isEndOfChan, TakeError } from "./core";
 
 export function merge(output, ...inputs) {
