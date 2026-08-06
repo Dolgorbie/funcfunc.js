@@ -46,17 +46,22 @@ export function release(node) {
   return node._release();
 }
 
-class _RC {
-  __listener = null;
-  __count = 0;
+class _Observable {
+  __listeners = {};
 
-  constructor(listener) {
-    this.__listener = listener;
+  _on(listeners) {
+    const news = typeof listeners === "function" ? listeners() : listeners;
+    this.__listeners = { ...this.__listeners, ...news };
+    return this;
   }
+}
+
+class _RC extends _Observable {
+  __count = 0;
 
   _retain() {
     if (this.__count++ === 0) {
-      this.__listener._onInit?.();
+      this.__listeners._init?.();
     }
   }
 
@@ -65,43 +70,38 @@ class _RC {
       throw Error("too many release");
     }
     if (--this.__count === 0) {
-      this.__listener._onFinal?.();
+      this.__listeners._final?.();
     }
   }
 }
 
-class _Children {
-  __listener = null;
-  __set = new Set();
+class _Children extends _Observable {
+  __nodes = new Set();
 
-  constructor(listener) {
-    this.__listener = listener;
+  _get() {
+    return this.__nodes.values();
   }
 
-  _nodes() {
-    return this.__set.values();
-  }
-
-  _regisger(sigNode) {
-    const { __set: __children } = this;
-    if (__children.has(sigNode)) {
+  _regisger(node) {
+    const { __nodes } = this;
+    if (__nodes.has(node)) {
       return;
     }
-    __children.add(sigNode);
-    this.__listener._onRegister?.(sigNode);
+    __nodes.add(node);
+    this.__listeners._register?.(node);
   }
 
-  _remove(sigNode) {
-    const { __set: __children } = this;
-    if (!__children.has(sigNode)) {
+  _remove(node) {
+    const { __nodes } = this;
+    if (!__nodes.has(node)) {
       return;
     }
-    this.__listener._onRemove?.(sigNode);
-    __children.delete(sigNode);
+    this.__listeners._remove?.(node);
+    __nodes.delete(node);
   }
 
   _clear() {
-    this.__set.forEach((c) => this._remove(c));
+    this.__nodes.forEach((c) => this._remove(c));
   }
 }
 
@@ -110,19 +110,14 @@ const _st_fresh = 1;
 const _st_stale = 2;
 const _st_new = 3;
 
-class _Stm {
-  __listener = null;
+class _Stm extends _Observable {
   __state = _st_disabled;
-
-  constructor(listener) {
-    this.__listener = listener;
-  }
 
   _start() {
     switch (this.__state) {
       case _st_disabled: {
         this.__state = _st_new;
-        this.__listener._onStart?.();
+        this.__listeners._start?.();
         break;
       }
       case _st_fresh:
@@ -142,15 +137,15 @@ class _Stm {
         throw Error("disabled");
       }
       case _st_fresh: {
-        return this.__listener._onSkipRefresh?.();
+        return this.__listeners._skipRefresh?.();
       }
       case _st_stale: {
         this.__state = _st_fresh;
-        return this.__listener._onRefresh?.();
+        return this.__listeners._refresh?.();
       }
       case _st_new: {
         this.__state = _st_fresh;
-        return this.__listener._onActivate?.();
+        return this.__listeners._activate?.();
       }
       default: {
         throw Error("Unrecognized state");
@@ -165,11 +160,11 @@ class _Stm {
       }
       case _st_fresh: {
         this.__state = _st_stale;
-        return this.__listener._onStale?.();
+        return this.__listeners._stale?.();
       }
       case _st_stale:
       case _st_new: {
-        return this.__listener._onSkipStale?.();
+        return this.__listeners._skipStale?.();
       }
       default: {
         throw Error("Unrecognized state");
@@ -186,30 +181,28 @@ class _Stm {
       case _st_stale:
       case _st_new: {
         this.__state = _st_disabled;
-        this.__listener._onDispose?.();
+        this.__listeners._dispose?.();
       }
     }
   }
 }
 
 class _Deps {
-  __listener = null;
-  _depNodes = [];
+  _nodes = [];
   _values = [];
 
-  constructor(listener, depNodes) {
-    this.__listener = listener;
-    this._depNodes = depNodes;
+  constructor(nodes) {
+    this._nodes = nodes;
   }
 
   _collect() {
-    const values = map1((n) => n._deref(), this._depNodes);
+    const values = map1((n) => n._deref(), this._nodes);
     this._values = values;
     return values;
   }
 
   _recollect() {
-    const values = map1((n) => n._deref(), this._depNodes);
+    const values = map1((n) => n._deref(), this._nodes);
     const changed = !every2(Object.is, this._values, values);
     if (changed) {
       this._values = values;
@@ -225,7 +218,7 @@ class _Deps {
 
 export class Atom {
   constructor(init) {
-    this._children = new _Children({});
+    this._children = new _Children();
     this._value = init;
   }
 
@@ -243,7 +236,7 @@ export class Atom {
 
     this._value = next;
 
-    const effs = new Set(_staleAndCollectEffects(this._children._nodes()));
+    const effs = new Set(_staleAndCollectEffects(this._children._get()));
     effs.forEach((eff) => eff._invoke());
 
     return next;
@@ -259,12 +252,14 @@ export class Atom {
 }
 
 export class Track {
-  _stm = new _Stm({
-    _onStart: () => {
-      forEach1((node) => node._regChild(this), this._deps._depNodes);
+  _stm = new _Stm()._on(() => ({
+    _deps: this._deps,
+
+    _start() {
+      forEach1((node) => node._regChild(this), this._deps._nodes);
     },
 
-    _onActivate: () => {
+    _onActivate() {
       this._value = this._handler(...this._deps._collect());
       return this._value;
     },
@@ -285,7 +280,7 @@ export class Track {
     },
 
     _onStale: () => {
-      return _staleAndCollectEffects(this._children._nodes());
+      return _staleAndCollectEffects(this._children._get());
     },
 
     _onSkipStale: function* () {
@@ -297,7 +292,7 @@ export class Track {
       _deps._clearValues();
       this._value = void 0;
     },
-  });
+  }));
 
   _rc = new _RC({
     _onInit: () => {
@@ -380,7 +375,7 @@ export class Focus {
     },
 
     _onStale: () => {
-      return _staleAndCollectEffects(this._children._nodes());
+      return _staleAndCollectEffects(this._children._get());
     },
 
     _onSkipStale: function* () {
