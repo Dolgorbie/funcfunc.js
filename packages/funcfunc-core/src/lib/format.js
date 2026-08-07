@@ -1,3 +1,5 @@
+import { toUInt } from "./asfunc";
+
 export function fmt(strs, ...toStrFuncs) {
   const toStrFuncsLength = toStrFuncs.length;
   const resTemplate = new Array(strs.length + toStrFuncsLength).fill("");
@@ -12,6 +14,51 @@ export function fmt(strs, ...toStrFuncs) {
     }
     res[toStrFuncsLength * 2] = strs[toStrFuncsLength];
     return res.join("");
+  };
+}
+
+export const width = fmt.w = function width(val) {
+  val = toUInt(val);
+  return (str) => {
+    return str.padStart(val, " ");
+  };
+}
+
+export const left = fmt.l = function left(val) {
+  val = toUInt(val);
+  return (str) => {
+    return str.padEnd(val, " ");
+  };
+}
+
+export const zeros = fmt.z = function zero(val, radix = 10) {
+  val = toUInt(val);
+  let regex;
+  switch (radix) {
+    case 2:
+      regex = /^([ (+-]?(?:0[Bb])?)(.+)$/;
+      break;
+    case 8:
+      regex = /^([ (+-]?(?:0[Oo]|0)?)(.+)$/;
+      break;
+    case 10:
+      regex = /^([ (+-]?(?:0[Dd])?)(.+)$/;
+      break;
+    case 16:
+      regex = /^([ (+-]?(?:0[Xx])?)(.+)$/;
+      break;
+    default:
+      throw Error(`unrecognized radix: ${radix}`)
+  }
+  return (str) => {
+    return str.replace(regex, (whole, pre, body) => `${pre}${"0".repeat(Math.max(0, val - whole.length))}${body}`);
+  };
+}
+
+export const prec = fmt.p = function prec(val) {
+  val = toUInt(val);
+  return (str) => {
+    return str.substring(0, Math.min(val, str.length));
   };
 }
 
