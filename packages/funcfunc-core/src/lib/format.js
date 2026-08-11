@@ -1,6 +1,5 @@
-import { toUInt } from "./asfunc";
 
-export function fmt(strs, ...toStrFuncs) {
+export function fm(strs, ...toStrFuncs) {
   const toStrFuncsLength = toStrFuncs.length;
   const resTemplate = new Array(strs.length + toStrFuncsLength).fill("");
   for (let i = 0; i <= toStrFuncsLength; ++i) {
@@ -17,122 +16,168 @@ export function fmt(strs, ...toStrFuncs) {
   };
 }
 
-export const width = fmt.w = function width(val) {
-  val = toUInt(val);
-  return (str) => {
-    return str.padStart(val, " ");
+export const boolean = fm.b = function boolean(
+  prop,
+  {
+    precision = void 0,
+    width = void 0,
+  } = {}) {
+  return (args) => {
+    const value = _findValue(prop, args);
+    return _applyWidth(!!value + "", precision, width);
   };
 }
 
-export const left = fmt.l = function left(val) {
-  val = toUInt(val);
-  return (str) => {
-    return str.padEnd(val, " ");
+export const string = fm.s = function string(
+  prop,
+  {
+    precision = void 0,
+    width = void 0,
+  } = {}) {
+  return (args) => {
+    const value = _findValue(prop, args);
+    return _applyWidth(String(value), precision, width);
   };
 }
 
-export const zeros = fmt.z = function zero(val, radix = 10) {
-  val = toUInt(val);
-  let regex;
-  switch (radix) {
-    case 2:
-      regex = /^([ (+-]?(?:0[Bb])?)(.+)$/;
-      break;
-    case 8:
-      regex = /^([ (+-]?(?:0[Oo]|0)?)(.+)$/;
-      break;
-    case 10:
-      regex = /^([ (+-]?(?:0[Dd])?)(.+)$/;
-      break;
-    case 16:
-      regex = /^([ (+-]?(?:0[Xx])?)(.+)$/;
-      break;
-    default:
-      throw Error(`unrecognized radix: ${radix}`)
+export const character = fm.c = function character(
+  prop,
+  {
+    width = void 0,
+  } = {}) {
+  return (args) => {
+    const value = _findValue(prop, args);
+    if (typeof value !== "number") {
+      throw TypeError(`expects number, but got: ${value}`);
+    }
+
+    return _applyWidth(String.fromCodePoint(value), void 0, width);
+  };
+}
+
+export const digits = fm.d = function digits(
+  prop,
+  {
+    width = void 0,
+    sign = void 0,
+    group = false,
+  } = {}) {
+  return (args) => {
+    const value = _findValue(prop, args);
+    if (typeof value !== "number") {
+      throw TypeError(`expects number, but got: ${value}`);
+    }
+
+    const s = Math.sign(value);
+    const abs = Math.trunc(Math.abs(value));
+    let res = {
+      _padS: "",
+      _signS: "",
+      _padZ: "",
+      _body: abs.toString(),
+      _signE: "",
+      _padE: "",
+    };
+
+    res._body = group ? _groupNumStr(res._body) : res._body;
+    res = { ...res, ..._signStr(s, sign) };
+
+    if (width) {
+      res = { ...res, ..._widthNumStr(res, width) };
+    }
+
+    return `${res._padS}${res._signS}${res._padZ}${res._body}${res._signE}${res._padE}`;
+  };
+};
+
+function _groupNumStr(str) {
+  const { length } = str;
+  const res = [];
+  for (let i = 0; i * 3 < length; ++i) {
+    res.push(str.substring(length - 3 * (i + 1), length - 3 * i));
   }
-  return (str) => {
-    return str.replace(regex, (whole, pre, body) => `${pre}${"0".repeat(Math.max(0, val - whole.length))}${body}`);
-  };
+  return res.reverse().join(",");
 }
 
-export const prec = fmt.p = function prec(val) {
-  val = toUInt(val);
-  return (str) => {
-    return str.substring(0, Math.min(val, str.length));
-  };
+function _signStr(sign, option) {
+  if (option === void 0) {
+    return sign < 0 ? { _signS: "-" } : {};
+  }
+  switch (option) {
+    case " ":
+      return { _signS: sign < 0 ? "-" : " " };
+    case "(":
+      return sign < 0 ? { _signS: "(", _signE: ")" } : {};
+    case "+":
+      return { _signS: sign < 0 ? "-" : "+" };
+    default:
+      throw Error(`unrecognized sign specifier: ${sign}`);
+  }
 }
 
-export const boolean = fmt.b = function boolean(
+function _widthNumStr(acc, { size, pad = "start" }) {
+  const { _signS, _body, _signE } = acc;
+  const current = _signS.length + _body.length + _signE.length;
+  const gap = size - current;
+  if (gap <= 0) {
+    return;
+  }
+
+  switch (pad) {
+    case "0":
+      return { ...acc, _padZ: "0".repeat(gap) };
+    case "end":
+      return { ...acc, _padE: " ".repeat(gap) };
+    case "start":
+      return { ...acc, _padS: " ".repeat(gap) };
+    default:
+      throw Error(`unrecognized pad specifier: ${pad}`);
+  }
+}
+
+export const octal = fm.o = function octal(
   prop,
   {
     width = void 0,
-    precision = void 0,
-    alignLeft = false,
-  } = {}) {
+    indicator = false,
+  } = {}
+) {
   return (args) => {
-    const value = _findValue(prop, args);
-    return _applyWidth(!!value + "", width, precision, alignLeft);
-  };
-}
-
-export const string = fmt.s = function string(
-  prop,
-  {
-    width = void 0,
-    precision = void 0,
-    alignLeft = false,
-  } = {}) {
-  return (args) => {
-    const value = _findValue(prop, args);
-    return _applyWidth(String(value), width, precision, alignLeft);
-  };
-}
-
-export const character = fmt.c = function character(
-  prop,
-  {
-    width = void 0,
-    alignLeft = false,
-  } = {}) {
-  return (args) => {
-    const value = _findValue(prop, args);
+    let value = _findValue(prop, args);
     if (typeof value !== "number") {
       throw TypeError(`expects number, but got: ${value}`);
     }
 
-    return _applyWidth(String.fromCodePoint(value), width, void 0, alignLeft);
-  };
-}
+    value = value >>> 0;
+    let res = {
+      _ind: indicator ? "0" : "",
+      _padS: "",
+      _body: value.toString(8),
+      _padE: "",
+    };
 
-export const digits = fmt.d = function digits(
-  prop,
-  {
-    width = void 0,
-    alignLeft = false,
-    forceSign = false,
-    leadingSpace = false,
-    leadingZeros = false,
-    grouping = false,
-    negativeParentheses = false,
-  } = {}) {
-  return (args) => {
-    const value = _findValue(prop, args);
-    if (typeof value !== "number") {
-      throw TypeError(`expects number, but got: ${value}`);
+    if (width) {
+      const { size, pad } = width;
+      const current = res._ind.length + res._body.length;
+      const gap = size - current;
+      if (gap > 0) {
+        switch (pad) {
+          case "0":
+            res._padS = "0".repeat(gap);
+            break;
+          case "end":
+            res._padE = " ".repeat(gap);
+            break;
+          case "start":
+            res._padS = " ".repeat(gap);
+            break;
+          default:
+            throw Error(`unrecognized pad specifier: ${pad}`);
+        }
+      }
     }
 
-    const strSign = _strSignOf(value, forceSign, leadingSpace);
-    const strValue = Math.trunc(Math.abs(value)) + "";
-
-    if (width === void 0) {
-      return `${strSign}${strValue}`;
-    }
-
-    if (leadingZeros) {
-      return `${strSign}${_applyWidth(strValue, width - strSign.length, void 0, false)}`;
-    }
-
-    return String(value).padStart(width, leadingZeros ? "0" : " ");
+    return `${res._ind}${res._padS}${res._body}${res._padE}`;
   };
 };
 
@@ -146,17 +191,22 @@ function _findValue(prop, args) {
   }
 }
 
-function _applyWidth(strValue, width, precision, alignLeft) {
+function _applyWidth(strValue, precision, width) {
   if (precision !== void 0 && strValue.length > precision) {
     strValue = strValue.substring(0, precision);
   }
   if (width === void 0) {
     return strValue;
   }
-  if (alignLeft) {
-    return strValue.padEnd(width, " ");
+  const { size, pad = "start" } = width;
+  switch (pad) {
+    case "end":
+      return strValue.padEnd(size, " ");
+    case "start":
+      return strValue.padStart(size, " ");
+    default:
+      throw Error(`unrecognized pad specifier: ${pad}`);
   }
-  return strValue.padStart(width, " ");
 }
 
 function _strSignOf(value, forceSign, leadingSpace) {
