@@ -63,7 +63,7 @@ export const digits = fm.d = function digits(
     group = false,
   } = {}) {
   return (args) => {
-    const value = _findValue(prop, args);
+    let value = _findValue(prop, args);
     if (typeof value !== "number") {
       throw TypeError(`expects number, but got: ${value}`);
     }
