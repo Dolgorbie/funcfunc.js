@@ -1,96 +1,67 @@
-import { asyncFailable, force, isFailed, reasons } from "../failable";
-import { flatMap1, forEach1, map1 } from "../sequence/array-utils";
-import { isEndOfChan, TakeError } from "./core";
+import { map1, some1 } from "../sequence/array-utils";
+import { gmap1 } from "../sequence/iterator-utils";
+import { Chan, isEndOfChan } from "./core";
 
-export function merge(output, ...inputs) {
-  const abortTakeController = new AbortController();
-  const { signal: abortTakeSignal } = abortTakeController;
+export function merge(sources) {
+  const dist = new Chan();
 
-  const abortPostController = new AbortController();
-  const { signal: abortPostSignal } = abortPostController;
+  const abortController = new AbortController();
+  const { signal } = abortController;
+
+  dist.addCloseHook(() => {
+    abortController.abort();
+  });
 
   (async () => {
-    try {
-      await Promise.all(map1(async (chan) => {
+    await Promise.allSettled(map1(async (chan) => {
+      try {
         for (; ;) {
-          const value = await asyncFailable(chan.take(abortTakeSignal));
-          if (isFailed(value)) {
-            const rss = reasons(value);
-            if (rss.length === 1 && rss[0] instanceof TakeError) {
-              return;
-            }
-            force(value);
-          }
+          const value = await chan.take(signal);
           if (isEndOfChan(value)) {
             return;
           }
-          await output.post({ value, chan }, abortPostSignal);
+          await dist.post({ value, chan });
         }
-      }, inputs));
-    } catch (error) {
-      abortTakeController.abort(error);
-      abortPostController.abort(error);
-    } finally {
-      forEach1((chan) => chan.close(), inputs);
-    }
-    output.close();
+      } catch (error) {
+        dist.close();
+        throw error;
+      }
+    }, sources));
+    dist.close();
   })();
 
-  return output;
+  return dist;
 }
 
-export function mult(input, options = {}, ...outputs) {
-  const {
-    closeInput = false,
-    closeOutputs = false,
-    earlyStop = false,
-  } = options;
-
-  const abortTakeController = new AbortController();
-  const { signal: abortTakeSignal } = abortTakeController;
-  const abortPostController = new AbortController();
-  const { signal: abortPostSignal } = abortPostController;
+export function pub(source) {
+  const distSet = new Set();
 
   (async () => {
-    try {
-      for (; ;) {
-        const value = await input.take(abortTakeSignal);
-        if (isEndOfChan(value)) {
-          return;
+    for (; ;) {
+      const value = await source.take();
+      if (isEndOfChan(value)) {
+        for (const dist of distSet) {
+          dist.close();
         }
-
-        const res = await Promise.allSettled(map1(async (chan) => {
-          await chan.post(value, abortPostSignal);
-        }, outputs));
-
-        const errors = flatMap1((({ status, reason }) => status === "fulfilled" ? [] : [reason], res));
-        if (earlyStop && errors.length > 0) {
-          throw new AggregateError(errors);
-        }
-        if (errors.length === outputs.length) {
-          throw new AggregateError(errors);
-        }
+        return;
       }
-    } catch (error) {
-      abortTakeController.abort(error);
-      abortPostController.abort(error);
-    } finally {
-      if (closeInput) {
-        if (closeInput instanceof AbortController) {
-          closeInput.abort(Error("all output chans was closed."));
-        } else {
-          input.close();
-        }
-      }
-      if (closeOutputs) {
-        if (closeOutputs instanceof AbortController) {
-          closeOutputs.abort(Error("the input chan was closed."));
-        } else {
-          forEach1((chan) => chan.close(), outputs);
-        }
+
+      const result = await Promise.allSettled(gmap1(async (dist) => {
+        await dist.post(value);
+      }, distSet));
+
+      if (some1(({ status }) => status === "rejected", result)) {
+        return;
       }
     }
   })();
 
-  return input;
+  return {
+    sub: (chan) => {
+      distSet.add(chan);
+    },
+    unsub: (chan) => {
+      return distSet.delete(chan);
+    },
+  };
 }

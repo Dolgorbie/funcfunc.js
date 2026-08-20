@@ -40,11 +40,8 @@ export function xtake(signal, chan) {
   return chan.take(signal);
 }
 
-export async function alts(...chans) {
+export async function alts(chans) {
   const { length } = chans;
-  if (length === 0) {
-    throw Error("expects at least a chan, but got none");
-  }
 
   const offset = Math.random() * length | 0
   let countEOC = 0;
@@ -62,7 +59,7 @@ export async function alts(...chans) {
   }
 
   if (countEOC === length) {
-    return { value: _eoc, chan: chans[0] };
+    return { value: _eoc, chan: void 0 };
   }
 
   const abortCtrl = new AbortController();
@@ -81,7 +78,7 @@ export async function alts(...chans) {
     if (error instanceof AggregateError) {
       const { errors: contents } = error;
       if (every1(isChan, contents)) {
-        return { value: _eoc, chan: contents[0] };
+        return { value: _eoc, chan: void 0 };
       }
     }
     throw error;
@@ -142,7 +139,7 @@ export class Chan {
 
     if (signal === void 0) {
       return await new Promise((resolve, reject) => {
-        _postContQueue.push([value, resolve, reject]);
+        _postContQueue.push({ _value: value, _resolve: resolve, _reject: reject });
       });
     }
 
@@ -167,20 +164,9 @@ export class Chan {
         reject(reason);
       }
 
-      const postContQueueItem = [value, _customResolve, _customReject];
+      const postContQueueItem = { _value: value, _resolve: _customResolve, _reject: _customReject };
       signal.addEventListener("abort", _cancel, { once: true });
       _postContQueue.push(postContQueueItem);
-    });
-  }
-
-  _postNoSig(value) {
-    const success = this.tryPost(value);
-    if (success) {
-      return;
-    }
-
-    return new Promise((resolve, reject) => {
-      this._postContQueue.add([value, resolve, reject]);
     });
   }
 
@@ -191,9 +177,9 @@ export class Chan {
 
       const { _postContQueue } = this;
       if (_postContQueue.size > 0) {
-        const [nextValue, resolve] = _postContQueue.pop();
+        const { _value: nextValue, _resolve } = _postContQueue.pop();
         _bufferQueue.push(nextValue);
-        resolve();
+        _resolve();
       }
 
       return value;
@@ -205,9 +191,9 @@ export class Chan {
 
     const { _postContQueue } = this;
     if (_postContQueue.size > 0) {
-      const [value, resolve] = _postContQueue.pop();
-      resolve();
-      return value;
+      const { _value, _resolve } = _postContQueue.pop();
+      _resolve();
+      return _value;
     }
 
     return fail();
@@ -264,8 +250,8 @@ export class Chan {
     const { _postContQueue, _takeContQueue } = this;
 
     while (_postContQueue.size > 0) {
-      const [value, , reject] = _postContQueue.pop();
-      reject(new ClosedPostError(this, value, "closed"));
+      const { _value, _reject } = _postContQueue.pop();
+      _reject(new ClosedPostError(this, _value, "closed"));
     }
 
     while (_takeContQueue.size > 0) {
