@@ -1,31 +1,27 @@
-const _reasons = Symbol("reasons");
+const _reason = Symbol("reason");
 
-export function fail(...reasons) {
-  return _toFailure(reasons);
+export function fail(reason) {
+  return { [_reason]: reason }
 }
 
-function _toFailure(reasons) {
-  return { [_reasons]: reasons }
-}
-
-export function failable(proc, ...args) {
+export function attempt(proc, ...args) {
   switch (args.length) {
     case 0: {
-      return failable0(proc);
+      return attempt0(proc);
     }
     case 1: {
-      return failable1(proc, args[0]);
+      return attempt1(proc, args[0]);
     }
     case 2: {
-      return failable2(proc, args[0], args[1]);
+      return attempt2(proc, args[0], args[1]);
     }
     default: {
-      return _failableN(proc, ...args);
+      return _attemptN(proc, ...args);
     }
   }
 }
 
-export function failable0(thunk) {
+export function attempt0(thunk) {
   try {
     return thunk();
   } catch (error) {
@@ -33,7 +29,7 @@ export function failable0(thunk) {
   }
 }
 
-export function failable1(proc, arg0) {
+export function attempt1(proc, arg0) {
   try {
     return proc(arg0);
   } catch (error) {
@@ -41,7 +37,7 @@ export function failable1(proc, arg0) {
   }
 }
 
-export function failable2(proc, arg0, arg1) {
+export function attempt2(proc, arg0, arg1) {
   try {
     return proc(arg0, arg1);
   } catch (error) {
@@ -49,7 +45,7 @@ export function failable2(proc, arg0, arg1) {
   }
 }
 
-function _failableN(proc, ...args) {
+function _attemptN(proc, ...args) {
   try {
     return proc(...args);
   } catch (error) {
@@ -57,7 +53,7 @@ function _failableN(proc, ...args) {
   }
 }
 
-export async function asyncFailable(promise) {
+export async function asyncAttempt(promise) {
   try {
     return await promise;
   } catch (error) {
@@ -66,24 +62,23 @@ export async function asyncFailable(promise) {
 }
 
 export function isFailed(failable) {
-  return failable != null && typeof failable === "object" && _reasons in failable;
+  return failable != null && typeof failable === "object" && _reason in failable;
 }
 
 export function isSuccess(failable) {
   return !isFailed(failable);
 }
 
-export function force(failable) {
+export function confirm(failable) {
   if (isFailed(failable)) {
-    const reasons = failable[_reasons];
-    throw reasons.length === 1 ? reasons[0] : _buildError(reasons);
+    throw _buildError(failable[_reason]);
   }
   return failable;
 }
 
 export function reasons(failure) {
   if (isFailed(failure)) {
-    return failure[_reasons];
+    return failure[_reason];
   }
   throw TypeError("expects failure");
 }
@@ -109,7 +104,7 @@ export function map1(proc, failable0) {
 export function map2(proc, failable0, failable1) {
   if (isFailed(failable0)) {
     if (isFailed(failable1)) {
-      return _toFailure([...failable0[_reasons], ...failable1[_reasons]]);
+      return _toFailure([...failable0[_reason], ...failable1[_reason]]);
     }
     return failable0;
   }
@@ -123,7 +118,7 @@ export function map2(proc, failable0, failable1) {
 
 function _mapN(proc, failable0, failables) {
   if (isFailed(failable0)) {
-    const reasons = [...failable0[_reasons]];
+    const reasons = [...failable0[_reason]];
     _collectReasons(reasons, failables);
     return _toFailure(reasons);
   }
@@ -208,7 +203,7 @@ export function any(failables) {
       return failableI;
     }
 
-    const reasonsI = failableI[_reasons];
+    const reasonsI = failableI[_reason];
     const nReasonsI = reasonsI.length;
     for (let j = 0; j < nReasonsI; ++j) {
       reasons.push(reasonsI[j]);
@@ -222,7 +217,7 @@ function _collectReasons(acc, failables) {
   for (let i = 0; i < length; ++i) {
     const failableI = failables[i];
     if (isFailed(failableI)) {
-      const reasonsI = failableI[_reasons];
+      const reasonsI = failableI[_reason];
       const nReasons = reasonsI.length;
       for (let j = 0; j < nReasons; ++j) {
         acc.push(reasonsI[j]);
@@ -231,9 +226,9 @@ function _collectReasons(acc, failables) {
   }
 }
 
-function _buildError(errors) {
+function _buildError(reason) {
   const acc = [];
-  _buildErrorLoop(acc, errors);
+  _buildErrorLoop(acc, reason);
   return acc;
 }
 

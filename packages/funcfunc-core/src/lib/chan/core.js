@@ -261,6 +261,7 @@ export class Chan {
 
     this._isClosed = true;
     this._afterCloseHooks.forEach((callback) => callback(this));
+    this._afterCloseHooks = null;
   }
 
   addCloseHook(callback) {
