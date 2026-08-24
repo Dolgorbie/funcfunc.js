@@ -1,4 +1,3 @@
-import { flatMap1, some1 } from "./sequence/array-utils";
 
 const _reason = Symbol("reason");
 
@@ -85,25 +84,25 @@ export function reasonOf(failure) {
   throw TypeError("expects failure");
 }
 
-export function map(proc, failable0, ...failables) {
+export function flmap(proc, ...failables) {
   switch (failables.length) {
-    case 0: {
-      return map1(proc, failable0);
-    }
     case 1: {
-      return map2(proc, failable0, failables[0]);
+      return flmap1(proc, failables[0]);
+    }
+    case 2: {
+      return flmap2(proc, failables[0], failables[1]);
     }
     default: {
-      return _mapN(proc, failable0, failables);
+      return _flmapN(proc, failables);
     }
   }
 }
 
-export function map1(proc, failable0) {
+export function flmap1(proc, failable0) {
   return isFailed(failable0) ? failable0 : proc(failable0);
 }
 
-export function map2(proc, failable0, failable1) {
+export function flmap2(proc, failable0, failable1) {
   if (isFailed(failable0)) {
     if (isFailed(failable1)) {
       return fail([failable0[_reason], failable1[_reason]]);
@@ -118,35 +117,33 @@ export function map2(proc, failable0, failable1) {
   return proc(failable0, failable1);
 }
 
-function _mapN(proc, failable0, failables) {
-  if (isFailed(failable0)) {
-    return fail([failable0[_reason], flatMap1((x) => isFailed(x) ? [x[_reason]] : [], failables)]);
+function _flmapN(proc, failables) {
+  const composed = all(failables);
+
+  if (isFailed(composed)) {
+    return composed;
   }
 
-  if (some1(isFailed, failables)) {
-    return fail(flatMap1((x) => isFailed(x) ? [x[_reason]] : [], failables));
-  }
-
-  return proc(failable0, ...failables);
+  return proc(...failables);
 }
 
-export function tryMap(proc, failable0, ...failables) {
+export function tryMap(proc, ...failables) {
   switch (failables.length) {
     case 0: {
-      return tryMap1(proc, failable0);
+      return tryMap1(proc, failables[0]);
     }
     case 1: {
-      return tryMap2(proc, failable0, failables[0]);
+      return tryMap2(proc, failables[0], failables[1]);
     }
     default: {
-      return _tryMapN(proc, failable0, failables);
+      return _tryMapN(proc, failables);
     }
   }
 }
 
 export function tryMap1(proc, failable0) {
   try {
-    return map1(proc, failable0);
+    return flmap1(proc, failable0);
   } catch (error) {
     return fail(error)
   }
@@ -154,15 +151,15 @@ export function tryMap1(proc, failable0) {
 
 export function tryMap2(proc, failable0, failable1) {
   try {
-    return map2(proc, failable0, failable1);
+    return flmap2(proc, failable0, failable1);
   } catch (error) {
     return fail(error);
   }
 }
 
-function _tryMapN(proc, failable0, failables) {
+function _tryMapN(proc, failables) {
   try {
-    return _mapN(proc, failable0, failables);
+    return _flmapN(proc, failables);
   } catch (error) {
     return fail(error);
   }
@@ -175,55 +172,48 @@ export function orValue(failable, defaultValue) {
   return failable;
 }
 
-export function orCalc(failable, ifFailed) {
+export function orCalc(failable, generate, ...args) {
   if (isFailed(failable)) {
-    return ifFailed();
+    return generate(...args);
   }
   return failable;
 }
 
 export function all(failables) {
-  const reasons = [];
+  const acc = [];
 
-  _collectReasons(reasons, failables);
-
-  if (reasons.length === 0) {
-    return failables;
+  for (const x of failables) {
+    if (isFailed(x)) {
+      acc.push(x);
+    }
   }
 
-  return _toFailure(reasons);
+  const { length } = acc;
+  switch (length) {
+    case 0:
+      return failables;
+    case 1:
+      return acc[0];
+    default: {
+      for (let i = 0; i < length; ++i) {
+        acc[i] = acc[i][_reason];
+      }
+      return fail(acc);
+    }
+  }
 }
 
 export function any(failables) {
-  const { length } = failables;
-  const reasons = [];
-  for (let i = 0; i < length; ++i) {
-    const failableI = failables[i];
-    if (isSuccess(failableI)) {
-      return failableI;
-    }
+  const acc = [];
 
-    const reasonsI = failableI[_reason];
-    const nReasonsI = reasonsI.length;
-    for (let j = 0; j < nReasonsI; ++j) {
-      reasons.push(reasonsI[j]);
+  for (const x of failables) {
+    if (isFailed(x)) {
+      acc.push(x);
     }
+    return failables;
   }
-  return _toFailure(reasons);
-}
 
-function _collectReasons(acc, failables) {
-  const { length } = failables;
-  for (let i = 0; i < length; ++i) {
-    const failableI = failables[i];
-    if (isFailed(failableI)) {
-      const reasonsI = failableI[_reason];
-      const nReasons = reasonsI.length;
-      for (let j = 0; j < nReasons; ++j) {
-        acc.push(reasonsI[j]);
-      }
-    }
-  }
+  return fail(acc);
 }
 
 function _buildError(reason) {

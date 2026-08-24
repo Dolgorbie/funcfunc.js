@@ -88,7 +88,7 @@ export function cons(x, y) {
   return new Pair(x, y, false);
 }
 
-export function lcons(x, thunk) {
+export function zcons(x, thunk) {
   return new Pair(x, thunk, true);
 }
 

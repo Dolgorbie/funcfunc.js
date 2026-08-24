@@ -1,48 +1,48 @@
 import { toUInt } from "../asfunc";
-import { car, cdr, cons, isPair, lcons, listOf, nil } from "./list";
+import { car, cdr, cons, isPair, listOf, nil, zcons } from "./list";
 
 // creation ================
 
-export { listOf as llistOf } from "./list";
+export { listOf as zlistOf } from "./list";
 
-export function llrepeat(count, value) {
+export function zrepeat(count, value) {
   if (count === void 0 || count === Number.POSITIVE_INFINITY) {
-    return llrepeatInf(value);
+    return zrepeatInf(value);
   }
-  return _llrepeatFinite(toUInt(count), value);
+  return _zrepeatFinite(toUInt(count), value);
 }
 
-export function llrepeatInf(value) {
-  return lcons(value, () => llrepeatInf(value));
+export function zrepeatInf(value) {
+  return zcons(value, () => zrepeatInf(value));
 }
 
-function _llrepeatFinite(count, value) {
+function _zrepeatFinite(count, value) {
   if (count === 0) {
     return nil;
   }
-  return lcons(value, () => _llrepeatFinite(count - 1, value));
+  return zcons(value, () => _zrepeatFinite(count - 1, value));
 }
 
-export function lliota(count, start = 0, step = 1) {
+export function ziota(count, start = 0, step = 1) {
   if (count === void 0 || count === Number.POSITIVE_INFINITY) {
-    return lliotaInf(start, step);
+    return ziotaInf(start, step);
   }
-  return _lliotaFinite(0, toUInt(count), +start, +step);
+  return _ziotaFinite(0, toUInt(count), +start, +step);
 }
 
-export function lliotaInf(start, step) {
-  return _lliotaInfImpl(0, +start, +step);
+export function ziotaInf(start, step) {
+  return _ziotaInfImpl(0, +start, +step);
 }
 
-function _lliotaInfImpl(i, start, step) {
-  return lcons(i * step + start, () => _lliotaInfImpl(i + 1, start, step));
+function _ziotaInfImpl(i, start, step) {
+  return zcons(i * step + start, () => _ziotaInfImpl(i + 1, start, step));
 }
 
-function _lliotaFinite(i, count, start, step) {
+function _ziotaFinite(i, count, start, step) {
   if (i === count) {
     return nil;
   }
-  return lcons(i * step + start, () => _lliotaFinite(i + 1, count, start, step));
+  return zcons(i * step + start, () => _ziotaFinite(i + 1, count, start, step));
 }
 
 export function iterableToLazyList(iterable) {
@@ -53,93 +53,93 @@ export function iterableToLazyList(iterable) {
     if (res.done) {
       return nil;
     }
-    return lcons(res.value, _loop);
+    return zcons(res.value, _loop);
   }
 
   return _loop();
 }
 
-export function llunfold(gen, seed, tailGen = void 0) {
+export function zunfold(gen, seed, tailGen = void 0) {
   const res = gen(seed);
   const { value, done } = res;
   if (done) {
     return tailGen === void 0 ? nil : tailGen(seed);
   }
-  return lcons(value, () => llunfold(gen, "seed" in res ? res.seed : value, tailGen));
+  return zcons(value, () => zunfold(gen, "seed" in res ? res.seed : value, tailGen));
 }
 
 // splicing ================
 
-export function lltake(count, list) {
+export function ztake(count, list) {
   if (count === 0 || !isPair(list)) {
     return nil;
   }
-  return lcons(car(list), () => lltake(count - 1, cdr(list)));
+  return zcons(car(list), () => ztake(count - 1, cdr(list)));
 }
 
-export { ldrop as lldrop } from "./list";
+export { ldrop as zdrop } from "./list";
 
 // composition ================
 
-export function llflat(listOfList) {
+export function zflat(listOfList) {
   if (!isPair(listOfList)) {
     return nil;
   }
 
-  return llconcat2(car(listOfList), () => llflat(cdr(listOfList)));
+  return zconcat2(car(listOfList), () => zflat(cdr(listOfList)));
 }
 
-export function llconcat(list0, ...lists) {
+export function zconcat(list0, ...lists) {
   switch (lists.length) {
     case 0: return list0;
-    case 1: return llconcat2(list0, () => lists[0]);
-    default: return llconcat2(list0, () => _llconcatN(0, lists));
+    case 1: return zconcat2(list0, () => lists[0]);
+    default: return zconcat2(list0, () => _zconcatN(0, lists));
   }
 }
 
-export function llconcat2(list0, thunk) {
+export function zconcat2(list0, thunk) {
   if (!isPair(list0)) {
     return thunk();
   }
-  return lcons(car(list0), () => llconcat2(cdr(list0), thunk));
+  return zcons(car(list0), () => zconcat2(cdr(list0), thunk));
 }
 
-function _llconcatN(offset, lists) {
+function _zconcatN(offset, lists) {
   if (offset === lists.length) {
     return nil;
   }
-  return llconcat2(lists[offset], () => _llconcatN(offset + 1, lists));
+  return zconcat2(lists[offset], () => _zconcatN(offset + 1, lists));
 }
 
-export function llzip(list0, ...lists) {
+export function zzip(list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return _llzip1(list0);
+      return _zzip1(list0);
     }
     case 1: {
-      return _llzip2(list0, lists[0]);
+      return _zzip2(list0, lists[0]);
     }
     default: {
-      return _llzipN(list0, lists);
+      return _zzipN(list0, lists);
     }
   }
 }
 
-function _llzip1(list0) {
+function _zzip1(list0) {
   if (!isPair(list0)) {
     return nil;
   }
-  return lcons(listOf(car(list0)), () => _llzip1(cdr(list0)));
+  return zcons(listOf(car(list0)), () => _zzip1(cdr(list0)));
 }
 
-function _llzip2(list0, list1) {
+function _zzip2(list0, list1) {
   if (!isPair(list0) || !isPair(list1)) {
     return nil;
   }
-  return lcons(listOf(car(list0), car(list1)), () => _llzip2(cdr(list0), cdr(list1)));
+  return zcons(listOf(car(list0), car(list1)), () => _zzip2(cdr(list0), cdr(list1)));
 }
 
-function _llzipN(list0, lists) {
+function _zzipN(list0, lists) {
   const nLists = lists.length;
   let elem = nil;
   for (let i = nLists - 1; i >= 0; --i) {
@@ -155,40 +155,40 @@ function _llzipN(list0, lists) {
   }
   elem = cons(car(list0), elem);
 
-  return lcons(elem, () => {
+  return zcons(elem, () => {
     const next0 = cdr(list0);
     const nexts = new Array(nLists);
     for (let i = 0; i < nLists; ++i) {
       nexts[i] = cdr(lists[i]);
     }
-    return _llzipN(next0, nexts);
+    return _zzipN(next0, nexts);
   });
 }
 
 // filtering ================
 
-export function llfilter(pred, list) {
+export function zfilter(pred, list) {
   for (let tmp = list; isPair(tmp); tmp = cdr(tmp)) {
     const x = car(tmp);
     if (pred(x)) {
-      return lcons(x, () => llfilter(pred, cdr(tmp)));
+      return zcons(x, () => zfilter(pred, cdr(tmp)));
     }
   }
   return nil;
 }
 
-export function lltakeWhile(pred, list) {
+export function ztakeWhile(pred, list) {
   if (!isPair(list)) {
     return nil;
   }
   const x = car(list);
   if (pred(x)) {
-    return lcons(x, () => lltakeWhile(pred, cdr(list)));
+    return zcons(x, () => ztakeWhile(pred, cdr(list)));
   }
   return nil;
 }
 
-export function llunique(list) {
+export function zunique(list) {
   if (!isPair(list)) {
     return nil;
   }
@@ -204,48 +204,48 @@ export function llunique(list) {
       return loop(cdr(list));
     }
     cache.add(x);
-    return lcons(x, () => loop(cdr(list)));
+    return zcons(x, () => loop(cdr(list)));
   }
 
   return loop(list);
 }
 
 export {
-  ldropWhile as lldropWhile,
-  lfindTail as llfindTail
+  ldropWhile as zdropWhile,
+  lfindTail as zfindTail
 } from "./list";
 
 // mapping ================
 
-export function llmap(proc, list0, ...lists) {
+export function zmap(proc, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return llmap1(proc, list0);
+      return zmap1(proc, list0);
     }
     case 1: {
-      return llmap2(proc, list0, lists[0]);
+      return zmap2(proc, list0, lists[0]);
     }
     default: {
-      return _llmapN(proc, list0, lists);
+      return _zmapN(proc, list0, lists);
     }
   }
 }
 
-export function llmap1(proc, list0) {
+export function zmap1(proc, list0) {
   if (!isPair(list0)) {
     return nil;
   }
-  return lcons(proc(car(list0)), () => llmap1(proc, cdr(list0)));
+  return zcons(proc(car(list0)), () => zmap1(proc, cdr(list0)));
 }
 
-export function llmap2(proc, list0, list1) {
+export function zmap2(proc, list0, list1) {
   if (!isPair(list0) || !isPair(list1)) {
     return nil;
   }
-  return lcons(proc(car(list0), car(list1)), () => llmap2(proc, cdr(list0), cdr(list1)));
+  return zcons(proc(car(list0), car(list1)), () => zmap2(proc, cdr(list0), cdr(list1)));
 }
 
-function _llmapN(proc, list0, lists) {
+function _zmapN(proc, list0, lists) {
   if (!isPair(list0)) {
     return nil;
   }
@@ -262,45 +262,45 @@ function _llmapN(proc, list0, lists) {
     values[i] = car(listI);
   }
 
-  return lcons(proc(value0, ...values), () => {
+  return zcons(proc(value0, ...values), () => {
     const rest0 = cdr(list0);
     const rests = new Array(nLists);
     for (let i = 0; i < nLists; ++i) {
       rests[i] = cdr(lists[i]);
     }
-    return _llmapN(proc, rest0, rests);
+    return _zmapN(proc, rest0, rests);
   });
 }
 
-export function llflatMap(proc, list0, ...lists) {
+export function zflatMap(proc, list0, ...lists) {
   switch (lists.length) {
     case 0: {
-      return llflatMap1(proc, list0);
+      return zflatMap1(proc, list0);
     }
     case 1: {
-      return llflatMap2(proc, list0, lists[0]);
+      return zflatMap2(proc, list0, lists[0]);
     }
     default: {
-      return _llflatMapN(proc, list0, lists);
+      return _zflatMapN(proc, list0, lists);
     }
   }
 }
 
-export function llflatMap1(proc, list0) {
+export function zflatMap1(proc, list0) {
   if (!isPair(list0)) {
     return nil;
   }
-  return llconcat2(proc(car(list0)), () => llflatMap1(proc, cdr(list0)));
+  return zconcat2(proc(car(list0)), () => zflatMap1(proc, cdr(list0)));
 }
 
-export function llflatMap2(proc, list0, list1) {
+export function zflatMap2(proc, list0, list1) {
   if (!isPair(list0) || !isPair(list1)) {
     return nil;
   }
-  return llconcat2(proc(car(list0), car(list1)), () => llflatMap2(proc, cdr(list0), cdr(list1)));
+  return zconcat2(proc(car(list0), car(list1)), () => zflatMap2(proc, cdr(list0), cdr(list1)));
 }
 
-function _llflatMapN(proc, list0, lists) {
+function _zflatMapN(proc, list0, lists) {
   if (!isPair(list0)) {
     return nil;
   }
@@ -317,12 +317,12 @@ function _llflatMapN(proc, list0, lists) {
     values[i] = car(listI);
   }
 
-  return llconcat2(proc(value0, ...values), () => {
+  return zconcat2(proc(value0, ...values), () => {
     const rest0 = cdr(list0);
     const rests = new Array(nLists);
     for (let i = 0; i < nLists; ++i) {
       rests[i] = cdr(lists[i]);
     }
-    return _llflatMapN(proc, rest0, rests);
+    return _zflatMapN(proc, rest0, rests);
   });
 }

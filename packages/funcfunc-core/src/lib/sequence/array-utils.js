@@ -362,6 +362,69 @@ function _flatMapN(proc, array0, arrays) {
   return result;
 }
 
+export function mapMulti(proc, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0:
+      return mapMulti1(proc, array0);
+    case 1:
+      return mapMulti2(proc, array0, arrays[1]);
+    default:
+      return _mapMultiN(proc, array0, arrays);
+  }
+}
+
+export function mapMulti1(proc, array0) {
+  const result = [];
+
+  const add = (value) => {
+    result.push(value);
+  };
+
+  const { length } = array0;
+  for (let i = 0; i < length; ++i) {
+    proc(add, array0[i]);
+  }
+  return result;
+
+}
+
+export function mapMulti2(proc, array0, array1) {
+  const result = [];
+
+  const add = (value) => {
+    result.push(value);
+  };
+
+  const { length } = array0;
+  for (let i = 0; i < length; ++i) {
+    proc(add, array0[i], array1[i]);
+  }
+  return result;
+
+}
+
+export function _mapMultiN(proc, array0, arrays) {
+  const nArrays = arrays.length;
+
+  const result = [];
+
+  const add = (value) => {
+    result.push(value);
+  };
+
+  const values = new Array(nArrays);
+
+  const { length } = array0;
+  for (let i = 0; i < length; ++i) {
+    const value0 = array0[i];
+    for (let j = 0; j < nArrays; ++j) {
+      values[j] = arrays[j][i];
+    }
+    proc(add, value0, ...values);
+  }
+  return result;
+}
+
 // reduction ================
 
 export function reduce(proc, init, array0, ...arrays) {
