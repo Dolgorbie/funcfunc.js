@@ -1,3 +1,5 @@
+import { flatMap1, some1 } from "./sequence/array-utils";
+
 const _reason = Symbol("reason");
 
 export function fail(reason) {
@@ -76,7 +78,7 @@ export function confirm(failable) {
   return failable;
 }
 
-export function reasons(failure) {
+export function reasonOf(failure) {
   if (isFailed(failure)) {
     return failure[_reason];
   }
@@ -104,7 +106,7 @@ export function map1(proc, failable0) {
 export function map2(proc, failable0, failable1) {
   if (isFailed(failable0)) {
     if (isFailed(failable1)) {
-      return _toFailure([...failable0[_reason], ...failable1[_reason]]);
+      return fail([failable0[_reason], failable1[_reason]]);
     }
     return failable0;
   }
@@ -118,16 +120,14 @@ export function map2(proc, failable0, failable1) {
 
 function _mapN(proc, failable0, failables) {
   if (isFailed(failable0)) {
-    const reasons = [...failable0[_reason]];
-    _collectReasons(reasons, failables);
-    return _toFailure(reasons);
+    return fail([failable0[_reason], flatMap1((x) => isFailed(x) ? [x[_reason]] : [], failables)]);
   }
-  const reasons = [];
-  _collectReasons(reasons, failables);
-  if (reasons.length === 0) {
-    return proc(failable0, ...failables);
+
+  if (some1(isFailed, failables)) {
+    return fail(flatMap1((x) => isFailed(x) ? [x[_reason]] : [], failables));
   }
-  return _toFailure(reasons);
+
+  return proc(failable0, ...failables);
 }
 
 export function tryMap(proc, failable0, ...failables) {
@@ -227,19 +227,40 @@ function _collectReasons(acc, failables) {
 }
 
 function _buildError(reason) {
+  if (reason == null || typeof reason !== "object" || reason instanceof AggregateError) {
+    return reason;
+  }
+
   const acc = [];
   _buildErrorLoop(acc, reason);
-  return acc;
+  return acc.length === 1 ? acc[0] : new AggregateError(acc);
 }
 
-function _buildErrorLoop(acc, errors) {
-  const { length } = errors;
-  for (let i = 0; i < length; ++i) {
-    const errorI = errors[i];
-    if (errorI instanceof AggregateError) {
-      _buildErrorLoop(acc, errorI.errors);
-      continue;
-    }
-    acc.push(errorI);
+function _buildErrorLoop(acc, reason) {
+  if (reason == null || typeof reason !== "object") {
+    acc.push(reason);
+    return;
   }
+
+  const { length } = reason;
+  if (typeof length === "number") {
+    for (let i = 0; i < length; ++i) {
+      _buildErrorLoop(acc, reason[i]);
+    }
+    return;
+  }
+
+  if (typeof reason[Symbol.iterator] === "function") {
+    for (const r of reason) {
+      _buildErrorLoop(acc, r);
+    }
+    return;
+  }
+
+  if (reason instanceof AggregateError) {
+    _buildErrorLoop(acc, reason.errors);
+    return;
+  }
+
+  acc.push(reason);
 }
