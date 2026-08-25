@@ -1,32 +1,39 @@
-import { createContext, use, useMemo, useReducer, useState } from "react";
+import { createContext, memo, use, useMemo, useReducer, useState } from "react";
 
 export function createFormHook(options) {
   const { name = "", form: Container = "form" } = options;
 
   const SetCtx = createContext();
   const GetCtx = createContext();
+  const SetErrorCtx = createContext();
+  const GetErrorCtx = createContext();
 
-  const useForm = (formOptions) => {
-    const { fields, props } = formOptions;
-
+  const useForm = () => {
     const [Components] = useState(() => {
-      function Form({ children }) {
-        const [value, dispatch] = useReducer(_reduce, fields, _initReducer);
+      const Form = memo(({ fields, children, ...props }) => {
+        const [value, dispatch] = useReducer(_reduce, fields, _initReduce);
+        const [errors, dispatchError] = useReducer(_reduceError, fields, _initErrorReduce);
 
-        return <SetCtx.Provider value={dispatch}>
-          <GetCtx.Provider value={value}>{
-            <Container {...props}>{children}</Container>
-          }</GetCtx.Provider>
-        </SetCtx.Provider>
-      }
+        return <SetErrorCtx.Provider value={dispatchError}>
+          <GetErrorCtx.Provider value={errors}>
+            <SetCtx.Provider value={dispatch}>
+              <GetCtx.Provider value={value}>{
+                <Container {...props}>{children}</Container>
+              }</GetCtx.Provider>
+            </SetCtx.Provider>
+          </GetErrorCtx.Provider>
+        </SetErrorCtx.Provider>
+      });
       Form.displayName = `${name}Form`;
 
       function Field({ name, render, children }) {
         const value = use(GetCtx);
         const dispatch = use(SetCtx);
+        const errors = use(GetErrorCtx);
+        const dispatchError = use(SetErrorCtx);
 
         const Comp = render ?? children;
-        return useMemo(() => <Comp name={name} value={value[name]} />, [Comp, name, value[name]]);
+        return useMemo(() => <Comp name={name} value={value[name]} />, [Comp, name, value[name], errors[name]]);
       };
       Field.displayName = `${name}Field`;
 
@@ -60,7 +67,7 @@ function _reduce(prev, event) {
   return Object.is(prevValue, value) ? prev : { ...prev, [name]: value };
 }
 
-function _initReducer(fields) {
+function _initReduce(fields) {
   return Object.fromEntries(Object.keys(fields).map((key) => [key, fields[key].value]));
 }
 
