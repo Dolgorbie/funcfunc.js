@@ -1,4 +1,4 @@
-import { asyncFailable, fail, isSuccess } from "../failable";
+import { asyncAttempt, fail, isSuccess } from "../failable";
 import { DStackQueue } from "../queue/double-stack-queue";
 import { every1, map1 } from "../sequence/array-utils";
 
@@ -277,7 +277,7 @@ export class Chan {
 
     (async () => {
       try {
-        await chan.post(await asyncFailable(promise));
+        await chan.post(await asyncAttempt(promise));
       } catch (error) {
         console.error("failed to post the error-result to chan:", chan, "which error is:", error);
       } finally {

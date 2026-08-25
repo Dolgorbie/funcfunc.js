@@ -2,15 +2,15 @@ import { toUInt } from "../asfunc";
 
 // helpers ================
 
-function _lengthMin(array0, arrays) {
-  const nArrays = arrays.length;
+function _lengthMin(arrays) {
+  const { length } = arrays;
 
-  let { length } = array0;
-  for (let i = 0; i < nArrays; ++i) {
-    length = Math.min(length, arrays[i].length);
+  let result = Number.MAX_SAFE_INTEGER;
+  for (let i = 0; i < length; ++i) {
+    result = Math.min(result, arrays[i].length);
   }
 
-  return length;
+  return result;
 }
 
 // creation ================
@@ -146,16 +146,15 @@ export function concat(...arrays) {
   return flat(arrays);
 }
 
-export function zip(array0, ...arrays) {
+export function zip(...arrays) {
   const nArrays = arrays.length;
-  const length = _lengthMin(array0, arrays);
+  const length = _lengthMin(arrays);
 
   const result = new Array(length);
   for (let i = 0; i < length; ++i) {
-    const acc = new Array(nArrays + 1);
-    acc[0] = array0[i];
+    const acc = new Array(nArrays);
     for (let j = 0; j < nArrays; ++j) {
-      acc[j + 1] = arrays[j][i];
+      acc[j] = arrays[j][i];
     }
     result[i] = acc;
   }
@@ -163,17 +162,16 @@ export function zip(array0, ...arrays) {
   return result;
 }
 
-export function entries(array0, ...arrays) {
+export function entries(...arrays) {
   const nArrays = arrays.length;
-  const length = _lengthMin(array0, arrays);
+  const length = _lengthMin(arrays);
 
   const result = new Array(length);
   for (let i = 0; i < length; ++i) {
-    const acc = new Array(nArrays + 2);
+    const acc = new Array(nArrays + 1);
     acc[0] = i;
-    acc[1] = array0[i];
     for (let j = 0; j < nArrays; ++j) {
-      acc[j + 2] = arrays[j][i];
+      acc[j + 1] = arrays[j][i];
     }
     result[i] = acc;
   }
@@ -251,18 +249,18 @@ export function unique(array) {
 
 // mapping ================
 
-export function map(proc, array0, ...arrays) {
+export function map(proc, ...arrays) {
   const nArrays = arrays.length;
 
   switch (nArrays) {
-    case 0: {
-      return map1(proc, array0);
-    }
     case 1: {
-      return map2(proc, array0, arrays[0]);
+      return map1(proc, arrays[0]);
+    }
+    case 2: {
+      return map2(proc, arrays[0], arrays[1]);
     }
     default: {
-      return _mapN(proc, array0, arrays);
+      return _mapN(proc, arrays);
     }
   }
 }
@@ -285,33 +283,32 @@ export function map2(proc, array0, array1) {
   return result;
 }
 
-function _mapN(proc, array0, arrays) {
+function _mapN(proc, arrays) {
   const nArrays = arrays.length;
-  const length = _lengthMin(array0, arrays);
+  const length = _lengthMin(arrays);
 
   const result = new Array(length);
   const values = new Array(nArrays);
   for (let i = 0; i < length; ++i) {
-    const value0 = array0[i];
     for (let j = 0; j < nArrays; ++j) {
       values[j] = arrays[j][i];
     }
 
-    result[i] = proc(value0, ...values);
+    result[i] = proc(...values);
   }
   return result;
 }
 
-export function flatMap(proc, array0, ...arrays) {
+export function flatMap(proc, ...arrays) {
   switch (arrays.length) {
-    case 0: {
-      return flatMap1(proc, array0);
-    }
     case 1: {
-      return flatMap2(proc, array0, arrays[0]);
+      return flatMap1(proc, arrays[0]);
+    }
+    case 2: {
+      return flatMap2(proc, arrays[0], arrays[1]);
     }
     default: {
-      return _flatMapN(proc, array0, arrays);
+      return _flatMapN(proc, arrays);
     }
   }
 }

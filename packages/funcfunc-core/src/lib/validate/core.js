@@ -1,4 +1,4 @@
-import { fail, isFailed, isSuccess, reasons } from "../failable";
+import { fail, isFailed, isSuccess, reasonOf } from "../failable";
 
 export function all(...validators) {
   return (target, detail) => {
@@ -24,7 +24,7 @@ export function allSettled(...validators) {
     for (const v of validators) {
       const res = v(tmp, detail);
       if (isFailed(res)) {
-        allReasons.push(...reasons(res));
+        allReasons.push(...reasonOf(res));
         continue;
       }
       tmp = res;
@@ -46,7 +46,7 @@ export function any(...validators) {
       if (isSuccess(res)) {
         return res;
       }
-      allReasons.push(...reasons(res));
+      allReasons.push(...reasonOf(res));
     }
 
     return fail(...allReasons);
@@ -121,7 +121,7 @@ export function isIterOf(validator) {
     for (const e of target) {
       const res = validator(e, { ...detail, value: e, path: [...detail.path, i] })
       if (isFailed) {
-        allReasons.push(...reasons(res));
+        allReasons.push(...reasonOf(res));
       }
       i += 1;
     }

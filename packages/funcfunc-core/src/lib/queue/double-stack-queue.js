@@ -1,4 +1,4 @@
-import { fail, isSuccess, orValue } from "../failable";
+import { fail, isSuccess, orDefault } from "../failable";
 
 const _deleteMark = Symbol("delete mark");
 
@@ -39,7 +39,7 @@ export class DStackQueue {
       return value;
     }
     this.flush();
-    return orValue(this._tryPop(), void 0);
+    return orDefault(this._tryPop(), void 0);
   }
 
   delete(target) {
@@ -108,6 +108,6 @@ export class DStackQueue {
       this._deleted -= 1;
     }
 
-    return fail();
+    return fail(void 0);
   }
 }

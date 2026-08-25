@@ -165,7 +165,7 @@ function _tryMapN(proc, failables) {
   }
 }
 
-export function orValue(failable, defaultValue) {
+export function orDefault(failable, defaultValue) {
   if (isFailed(failable)) {
     return defaultValue;
   }
