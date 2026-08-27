@@ -1,6 +1,6 @@
 import { fail, isFailed, isSuccess, reasonOf } from "../failable";
 
-export function all(...validators) {
+export function all(validators) {
   return (target, detail) => {
     let tmp = target;
 
@@ -16,7 +16,7 @@ export function all(...validators) {
   };
 }
 
-export function allSettled(...validators) {
+export function allSettled(validators) {
   return (target, detail) => {
     let tmp = target;
     const allReasons = [];
@@ -37,7 +37,7 @@ export function allSettled(...validators) {
   };
 }
 
-export function any(...validators) {
+export function any(validators) {
   return (target, detail) => {
     const allReasons = [];
 

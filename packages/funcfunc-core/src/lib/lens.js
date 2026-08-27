@@ -1,6 +1,7 @@
 import { mod2, toInt } from "./asfunc";
 import { fail, isFailed } from "./failable";
 import { every2 } from "./sequence/array-utils";
+import { gmap1 } from "./sequence/iterator-utils";
 
 export const idlens = lens((target) => target, (target, func) => func(target));
 
@@ -39,64 +40,9 @@ export function xputon(target, lns, value) {
   return lns.update(target, () => value);
 }
 
-export function chain(...lenses) {
-  return _chainLens(lenses);
-}
-
-export function path(...segments) {
-  const { length } = segments;
-  for (let i = 0; i < length; ++i) {
-    const seg = segments[i];
-    switch (typeof seg) {
-      case "string":
-      case "symbol": {
-        segments[i] = new _PropLens(seg);
-        break;
-      }
-      case "number": {
-        segments[i] = new _IndexLens(seg);
-        break;
-      }
-      case "function": {
-        segments[i] = new _ArrayTrav(seg);
-        break;
-      }
-      default: {
-        // DO NOTHING
-      }
-    }
-  }
-  return _chainLens(segments);
-}
-
-export function opath(...segments) {
-  const { length } = segments;
-  for (let i = 0; i < length; ++i) {
-    const seg = segments[i];
-    switch (typeof seg) {
-      case "string":
-      case "symbol": {
-        segments[i] = new _PropOpts(seg);
-        break;
-      }
-      case "number": {
-        segments[i] = new _IndexOpts(seg);
-        break;
-      }
-      case "function": {
-        segments[i] = new _ArrayTravOpts(seg);
-        break;
-      }
-      default: {
-        // DO NOTHING
-      }
-    }
-  }
-  return _chainLens(segments);
-}
-
-function _chainLens(lenses) {
-  const { length } = lenses;
+export function chain(lenses) {
+  const lnsArray = [...lenses];
+  const { length } = lnsArray;
   switch (length) {
     case 0: {
       return idlens;
@@ -108,6 +54,47 @@ function _chainLens(lenses) {
       return new _ChainLens(lenses);
     }
   }
+}
+
+export function path(segments) {
+  return chain(gmap1((seg) => {
+    switch (typeof seg) {
+      case "string":
+      case "symbol": {
+        return new _PropLens(seg);
+      }
+      case "number": {
+        return new _IndexLens(seg);
+      }
+      case "function": {
+        return new _ArrayTrav(seg);
+      }
+      default: {
+        return seg;
+      }
+    }
+  }, segments));
+}
+
+
+export function optspath(...segments) {
+  return chain(gmap1((seg) => {
+    switch (typeof seg) {
+      case "string":
+      case "symbol": {
+        return new _PropOpts(seg);
+      }
+      case "number": {
+        return new _IndexOpts(seg);
+      }
+      case "function": {
+        return new _ArrayTrav(seg);
+      }
+      default: {
+        return seg;
+      }
+    }
+  }, segments));
 }
 
 class _ChainLens {
@@ -139,9 +126,14 @@ class _ChainLens {
 }
 
 function _chainUpdate(lenses, length, func, i, target) {
+  if (isFailed(target)) {
+    return target;
+  }
+
   if (i === length) {
     return func(target);
   }
+
   const lensI = lenses[i];
   return lensI.update(target, (value) => _chainUpdate(lenses, length, func, i + 1, value));
 }
@@ -154,25 +146,41 @@ class _PropLens {
   }
 
   view(target) {
+    if (isFailed(target)) {
+      return target;
+    }
+
     if (target == null || typeof target !== "object") {
       return void 0;
     }
+
     return target[this._prop];
   }
 
   update(target, func) {
+    if (isFailed(target)) {
+      return target;
+    }
+
     const { _prop } = this;
 
     if (target == null || typeof target !== "object") {
-      return { [_prop]: func() };
+      const value = func();
+      return isFailed(value) ? target : { [_prop]: value };
     }
 
     if (!(_prop in target)) {
-      return { ...target, [_prop]: func() };
+      const value = func();
+      return isFailed(value) ? target : { ...target, [_prop]: value };
     }
 
     const prev = target[_prop]
     const next = func(prev);
+    if (isFailed(next)) {
+      const res = { ...target };
+      delete res[_prop];
+      return res;
+    }
     if (Object.is(prev, next)) {
       return target;
     }
@@ -189,6 +197,10 @@ class _IndexLens {
   }
 
   view(target) {
+    if (isFailed(target)) {
+      return target;
+    }
+
     if (target == null || typeof target !== "object" || typeof target.length !== "number") {
       return void 0;
     }
@@ -198,24 +210,44 @@ class _IndexLens {
   }
 
   update(target, func) {
+    if (isFailed(target)) {
+      return target;
+    }
+
     const { _index } = this;
 
     if (target == null || typeof target !== "object" || typeof target.length !== "number") {
+      const value = func();
+      if (isFailed(value)) {
+        return target;
+      }
       const res = [];
-      res[_index] = func();
+      res[_index] = value;
       return res;
     }
 
     const i = _index < 0 ? mod2(_index, target.length) : _index;
 
     if (!(i in target)) {
+      const value = func();
+      if (isFailed(value)) {
+        return target;
+      }
       const res = Array.prototype.slice.call(target);
-      res[i] = func();
+      res[i] = value;
       return res;
     }
 
     const prev = target[i];
     const next = func(prev);
+    if (isFailed(next)) {
+      if (i === target.length - 1) {
+        return Array.prototype.slice.call(target, 0, -1);
+      }
+      const res = Array.prototype.slice.call(target);
+      delete res[i];
+      return res
+    }
     if (Object.is(prev, next)) {
       return target;
     }
@@ -233,6 +265,10 @@ class _ArrayTrav {
   }
 
   view(target) {
+    if (isFailed(target)) {
+      return target;
+    }
+
     if (target == null || typeof target !== "object" || typeof target.length !== "number") {
       return void 0;
     }
