@@ -5,6 +5,10 @@ export function fail(reason) {
   return { [_reason]: reason }
 }
 
+export function nothing() {
+  return { [_reason]: [] };
+}
+
 export function attempt(proc, ...args) {
   switch (args.length) {
     case 0: {
