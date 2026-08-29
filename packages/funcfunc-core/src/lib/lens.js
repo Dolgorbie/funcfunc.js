@@ -1,5 +1,5 @@
-import { mod2, toInt } from "./asfunc";
-import { fail, isFailed } from "./failable";
+import { isPlainObject, toInt } from "./asfunc";
+import { isFailed, nothing } from "./failable";
 import { every2 } from "./sequence/array-utils";
 import { gmap1 } from "./sequence/iterator-utils";
 
@@ -41,7 +41,7 @@ export function xputon(target, lns, value) {
 }
 
 export function chain(lenses) {
-  const lnsArray = [...lenses];
+  const lnsArray = Array.isArray(lenses) ? lenses : [...lenses];
   const { length } = lnsArray;
   switch (length) {
     case 0: {
@@ -65,27 +65,6 @@ export function path(segments) {
       }
       case "number": {
         return new _IndexLens(seg);
-      }
-      case "function": {
-        return new _ArrayTrav(seg);
-      }
-      default: {
-        return seg;
-      }
-    }
-  }, segments));
-}
-
-
-export function optspath(...segments) {
-  return chain(gmap1((seg) => {
-    switch (typeof seg) {
-      case "string":
-      case "symbol": {
-        return new _PropOpts(seg);
-      }
-      case "number": {
-        return new _IndexOpts(seg);
       }
       case "function": {
         return new _ArrayTrav(seg);
@@ -150,11 +129,13 @@ class _PropLens {
       return target;
     }
 
-    if (target == null || typeof target !== "object") {
-      return void 0;
+    if (!isPlainObject(target)) {
+      return nothing();
     }
 
-    return target[this._prop];
+    const { _prop } = this;
+
+    return _prop in target ? target[_prop] : nothing();
   }
 
   update(target, func) {
@@ -164,7 +145,7 @@ class _PropLens {
 
     const { _prop } = this;
 
-    if (target == null || typeof target !== "object") {
+    if (!isPlainObject(target)) {
       const value = func();
       return isFailed(value) ? target : { [_prop]: value };
     }
@@ -174,15 +155,17 @@ class _PropLens {
       return isFailed(value) ? target : { ...target, [_prop]: value };
     }
 
-    const prev = target[_prop]
+    const prev = target[_prop];
     const next = func(prev);
+
+    if (Object.is(prev, next)) {
+      return target;
+    }
+
     if (isFailed(next)) {
       const res = { ...target };
       delete res[_prop];
       return res;
-    }
-    if (Object.is(prev, next)) {
-      return target;
     }
 
     return { ...target, [_prop]: next };
@@ -201,12 +184,13 @@ class _IndexLens {
       return target;
     }
 
-    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
-      return void 0;
+    if (!Array.isArray(target)) {
+      return nothing();
     }
 
     const { _index } = this;
-    return target[_index < 0 ? mod2(_index, target.length) : _index];
+    const i = _index < 0 ? _index + target.length : _index;
+    return i in target ? target[i] : nothing();
   }
 
   update(target, func) {
@@ -216,42 +200,48 @@ class _IndexLens {
 
     const { _index } = this;
 
-    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
+    if (!Array.isArray(target)) {
       const value = func();
       if (isFailed(value)) {
         return target;
       }
-      const res = [];
-      res[_index] = value;
+      const res = new Array(_index < 0 ? -_index : _index + 1);
+      res[Math.max(0, _index)] = value;
       return res;
     }
 
-    const i = _index < 0 ? mod2(_index, target.length) : _index;
+    const i = _index < 0 ? _index + target.length : _index;
 
     if (!(i in target)) {
       const value = func();
       if (isFailed(value)) {
         return target;
       }
-      const res = Array.prototype.slice.call(target);
-      res[i] = value;
+      const res = [...target];
+      if (i < 0) {
+        res.length += -i;
+      }
+      res[Math.max(0, i)] = value;
       return res;
     }
 
     const prev = target[i];
     const next = func(prev);
-    if (isFailed(next)) {
-      if (i === target.length - 1) {
-        return Array.prototype.slice.call(target, 0, -1);
-      }
-      const res = Array.prototype.slice.call(target);
-      delete res[i];
-      return res
-    }
+
     if (Object.is(prev, next)) {
       return target;
     }
-    const res = Array.prototype.slice.call(target);
+
+    if (isFailed(next)) {
+      if (i === target.length - 1) {
+        return target.slice(0, -1);
+      }
+      const res = [...target];
+      delete res[i];
+      return res
+    }
+
+    const res = [...target];
     res[i] = next;
     return res;
   }
@@ -269,8 +259,8 @@ class _ArrayTrav {
       return target;
     }
 
-    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
-      return void 0;
+    if (!Array.isArray(target)) {
+      return nothing();
     }
 
     const { _filter } = this;
@@ -280,7 +270,7 @@ class _ArrayTrav {
     const res = new Array(length);
     for (let j = 0; j < length; ++j) {
       const value = target[j];
-      if (_filter(value, j, length)) {
+      if (_filter(value, j, target)) {
         res[i++] = value;
       }
     }
@@ -294,157 +284,23 @@ class _ArrayTrav {
   }
 
   update(target, func) {
-    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
-      return target;
-    }
-    const { _filter } = this;
-    const { length } = target;
-
-    let i = 0;
-    const res = new Array(length);
-    for (let j = 0; j < length; ++j) {
-      const value = target[j];
-      if (_filter(value, j, length)) {
-        res[i++] = func(value);
-      }
-    }
-
-    if (i === length && every2(Object.is, target, res)) {
+    if (isFailed(target)) {
       return target;
     }
 
-    res.length = i;
-    return res;
-  }
-}
-
-class _PropOpts {
-  _prop;
-
-  constructor(prop) {
-    this._prop = prop;
-  }
-
-  view(target) {
-    if (target != null && typeof target === "object") {
-      const { _prop } = this;
-      if (_prop in target) {
-        return target[_prop];
-      }
-    }
-    return fail();
-  }
-
-  update(target, func) {
-    if (target != null && typeof target === "object") {
-      const { _prop } = this;
-      if (_prop in target) {
-        const prev = target[_prop]
-        const next = func(prev);
-        if (!Object.is(prev, next)) {
-          return { ...target, [_prop]: next };
-        }
-      }
-    }
-    return target;
-  }
-}
-
-class _IndexOpts {
-  _index;
-
-  constructor(index) {
-    this._index = toInt(index);
-  }
-
-  view(target) {
-    if (target != null && typeof target === "object") {
-      const { length } = target;
-      if (typeof length === "number") {
-        const { _index } = this;
-        const i = _index < 0 ? mod2(_index, length) : _index;
-        if (i in target) {
-          return target[i];
-        }
-      }
-    }
-    return fail();
-  }
-
-  update(target, func) {
-    if (target != null && typeof target === "object") {
-      const { length } = target;
-      if (typeof length === "number") {
-        const { _index } = this;
-        const i = _index < 0 ? mod2(_index, length) : _index;
-        if (i in target) {
-          const prev = target[i];
-          const next = func(prev);
-          if (!Object.is(prev, next)) {
-            const res = Array.prototype.slice.call(target);
-            res[i] = next;
-            return res;
-          }
-        }
-      }
-    }
-    return target;
-  }
-}
-
-class _ArrayTravOpts {
-  _filter;
-
-  constructor(filter) {
-    this._filter = filter;
-  }
-
-  view(target) {
-    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
-      return fail();
+    if (!Array.isArray(target)) {
+      return nothing();
     }
 
     const { _filter } = this;
     const { length } = target;
 
-    let i = 0;
     const res = new Array(length);
-    for (let j = 0; j < length; ++j) {
-      const value = target[j];
-      if (_filter(value, j, length)) {
-        res[i++] = value;
-      }
+    for (let i = 0; i < length; ++i) {
+      const value = target[i];
+      res[i] = _filter(value, i, target) ? func(value) : value;
     }
 
-    if (i === length) {
-      return target;
-    }
-
-    res.length = i;
-    return res;
-  }
-
-  update(target, func) {
-    if (target == null || typeof target !== "object" || typeof target.length !== "number") {
-      return target;
-    }
-    const { _filter } = this;
-    const { length } = target;
-
-    let i = 0;
-    const res = new Array(length);
-    for (let j = 0; j < length; ++j) {
-      const value = target[j];
-      if (_filter(value, j, length)) {
-        res[i++] = func(value);
-      }
-    }
-
-    if (i === length && every2(Object.is, target, res)) {
-      return target;
-    }
-
-    res.length = i;
-    return res;
+    return every2(Object.is, target, res) ? target : res;
   }
 }

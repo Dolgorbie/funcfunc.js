@@ -5,8 +5,10 @@ export function fail(reason) {
   return { [_reason]: reason }
 }
 
+const _nothingSingleton = { [_reason]: [] };
+
 export function nothing() {
-  return { [_reason]: [] };
+  return _nothingSingleton;
 }
 
 export function attempt(proc, ...args) {

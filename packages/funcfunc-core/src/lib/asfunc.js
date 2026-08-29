@@ -37,7 +37,7 @@ export function isNumber(x) {
 }
 
 export function isObject(x) {
-  return x !== null && typeof x === "object";
+  return x != null && typeof x === "object";
 }
 
 export function isString(x) {
@@ -53,6 +53,10 @@ export function isPlainObject(x) {
 }
 
 export const isArray = Array.isArray;
+
+export function isArrayLike(x) {
+  return x != null && typeof x === "object" && typeof x.length === "number";
+}
 
 export function isInstanceOf(obj, clazz) {
   return obj instanceof clazz;
