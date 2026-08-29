@@ -135,7 +135,7 @@ class _PropLens {
 
     const { _prop } = this;
 
-    return _prop in target ? target[_prop] : nothing();
+    return Object.hasOwn(target, _prop) ? target[_prop] : nothing();
   }
 
   update(target, func) {
@@ -146,12 +146,12 @@ class _PropLens {
     const { _prop } = this;
 
     if (!isPlainObject(target)) {
-      const value = func();
+      const value = func(nothing());
       return isFailed(value) ? target : { [_prop]: value };
     }
 
-    if (!(_prop in target)) {
-      const value = func();
+    if (!(Object.hasOwn(target, _prop))) {
+      const value = func(nothing());
       return isFailed(value) ? target : { ...target, [_prop]: value };
     }
 
@@ -201,7 +201,7 @@ class _IndexLens {
     const { _index } = this;
 
     if (!Array.isArray(target)) {
-      const value = func();
+      const value = func(nothing());
       if (isFailed(value)) {
         return target;
       }
@@ -213,13 +213,17 @@ class _IndexLens {
     const i = _index < 0 ? _index + target.length : _index;
 
     if (!(i in target)) {
-      const value = func();
+      const value = func(nothing());
       if (isFailed(value)) {
         return target;
       }
       const res = [...target];
       if (i < 0) {
         res.length += -i;
+        res.copyWithin(-i, 0);
+        for (let j = 0; j < -i; ++j) {
+          delete res[j];
+        }
       }
       res[Math.max(0, i)] = value;
       return res;
@@ -269,7 +273,7 @@ class _ArrayTrav {
     let i = 0;
     const res = new Array(length);
     for (let j = 0; j < length; ++j) {
-      const value = target[j];
+      const value = j in target ? target[j] : nothing();
       if (_filter(value, j, target)) {
         res[i++] = value;
       }
@@ -289,7 +293,7 @@ class _ArrayTrav {
     }
 
     if (!Array.isArray(target)) {
-      return nothing();
+      return target;
     }
 
     const { _filter } = this;
@@ -297,8 +301,19 @@ class _ArrayTrav {
 
     const res = new Array(length);
     for (let i = 0; i < length; ++i) {
-      const value = target[i];
-      res[i] = _filter(value, i, target) ? func(value) : value;
+      const inTarget = i in target;
+      const prev = inTarget ? target[i] : nothing();
+      if (!_filter(prev, i, target)) {
+        if (inTarget) {
+          res[i] = prev;
+        }
+        continue;
+      }
+
+      const next = func(prev);
+      if (!isFailed(next)) {
+        res[i] = next;
+      }
     }
 
     return every2(Object.is, target, res) ? target : res;
