@@ -93,22 +93,14 @@ export class Chan {
   _afterCloseHooks = new Set();
 
   _bufferQueue = null;
-  _signal = null;
 
-  constructor({ bufferQueue, signal } = {}) {
+  constructor({ bufferQueue } = {}) {
     this._bufferQueue = bufferQueue;
-    this._signal = signal;
-
-    if (signal != null) {
-      this.close = this.close.bind(this);
-      signal.addEventListener("abort", this.close, { once: true });
-      this._afterCloseHooks.add(_removeAbortEventListener);
-    }
   }
 
   tryPost(value) {
     if (this._isClosed) {
-      throw new ClosedPostError(this, value, "chan was already closed.");
+      throw new ClosedChanError(this, value, "chan was already closed.");
     }
 
     const { _takeContQueue } = this;
@@ -127,7 +119,7 @@ export class Chan {
 
   async post(value, signal = void 0) {
     if (signal !== void 0 && signal.aborted) {
-      throw new PostError(this, value, "already aborted.", { cause: signal.reason });
+      throw signal.reason;
     }
 
     const success = this.tryPost(value);
@@ -145,13 +137,13 @@ export class Chan {
 
     return await new Promise((resolve, reject) => {
       if (signal.aborted) {
-        throw new PostError(this, value, "aborted.", { cause: signal.reason });
+        throw signal.reason;
       }
 
       const _cancel = () => {
         _postContQueue.delete(postContQueueItem);
         signal.removeEventListener("abort", _cancel);
-        reject(new PostError(this, value, "aborted.", { cause: signal.reason }));
+        reject(signal.reason);
       }
 
       const _customResolve = () => {
@@ -201,7 +193,7 @@ export class Chan {
 
   async take(signal = void 0) {
     if (signal !== void 0 && signal.aborted) {
-      throw new TakeError(this, "already aborted.", { cause: signal.reason });
+      throw signal.reason;
     }
 
     const value = this.tryTake();
@@ -219,13 +211,13 @@ export class Chan {
 
     return await new Promise((resolve, reject) => {
       if (signal.aborted) {
-        throw new TakeError(this, "aborted.", { cause: signal.reason });
+        throw signal.reason;
       }
 
       const _cancel = () => {
         _takeContQueue.delete(_customResolve);
         signal.removeEventListener("abort", _cancel);
-        reject(new TakeError(this, "aborted.", { cause: signal.reason }));
+        reject(signal.reason);
       }
 
       const _customResolve = (value) => {
@@ -250,8 +242,8 @@ export class Chan {
     const { _postContQueue, _takeContQueue } = this;
 
     while (_postContQueue.size > 0) {
-      const { _value, _reject } = _postContQueue.pop();
-      _reject(new ClosedPostError(this, _value, "closed"));
+      const { _reject } = _postContQueue.pop();
+      _reject(new ClosedChanError(this, "closed"));
     }
 
     while (_takeContQueue.size > 0) {
@@ -296,25 +288,8 @@ export class ChanError extends Error {
   }
 }
 
-export class PostError extends ChanError {
-  constructor(chan, value, ...args) {
-    super(chan, ...args);
-    this.value = value;
-  }
-}
-
-export class ClosedPostError extends PostError {
+export class ClosedChanError extends ChanError {
   constructor(...args) {
     super(...args);
   }
-}
-
-export class TakeError extends ChanError {
-  constructor(chan, ...args) {
-    super(chan, ...args);
-  }
-}
-
-function _removeAbortEventListener(chan) {
-  chan._signal.removeEventListener("abort", chan.close);
 }

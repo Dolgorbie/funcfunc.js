@@ -214,9 +214,9 @@ export function any(failables) {
 
   for (const x of failables) {
     if (isFailed(x)) {
-      acc.push(x);
+      acc.push(x[_reason]);
     }
-    return failables;
+    return x;
   }
 
   return fail(acc);
