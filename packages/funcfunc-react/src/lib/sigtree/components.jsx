@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useAtom, useFastValue, useFocus, usePathFocus, useTrack, useValue } from "./hooks";
+import { useAtom, useFocus, usePathFocus, useTrack, useUnsyncedValue, useValue } from "./hooks";
 
 export function WithAtom({ init, children }) {
   const atom = useAtom(init);
@@ -11,8 +11,8 @@ export function WithValue({ atom, children }) {
   return useMemo(() => children ? children(value) : void 0, [children, value]);
 }
 
-export function WithFastValue({ atom, children }) {
-  const value = useFastValue(atom);
+export function WithUnsyncedValue({ atom, children }) {
+  const value = useUnsyncedValue(atom);
   return useMemo(() => children ? children(value) : void 0, [children, value]);
 }
 

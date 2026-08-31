@@ -3,14 +3,14 @@ import { atom, deref, effect, focus, release, retain, track } from "funcfunc/sig
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 export function useAtom(init) {
-  const [atm] = useState(() => atom(typeof init === "function" ? init() : init));
-  return atm;
+  const [node] = useState(() => atom(typeof init === "function" ? init() : init));
+  return node;
 }
 
-export function useFastValue(node) {
+export function useUnsyncedValue(node) {
   const prevAtomRef = useRef(node);
-  const [value, setValue] = useState(() => deref(node));
-  const eff = useMemo(() => effect((value) => setValue(() => value), node), [node]);
+  const [{ _value }, setValue] = useState(() => ({ _value: deref(node) }));
+  const eff = useMemo(() => effect((_value) => setValue({ _value }), node), [node]);
 
   useEffect(() => {
     retain(eff);
@@ -24,7 +24,7 @@ export function useFastValue(node) {
     return deref(node);
   }
 
-  return value;
+  return _value;
 }
 
 export function useValue(node) {
@@ -54,30 +54,30 @@ export function useTrack(handler, depNodes) {
   return node;
 }
 
-export function useFocus(lns, node) {
-  const fc = useMemo(() => focus(lns, node), [lns, node]);
+export function useFocus(lns, depNode) {
+  const node = useMemo(() => focus(lns, depNode), [lns, depNode]);
 
   useEffect(() => {
-    retain(fc);
+    retain(node);
     return () => {
-      release(fc);
+      release(node);
     };
-  }, [fc]);
+  }, [node]);
 
-  return fc;
+  return node;
 }
 
-export function usePathFocus(node, depPaths) {
-  const fc = useMemo(() => focus(path(...depPaths), node), [node, ...depPaths]);
+export function usePathFocus(depNode, depPaths) {
+  const node = useMemo(() => focus(path(...depPaths), depNode), [depNode, ...depPaths]);
 
   useEffect(() => {
-    retain(fc);
+    retain(node);
     return () => {
-      release(fc);
+      release(node);
     };
-  }, [fc]);
+  }, [node]);
 
-  return fc;
+  return node;
 }
 
 export function useDirectRef(node, mappings) {
