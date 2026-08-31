@@ -66,9 +66,6 @@ export function path(segments) {
       case "number": {
         return new _IndexLens(seg);
       }
-      case "function": {
-        return new _ArrayTrav(seg);
-      }
       default: {
         return seg;
       }
@@ -251,7 +248,54 @@ class _IndexLens {
   }
 }
 
-class _ArrayTrav {
+const _arrayEachInstance = new _ArrayEach();
+
+export function arrayEach() {
+  return _arrayEachInstance;
+}
+
+class _ArrayEach {
+  view(target) {
+    if (isFailed(target)) {
+      return target;
+    }
+
+    if (!Array.isArray(target)) {
+      return nothing();
+    }
+
+    return target;
+  }
+
+  update(target, func) {
+    if (isFailed(target)) {
+      return target;
+    }
+
+    if (!Array.isArray(target)) {
+      return target;
+    }
+
+    const { length } = target;
+
+    const res = new Array(length);
+    for (let i = 0; i < length; ++i) {
+      const prev = i in target ? target[i] : nothing();
+      const next = func(prev);
+      if (!isFailed(next)) {
+        res[i] = next;
+      }
+    }
+
+    return every2(Object.is, target, res) ? target : res;
+  }
+}
+
+export function arrayFilter(pred) {
+  return new _ArrayFilter(pred);
+}
+
+class _ArrayFilter {
   _filter;
 
   constructor(filter) {
