@@ -217,7 +217,7 @@ class _Track {
 
   constructor(func, nodes) {
     this._func = func;
-    this._nodes = nodes;
+    this._depNodes = nodes;
   }
 
   _update() {
