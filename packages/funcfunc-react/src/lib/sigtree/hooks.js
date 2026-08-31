@@ -68,7 +68,7 @@ export function useFocus(lns, depNode) {
 }
 
 export function usePathFocus(depNode, depPaths) {
-  const node = useMemo(() => focus(path(...depPaths), depNode), [depNode, ...depPaths]);
+  const node = useMemo(() => focus(path(depPaths), depNode), [depNode, ...depPaths]);
 
   useEffect(() => {
     retain(node);
