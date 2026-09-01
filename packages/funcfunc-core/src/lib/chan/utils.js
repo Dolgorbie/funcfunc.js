@@ -1,8 +1,9 @@
 import { map1, some1 } from "../sequence/array-utils";
 import { gmap1 } from "../sequence/iterator-utils";
-import { isEndOfChan } from "./core";
+import { Chan, isEndOfChan } from "./core";
 
-export function merge(toChan) {
+export function merge(options) {
+  const toChan = new Chan(options);
   const fromChanSet = new Set();
 
   const abortController = new AbortController();
@@ -44,7 +45,7 @@ export function merge(toChan) {
 export function mult(fromChan) {
   const distSet = new Set();
 
-  (async () => {
+  const run = async () => {
     for (; ;) {
       const value = await fromChan.take();
       if (isEndOfChan(value)) {
@@ -62,12 +63,16 @@ export function mult(fromChan) {
         return;
       }
     }
-  })();
+  };
 
   return {
     sub: (chan) => {
       distSet.add(chan);
+      if (distSet.size === 1) {
+        run();
+      }
     },
+
     unsub: (chan) => {
       return distSet.delete(chan);
     },
