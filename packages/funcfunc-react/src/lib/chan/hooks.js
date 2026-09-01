@@ -1,5 +1,5 @@
-import { Chan, post, take } from "funcfunc/chan/core";
-import { useCallback, useState } from "react";
+import { Chan } from "funcfunc/chan/core";
+import { useState } from "react";
 
 export function useChan(init) {
   const [chan] = useState(() => {
@@ -7,8 +7,5 @@ export function useChan(init) {
     return new Chan(initParam);
   });
 
-  const postEvent = useCallback((event) => post(chan, event), [chan]);
-  const takeEvent = useCallback(() => take(chan, event), [chan]);
-
-  return [chan, postEvent];
+  return chan;
 }

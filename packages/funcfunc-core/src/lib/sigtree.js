@@ -50,6 +50,10 @@ export function swap(node, func, ...args) {
 }
 
 function _staleAll(effects, children) {
+  if (children.size === 0) {
+    return;
+  }
+
   const nextChildren = new Set();
 
   for (const target of children) {
