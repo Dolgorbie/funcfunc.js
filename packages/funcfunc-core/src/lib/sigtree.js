@@ -130,7 +130,7 @@ class _Atom {
 
     this._value = next;
 
-    return { _root: this, _changed: Object.is(prev, next) };
+    return { _root: this, _changed: !Object.is(prev, next) };
   }
 }
 

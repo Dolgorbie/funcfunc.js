@@ -1,43 +1,44 @@
-import { map1, some1 } from "../sequence/array-utils";
 import { gmap1 } from "../sequence/iterator-utils";
 import { Chan, isEndOfChan } from "./core";
 
 export function merge(options) {
   const toChan = new Chan(options);
-  const fromChanSet = new Set();
+  const fromChanMap = new Map();
 
-  const abortController = new AbortController();
-  const { signal } = abortController;
-
-  toChan.addCloseHook(() => {
-    abortController.abort();
-  });
-
-  const run = async () => {
-    await Promise.allSettled(map1(async (chan) => {
-      for (; ;) {
+  const run = (chan, signal) => {
+    (async () => {
+      while (fromChanMap.has(chan)) {
         const value = await chan.take(signal);
         if (isEndOfChan(value)) {
+          fromChanMap.delete(chan);
+          if (fromChanMap.size === 0) {
+            toChan.close();
+          }
           return;
         }
-        await toChan.post({ value, chan });
+        await toChan.post(value);
       }
-    }, fromChanSet));
-    toChan.close();
+    })();
   };
 
   return {
     chan: toChan,
 
     pub: (chan) => {
-      fromChanSet.add(chan);
-      if (fromChanSet.size === 1) {
-        run();
+      if (fromChanMap.has(chan)) {
+        return;
       }
+      const ctrl = new AbortController()
+      fromChanMap.set(chan, ctrl);
+      run(chan, ctrl.signal);
     },
 
     unpub: (chan) => {
-      return fromChanSet.delete(chan);
+      const ctrl = fromChanMap.get(chan);
+      if (ctrl != null) {
+        ctrl.abort();
+        fromChanMap.delete(chan);
+      }
     },
   };
 }
@@ -46,21 +47,29 @@ export function mult(fromChan) {
   const distSet = new Set();
 
   const run = async () => {
-    for (; ;) {
+    while (distSet.size > 0) {
       const value = await fromChan.take();
       if (isEndOfChan(value)) {
         for (const dist of distSet) {
           dist.close();
         }
+        distSet.clear();
         return;
       }
 
-      const result = await Promise.allSettled(gmap1(async (dist) => {
-        await dist.post(value);
+      const rejectedChans = [];
+
+      await Promise.allSettled(gmap1(async (dist) => {
+        try {
+          await dist.post(value);
+        } catch (error) {
+          rejectedChans.push(dist);
+          throw error;
+        }
       }, distSet));
 
-      if (some1(({ status }) => status === "rejected", result)) {
-        return;
+      for (const c of rejectedChans) {
+        distSet.delete(c);
       }
     }
   };
