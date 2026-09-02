@@ -1,11 +1,17 @@
 import { Chan } from "funcfunc/chan/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-export function useChan(init) {
+export function useChan(init, initFn = void 0) {
   const [chan] = useState(() => {
-    const initParam = typeof init === "function" ? init() : init;
+    const initParam = initFn === void 0 ? init : initFn(init);
     return new Chan(initParam);
   });
+
+  useEffect(() => {
+    return () => {
+      chan.close();
+    };
+  }, [chan]);
 
   return chan;
 }
