@@ -283,7 +283,7 @@ export class Chan {
         await chan.post(await asyncAttempt(promise));
       } catch (error) {
         console.error("failed to post the error-result to chan:", chan, "which error is:", error);
-        await rejected.post(error);
+        rejected.tryPost(error);
       } finally {
         chan.close();
         if (onRejectChan == null) {
@@ -305,7 +305,8 @@ export class Chan {
           await chan.post(value);
         }
       } catch (error) {
-        await rejected.post(error);
+        console.error("failed to post the error-result to chan:", chan, "which error is:", error);
+        rejected.tryPost(error);
       } finally {
         chan.close();
         if (onRejectChan == null) {
@@ -314,7 +315,7 @@ export class Chan {
       }
     })();
 
-    return chan;
+    return { chan, rejected };
   }
 
   static fromProducer(builder, options = {}) {
@@ -324,7 +325,11 @@ export class Chan {
       return await chan.post(value, signal);
     };
 
-    const cleanup = builder(_post);
+    const _close = () => {
+      chan.close();
+    };
+
+    const cleanup = builder(_post, _close);
     if (cleanup != null) {
       chan.addCloseHook(cleanup);
     }
