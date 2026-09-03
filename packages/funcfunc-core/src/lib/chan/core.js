@@ -253,7 +253,13 @@ export class Chan {
       resolve(_eoc);
     }
 
-    this._closeHooks.forEach((callback) => callback(this));
+    this._closeHooks.forEach((callback) => {
+      try {
+        callback(this)
+      } catch (error) {
+        console.error("exeption thrown while chan is cleaning up", error);
+      }
+    });
     this._closeHooks.clear();
   }
 
