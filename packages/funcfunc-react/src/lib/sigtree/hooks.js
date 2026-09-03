@@ -1,6 +1,6 @@
 import { view } from "funcfunc/lens";
 import { atom, deref, effect, focus, release, retain, track } from "funcfunc/sigtree";
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePath } from "../lens/hooks";
 
 export function useAtom(init, initFn = void 0) {
@@ -14,8 +14,7 @@ export function useSigEffect(handler, depNodes) {
     throw Error("expects number of depNodes be constant");
   }
 
-  const memoDepNodes = useMemo(() => depNodes, depNodes);
-  const eff = useMemo(() => effect(handler, ...memoDepNodes), [handler, memoDepNodes]);
+  const eff = useMemo(() => effect(handler, ...depNodes), depNodes);
 
   _useLifeCycle(eff);
 
@@ -25,9 +24,8 @@ export function useSigEffect(handler, depNodes) {
 export function useUnsyncedValue(node) {
   const prevAtomRef = useRef(node);
   const [{ _value }, setValue] = useState(() => ({ _value: deref(node) }));
-  const eff = useMemo(() => effect((_value) => setValue({ _value }), node), [node]);
 
-  _useLifeCycle(eff);
+  useSigEffect((_value) => setValue({ _value }), [node])
 
   if (prevAtomRef.current !== node) {
     prevAtomRef.current = node;
@@ -40,10 +38,7 @@ export function useUnsyncedValue(node) {
 export function useValue(node) {
   const subscribe = useCallback((listen) => {
     const eff = effect(listen, node);
-    retain(eff);
-    return () => {
-      release(eff);
-    };
+    return _doLifeCycleEffect(eff);
   }, [node]);
 
   const getSnapshot = useCallback(() => deref(node), [node]);
@@ -132,6 +127,15 @@ export function useDirectRef(node, mappings) {
   }, [node, _memoMappings]);
 }
 
-export function _useLifeCycle(node) {
-  _useLifeCycle(node);
+function _useLifeCycle(node) {
+  useEffect(() => {
+    return _doLifeCycleEffect(node);
+  }, [node]);
+}
+
+function _doLifeCycleEffect(node) {
+  retain(node);
+  return () => {
+    release(node);
+  };
 }
