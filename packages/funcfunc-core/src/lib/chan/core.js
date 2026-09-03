@@ -90,7 +90,7 @@ export class Chan {
   _takeContQueue = new DStackQueue();
 
   _isClosed = false;
-  _afterCloseHooks = new Set();
+  _closeHooks = new Set();
 
   _bufferQueue = null;
 
@@ -239,6 +239,9 @@ export class Chan {
       return;
     }
 
+    this._closeHooks.forEach((callback) => callback(this));
+    this._closeHooks.clear();
+
     const { _postContQueue, _takeContQueue } = this;
 
     while (_postContQueue.size > 0) {
@@ -252,16 +255,14 @@ export class Chan {
     }
 
     this._isClosed = true;
-    this._afterCloseHooks.forEach((callback) => callback(this));
-    this._afterCloseHooks = null;
   }
 
   addCloseHook(callback) {
-    this._afterCloseHooks.add(callback);
+    this._closeHooks.add(callback);
   }
 
   deleteCloseHook(callback) {
-    this._afterCloseHooks.delete(callback);
+    this._closeHooks.delete(callback);
   }
 
   async *toAsyncIter() {
@@ -331,7 +332,11 @@ export class Chan {
 
     const cleanup = builder(_post, _close);
     if (cleanup != null) {
-      chan.addCloseHook(cleanup);
+      if (chan.closed) {
+        cleanup(this);
+      } else {
+        chan.addCloseHook(cleanup);
+      }
     }
 
     return chan;
