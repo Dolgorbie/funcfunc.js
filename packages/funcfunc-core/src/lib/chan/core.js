@@ -283,8 +283,8 @@ export class Chan {
   static fromProducer(builder, options = {}) {
     const chan = new Chan(options);
 
-    const _post = (value, signal = void 0) => {
-      chan.post(value, signal);
+    const _post = async (value, signal = void 0) => {
+      return await chan.post(value, signal);
     };
 
     const cleanup = builder(_post);
