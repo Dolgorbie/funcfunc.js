@@ -279,6 +279,21 @@ export class Chan {
 
     return chan;
   }
+
+  static fromProducer(builder, options = {}) {
+    const chan = new Chan(options);
+
+    const _post = (value, signal = void 0) => {
+      chan.post(value, signal);
+    };
+
+    const cleanup = builder(_post);
+    if (cleanup != null) {
+      chan.addCloseHook(cleanup);
+    }
+
+    return chan;
+  }
 }
 
 export class ChanError extends Error {
