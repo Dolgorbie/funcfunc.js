@@ -264,8 +264,18 @@ export class Chan {
     this._afterCloseHooks.delete(callback);
   }
 
-  static fromPromise(promise, signal = void 0) {
-    const chan = new Chan({ signal });
+  async *toAsyncIter() {
+    for (; ;) {
+      const value = await this.take();
+      if (isEndOfChan(value)) {
+        return;
+      }
+      yield value;
+    }
+  }
+
+  static fromPromise(promise) {
+    const chan = new Chan();
 
     (async () => {
       try {
@@ -274,6 +284,18 @@ export class Chan {
         console.error("failed to post the error-result to chan:", chan, "which error is:", error);
       } finally {
         chan.close();
+      }
+    })();
+
+    return chan;
+  }
+
+  static fromAsyncIter(asyncIter, options = void 0) {
+    const chan = new Chan(options);
+
+    (async () => {
+      for (const value of await asyncIter) {
+        await chan.post(value);
       }
     })();
 
