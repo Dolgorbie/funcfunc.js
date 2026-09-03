@@ -333,7 +333,7 @@ export class Chan {
     const cleanup = builder(_post, _close);
     if (cleanup != null) {
       if (chan.closed) {
-        cleanup(this);
+        cleanup(chan);
       } else {
         chan.addCloseHook(cleanup);
       }
