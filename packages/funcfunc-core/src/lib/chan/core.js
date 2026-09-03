@@ -274,28 +274,43 @@ export class Chan {
     }
   }
 
-  static fromPromise(promise) {
+  static fromPromise(promise, onRejectChan = void 0) {
     const chan = new Chan();
+    const rejected = onRejectChan ?? new Chan();
 
     (async () => {
       try {
         await chan.post(await asyncAttempt(promise));
       } catch (error) {
         console.error("failed to post the error-result to chan:", chan, "which error is:", error);
+        await rejected.post(error);
       } finally {
         chan.close();
+        if (onRejectChan == null) {
+          rejected.close();
+        }
       }
     })();
 
-    return chan;
+    return { chan, rejected };
   }
 
-  static fromAsyncIter(asyncIter, options = void 0) {
+  static fromAsyncIter(asyncIter, onRejectChan = void 0, options = void 0) {
     const chan = new Chan(options);
+    const rejected = onRejectChan ?? new Chan();
 
     (async () => {
-      for (const value of await asyncIter) {
-        await chan.post(value);
+      try {
+        for await (const value of asyncIter) {
+          await chan.post(value);
+        }
+      } catch (error) {
+        await rejected.post(error);
+      } finally {
+        chan.close();
+        if (onRejectChan == null) {
+          rejected.close();
+        }
       }
     })();
 
