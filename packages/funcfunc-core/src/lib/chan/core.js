@@ -239,8 +239,7 @@ export class Chan {
       return;
     }
 
-    this._closeHooks.forEach((callback) => callback(this));
-    this._closeHooks.clear();
+    this._isClosed = true;
 
     const { _postContQueue, _takeContQueue } = this;
 
@@ -254,7 +253,8 @@ export class Chan {
       resolve(_eoc);
     }
 
-    this._isClosed = true;
+    this._closeHooks.forEach((callback) => callback(this));
+    this._closeHooks.clear();
   }
 
   addCloseHook(callback) {
