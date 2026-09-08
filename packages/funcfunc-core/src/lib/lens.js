@@ -48,10 +48,10 @@ export function chain(lenses) {
       return idlens;
     }
     case 1: {
-      return lenses[0];
+      return lnsArray[0];
     }
     default: {
-      return new _ChainLens(lenses);
+      return new _ChainLens(lnsArray);
     }
   }
 }
