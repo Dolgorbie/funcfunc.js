@@ -184,7 +184,7 @@ class _Focus {
   }
 
   _updateRoot(toNext, ...args) {
-    return this._depNode._updateRoot((prevDepValue) => this._lens.update((prev) => toNext(prev, ...args), prevDepValue));
+    return this._depNode._updateRoot((prevDepValue) => this._lens.update(prevDepValue, (prev) => toNext(prev, ...args)));
   }
 
   _setup() {

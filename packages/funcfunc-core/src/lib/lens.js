@@ -73,16 +73,6 @@ export function path(segments) {
   }, segments));
 }
 
-export function liftPromise(lns) {
-  return lens(
-    async (target) => {
-      return lns.view(await target);
-    },
-    async (target, func) => {
-      return lns.update(await target, func);
-    });
-}
-
 class _ChainLens {
   _lenses;
 
