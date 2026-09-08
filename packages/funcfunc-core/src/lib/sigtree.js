@@ -17,15 +17,15 @@ export function effect(handler, ...nodes) {
 }
 
 export function deref(node) {
-  retain(node);
-  const res = derefWeak(node);
-  release(node);
-  return res;
-}
-
-export function derefWeak(node) {
   node._update?.();
   return node._value;
+}
+
+export function derefForce(node) {
+  retain(node);
+  const res = deref(node);
+  release(node);
+  return res;
 }
 
 export function swap(node, func, ...args) {
@@ -43,7 +43,7 @@ export function swap(node, func, ...args) {
       e._invoke();
     }
   }
-  const res = derefWeak(node);
+  const res = deref(node);
 
   release(node);
   return res;
@@ -162,7 +162,7 @@ class _Focus {
       case _st_fresh:
         break;
       case _st_stale: {
-        const dv = derefWeak(this._depNode);
+        const dv = deref(this._depNode);
         if (Object.is(dv, this._depValue)) {
           break;
         }
@@ -171,7 +171,7 @@ class _Focus {
         break;
       }
       case _st_new: {
-        const dv = derefWeak(this._depNode);
+        const dv = deref(this._depNode);
         this._depValue = dv;
         this._value = this._lens.view(dv);
         break;
@@ -231,7 +231,7 @@ class _Track {
       case _st_fresh:
         break;
       case _st_stale: {
-        const dvs = map1(derefWeak, this._depNodes);
+        const dvs = map1(deref, this._depNodes);
         if (every2(Object.is, dvs, this._depValues)) {
           break;
         }
@@ -240,7 +240,7 @@ class _Track {
         break;
       }
       case _st_new: {
-        const dvs = map1(derefWeak, this._depNodes);
+        const dvs = map1(deref, this._depNodes);
         this._depValues = dvs;
         this._value = this._func(...dvs);
         break;
@@ -296,7 +296,7 @@ class _Effect {
       case _st_fresh:
         break;
       case _st_stale: {
-        const dvs = map1(derefWeak, this._depNodes);
+        const dvs = map1(deref, this._depNodes);
         if (every2(Object.is, dvs, this._depValues)) {
           break;
         }
@@ -305,7 +305,7 @@ class _Effect {
         break;
       }
       case _st_new: {
-        const dvs = map1(derefWeak, this._depNodes);
+        const dvs = map1(deref, this._depNodes);
         this._depValues = dvs;
         this._proc(...dvs);
         break;

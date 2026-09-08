@@ -1,5 +1,5 @@
 import { view } from "funcfunc/lens";
-import { atom, deref, effect, focus, release, retain, track } from "funcfunc/sigtree";
+import { atom, derefForce, effect, focus, release, retain, track } from "funcfunc/sigtree";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePath } from "../lens/hooks";
 
@@ -23,13 +23,13 @@ export function useSigEffect(handler, depNodes) {
 
 export function useUnsyncedValue(node) {
   const prevAtomRef = useRef(node);
-  const [{ _value }, setValue] = useState(() => ({ _value: deref(node) }));
+  const [{ _value }, setValue] = useState(() => ({ _value: derefForce(node) }));
 
   useSigEffect((_value) => setValue({ _value }), [node])
 
   if (prevAtomRef.current !== node) {
     prevAtomRef.current = node;
-    return deref(node);
+    return derefForce(node);
   }
 
   return _value;
@@ -41,7 +41,7 @@ export function useValue(node) {
     return _doLifeCycleEffect(eff);
   }, [node]);
 
-  const getSnapshot = useCallback(() => deref(node), [node]);
+  const getSnapshot = useCallback(() => derefForce(node), [node]);
 
   return useSyncExternalStore(subscribe, getSnapshot);
 }
