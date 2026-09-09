@@ -283,6 +283,7 @@ class _Effect {
   _state = _st_disabled;
   _count = 0;
   _depValues = null;
+  _cleanup = null;
 
   constructor(proc, nodes) {
     this._proc = proc;
@@ -300,14 +301,15 @@ class _Effect {
         if (every2(Object.is, dvs, this._depValues)) {
           break;
         }
+        this._cleanup?.();
         this._depValues = dvs;
-        this._proc(...dvs);
+        this._cleanup = this._proc(...dvs);
         break;
       }
       case _st_new: {
         const dvs = map1(deref, this._depNodes);
         this._depValues = dvs;
-        this._proc(...dvs);
+        this._cleanup = this._proc(...dvs);
         break;
       }
       default:
@@ -319,23 +321,29 @@ class _Effect {
 
   _setup() {
     const { _depNodes } = this;
-    this._state = _st_new;
 
     forEach1((d) => {
       retain(d);
       d._effectSet.add(this);
     }, _depNodes);
+
+    this._state = _st_new;
+    this._invoke();
   }
 
   _tearDown() {
     const { _depNodes } = this;
+
+    this._cleanup?.();
+    this._state = _st_disabled;
+    this._count = 0;
+    this._depValues = null;
+    this._cleanup = null;
+
     forEach1((d) => {
       d._effectSet.delete(this);
       release(d);
     }, _depNodes);
 
-    this._state = _st_disabled;
-    this._count = 0;
-    this._depValues = null;
   }
 }
