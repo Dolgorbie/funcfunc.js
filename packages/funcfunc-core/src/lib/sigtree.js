@@ -323,14 +323,14 @@ class _Effect {
 
     forEach1((d) => {
       retain(d);
-      d._childSet.add(this);
+      d._effectSet.add(this);
     }, _depNodes);
   }
 
   _tearDown() {
     const { _depNodes } = this;
     forEach1((d) => {
-      d._childSet.delete(this);
+      d._effectSet.delete(this);
       release(d);
     }, _depNodes);
 
