@@ -60,7 +60,7 @@ export function useTrack(handler, depNodes) {
   return node;
 }
 
-export function useFocus(depNode, lns) {
+export function useFocus(lns, depNode) {
   const node = useMemo(() => focus(lns, depNode), [lns, depNode]);
 
   _useLifeCycle(node);
@@ -68,9 +68,9 @@ export function useFocus(depNode, lns) {
   return node;
 }
 
-export function usePathFocus(depNode, depPath) {
+export function usePathFocus(depPath, depNode) {
   const lens = usePath(depPath);
-  const node = useMemo(() => focus(lens, depNode), [depNode, lens]);
+  const node = useMemo(() => focus(lens, depNode), [lens, depNode]);
 
   _useLifeCycle(node);
 
@@ -102,7 +102,7 @@ export function useDirectRef(node, mappings) {
           case "number":
           case "string":
           case "symbol": {
-            dom[p] = data[p];
+            dom[p] = data[getter];
             break;
           }
           case "function": {
