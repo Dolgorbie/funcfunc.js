@@ -6,12 +6,16 @@ export function ado(func, { retry, timeout, signal: exSignal }) {
     const abortCtrl = new AbortController();
     const { signal: inSignal } = abortCtrl;
 
-    return _withSignals([exSignal, inSignal], async (signal) => {
-      let timeoutId;
+    return withAnySignals([exSignal, inSignal], async (signal) => {
+      let timeoutAbortCtrl;
 
       try {
         if (timeout != null) {
-          timeoutId = setTimeout(() => abortCtrl.abort(), timeout);
+          (async () => {
+            timeoutAbortCtrl = new AbortController();
+            await sleep(timeout, timeoutAbortCtrl.signal);
+            abortCtrl.abort();
+          })();
         }
 
         return await func({ signal });
@@ -19,11 +23,11 @@ export function ado(func, { retry, timeout, signal: exSignal }) {
         if (signal.aborted || retryCount === 0 || !retry?.requires?.(error)) {
           throw error;
         }
-        await _sleep(retry.interval ?? 4, signal);
+        await sleep(retry.interval ?? 4, signal);
         return await run(retryCount - 1);
       } finally {
-        if (timeoutId != null) {
-          clearTimeout(timeoutId);
+        if (timeoutAbortCtrl != null) {
+          timeoutAbortCtrl.abort();
         }
       }
     });
@@ -34,7 +38,7 @@ export function ado(func, { retry, timeout, signal: exSignal }) {
 
 }
 
-async function _withSignals(signals, proc) {
+export async function withAnySignals(signals, proc) {
   const sigArray = [...gfilter((s) => s != null, signals)];
   forEach1(s => s.throwIfAborted(), sigArray);
 
@@ -45,21 +49,15 @@ async function _withSignals(signals, proc) {
     abortCtrl.abort(event.target.reason);
   };
 
-  const cleanup = () => {
-    forEach1((s) => s.removeEventListener("abort", handleAbort), sigArray);
-    signal.removeEventListener("abort", cleanup);
-  };
-
   try {
-    signal.addEventListener("abort", cleanup, { once: true });
     forEach1((s) => s.addEventListener("abort", handleAbort, { once: true }), sigArray);
-    return await proc(signal);
+    return await proc({ signal });
   } finally {
-    cleanup();
+    forEach1((s) => s.removeEventListener("abort", handleAbort), sigArray);
   }
 }
 
-function _sleep(msec, signal) {
+export function sleep(msec, { signal }) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason);

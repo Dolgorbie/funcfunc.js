@@ -1,4 +1,4 @@
-import { ado } from "./richasync";
+import { ado } from "../richasync";
 import { atom, effect, reset, swap } from "./sigtree";
 
 export function autoPromiseAtom(promise) {
@@ -28,6 +28,26 @@ export function queryEffect(targetNode, { proc, depNodes, refreshTime, ...asyncP
     let signal;
 
     const refresh = async () => {
+      promise = ado(async (opts) => {
+        try {
+          const promise = proc({ ...opts, args: deps });
+          swap(targetNode, (prev) => ({ ...prev, status: "pending", promise }));
+
+          const value = await promise;
+          swap(targetNode, (prev) => ({ ...prev, status: "fulfilled", value, reason: void 0 }));
+
+
+        } catch (reason) {
+          if (opts.signal.aborted) {
+            swap(targetNode, (prev) => ({ ...prev, status: "aborted", value: void 0, reason }));
+            throw reason;
+          }
+        }
+      }, asyncPolicy);
+
+
+
+
       try {
         promise = ado((opts) => {
           signal = opts.signal;
