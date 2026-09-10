@@ -1,3 +1,4 @@
+import { ado } from "./richasync";
 import { atom, effect, reset, swap } from "./sigtree";
 
 export function autoPromiseAtom(promise) {
@@ -19,53 +20,47 @@ export function autoPromiseAtom(promise) {
   return res;
 }
 
-export function queryEffect(targetNode, { proc, depNodes, refreshTime, retry }) {
+export function queryEffect(targetNode, { proc, depNodes, refreshTime, ...asyncPolicy }) {
   const eff = effect((...deps) => {
     const abortCtrl = new AbortController();
     let promise;
     let timeoutId;
+    let signal;
 
-    const refresh = async (remainingRetry) => {
+    const refresh = async () => {
       try {
-        if (abortCtrl.signal.aborted) {
-          return;
-        }
-        promise = proc({ values: deps, signal: abortCtrl.signal });
+        promise = ado((opts) => {
+          signal = opts.signal;
+          return proc({ ...opts, args: deps });
+        }, asyncPolicy);
 
-        if (abortCtrl.signal.aborted) {
-          return;
-        }
-        reset(targetNode, { status: "pending", value: void 0, reason: void 0, promise });
-
-        const value = await promise
-        if (abortCtrl.signal.aborted) {
-          return;
-        }
-        reset(targetNode, { status: "fulfilled", value, reason: void 0, promise });
-
-        if (refreshTime != null && !abortCtrl.signal.aborted) {
-          timeoutId = setTimeout(refresh, refreshTime, retry);
-        }
+        swap(targetNode, (prev) => ({ ...prev, status: "pending", promise }))
+        const value = await promise;
+        swap(targetNode, (prev) => ({ ...prev, status: "fulfilled", value, reason: void 0 }));
       } catch (reason) {
-        if (!abortCtrl.signal.aborted) {
-          reset(targetNode, { status: "rejected", value: void 0, reason, promise });
-          if (remainingRetry != null && remainingRetry > 0) {
-            refresh(remainingRetry - 1);
-          } else if (refreshTime != null && !abortCtrl.signal.aborted) {
-            timeoutId = setTimeout(refresh, refreshTime, retry);
-          }
+        if (signal.aborted) {
+          swap(targetNode, (prev) => ({ ...prev, status: "aborted", value: void 0, reason }));
+          return;
+        }
+        swap(targetNode, (prev) => ({ ...prev, status: "raised", value: void 0, reason }));
+      } finally {
+        if (refreshTime != null) {
+          timeoutId = setTimeout(refresh, refreshTime);
         }
       }
     };
 
-    refresh(retry);
-
-    return () => {
-      abortCtrl.abort();
+    const handleAbort = (event) => {
       if (timeoutId != null) {
         clearTimeout(timeoutId);
       }
-      reset(targetNode, { status: "aborted", value: void 0, reason: void 0, promise });
+      reset(targetNode, { status: "aborted", value: void 0, reason: event.target.reason, promise });
+    };
+
+    refresh();
+
+    return () => {
+      abortCtrl.abort();
     };
   }, ...depNodes);
 
