@@ -16,7 +16,7 @@ export function useSigEffect(handler, depNodes) {
 
   const eff = useMemo(() => effect(handler, ...depNodes), depNodes);
 
-  _useLifeCycle(eff);
+  useLifeCycle(eff);
 
   return eff;
 }
@@ -55,7 +55,7 @@ export function useTrack(handler, depNodes) {
   const memoDepNodes = useMemo(() => depNodes, depNodes)
   const node = useMemo(() => track(handler, ...memoDepNodes), [handler, memoDepNodes]);
 
-  _useLifeCycle(node);
+  useLifeCycle(node);
 
   return node;
 }
@@ -63,7 +63,7 @@ export function useTrack(handler, depNodes) {
 export function useFocus(lns, depNode) {
   const node = useMemo(() => focus(lns, depNode), [lns, depNode]);
 
-  _useLifeCycle(node);
+  useLifeCycle(node);
 
   return node;
 }
@@ -72,7 +72,7 @@ export function usePathFocus(depPath, depNode) {
   const lens = usePath(depPath);
   const node = useMemo(() => focus(lens, depNode), [lens, depNode]);
 
-  _useLifeCycle(node);
+  useLifeCycle(node);
 
   return node;
 }
@@ -127,7 +127,7 @@ export function useDirectRef(node, mappings) {
   }, [node, _memoMappings]);
 }
 
-function _useLifeCycle(node) {
+export function useLifeCycle(node) {
   useEffect(() => {
     return _doLifeCycleEffect(node);
   }, [node]);

@@ -30,14 +30,18 @@ export function queryEffect(targetNode, { proc, depNodes, refresh, ...adoOpts })
         swap(targetNode, (prev) => ({ ...prev, status: "pending", promise }));
 
         const value = await promise;
-        swap(targetNode, (prev) => ({ ...prev, status: "fulfilled", value, reason: void 0 }));
+        if (!abortCtrl.signal.aborted) {
+          swap(targetNode, (prev) => ({ ...prev, status: "fulfilled", value, reason: void 0 }));
+        }
 
         if (refresh != null && !abortCtrl.signal.aborted) {
           await sleep(refresh.interval ?? 60000, abortCtrl.signal);
           await loop();
         }
       } catch (reason) {
-        swap(targetNode, (prev) => ({ ...prev, status: "rejected", value: void 0, reason }));
+        if (!abortCtrl.signal.aborted) {
+          swap(targetNode, (prev) => ({ ...prev, status: "rejected", value: void 0, reason }));
+        }
 
         if (refresh?.onError != null && !abortCtrl.signal.aborted) {
           await sleep(refresh.onError, abortCtrl.signal);
@@ -50,6 +54,7 @@ export function queryEffect(targetNode, { proc, depNodes, refresh, ...adoOpts })
 
     return () => {
       abortCtrl.abort();
+      swap(targetNode, (prev) => ({ ...prev, status: "rejected", value: void 0, reason: abortCtrl.signal.reason }));
     };
   }, ...depNodes);
 
