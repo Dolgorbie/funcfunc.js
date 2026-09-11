@@ -1,6 +1,6 @@
-import { isPlainObject, toInt } from "./asfunc";
+import { eq, isPlainObject, toInt } from "./asfunc";
 import { isFailed, nothing } from "./failable";
-import { every2 } from "./sequence/array-utils";
+import { every2, some1 } from "./sequence/array-utils";
 import { gmap1 } from "./sequence/iterator-utils";
 
 export const idlens = lens((target) => target, (target, func) => func(target));
@@ -361,5 +361,73 @@ class _ArrayFilter {
     }
 
     return every2(Object.is, target, res) ? target : res;
+  }
+}
+
+export function subObject(props) {
+  const propsArray = Array.isArray(props) ? props : [...props];
+  return new _SubObject(propsArray);
+}
+
+class _SubObject {
+  _props = [];
+
+  constructor(props) {
+    this._props = props;
+  }
+
+  view(target) {
+    if (isFailed(target)) {
+      return target;
+    }
+
+    if (!isPlainObject(target)) {
+      return nothing();
+    }
+
+    const { _props } = this;
+    const { length } = _props;
+    const okeys = Object.keys(target);
+
+
+    if (okeys.length === length && every2(eq, okeys, _props)) {
+      return target;
+    }
+
+    const res = {};
+    for (const p of _props) {
+      if (Object.hasOwn(target, p)) {
+        res[p] = target[p];
+      }
+    }
+    return res;
+  }
+
+  update(target, func) {
+    if (isFailed(target)) {
+      return target;
+    }
+
+    if (!isPlainObject(target)) {
+      return target;
+    }
+
+    const prev = this.view(target);
+    const next = func(prev);
+    if (!Object.is(prev, next)) {
+      const prevKeys = Object.keys(prev);
+      const nextKeys = new Set(Object.keys(next));
+      if (prevKeys.length !== nextKeys.size || !some1((p) => !nextKeys.has(p) || prev[p] !== next[p], prevKeys)) {
+        const res = { ...target, ...next };
+        for (const p of prevKeys) {
+          if (!nextKeys.has(p)) {
+            delete res[p];
+          }
+        }
+        return res;
+      }
+    }
+
+    return target;
   }
 }
