@@ -294,7 +294,7 @@ export function pipe(...procs) {
     case 0: return itself;
     case 1: return procs[0];
     case 2: return pipe2N(procs[0], procs[1]);
-    case 3: return pipe2N(procs[0], procs[1], procs[2]);
+    case 3: return pipe3N(procs[0], procs[1], procs[2]);
     default: return _pipeNN(procs);
   }
 }
