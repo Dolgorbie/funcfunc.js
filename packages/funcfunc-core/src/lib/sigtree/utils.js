@@ -35,7 +35,7 @@ export function queryEffect(targetNode, { proc, depNodes, refresh, ...adoOpts })
         }
 
         if (refresh != null && !abortCtrl.signal.aborted) {
-          await sleep(refresh.interval ?? 60000, abortCtrl.signal);
+          await sleep(refresh.interval ?? 60000, { signal: abortCtrl.signal });
           await loop();
         }
       } catch (reason) {
@@ -44,7 +44,7 @@ export function queryEffect(targetNode, { proc, depNodes, refresh, ...adoOpts })
         }
 
         if (refresh?.onError != null && !abortCtrl.signal.aborted) {
-          await sleep(refresh.onError, abortCtrl.signal);
+          await sleep(refresh.onError, { signal: abortCtrl.signal });
           await loop();
         }
       }

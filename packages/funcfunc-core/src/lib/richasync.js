@@ -6,14 +6,14 @@ export function ado(func, { retry, timeout, signal: exSignal }) {
     const abortCtrl = new AbortController();
     const { signal: inSignal } = abortCtrl;
 
-    return withAnySignals([exSignal, inSignal], async (signal) => {
+    return withAnySignals([exSignal, inSignal], async ({ signal }) => {
       let timeoutAbortCtrl;
 
       try {
         if (timeout != null) {
           (async () => {
             timeoutAbortCtrl = new AbortController();
-            await sleep(timeout, timeoutAbortCtrl.signal);
+            await sleep(timeout, { signal: timeoutAbortCtrl.signal });
             abortCtrl.abort();
           })();
         }
@@ -23,7 +23,7 @@ export function ado(func, { retry, timeout, signal: exSignal }) {
         if (signal.aborted || retryCount === 0 || !retry?.requires?.(error)) {
           throw error;
         }
-        await sleep(retry.interval ?? 4, signal);
+        await sleep(retry.interval ?? 4, { signal });
         return await run(retryCount - 1);
       } finally {
         if (timeoutAbortCtrl != null) {
