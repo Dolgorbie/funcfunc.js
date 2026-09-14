@@ -2,15 +2,12 @@ import { toUInt } from "../asfunc";
 
 // helpers ================
 
-function _lengthMin(arrays) {
-  const { length } = arrays;
+function _lengthMin(array0, arrays) {
+  return reduce1((acc, { length }) => Math.min(acc, length), array0.length, arrays);;
+}
 
-  let result = Number.MAX_SAFE_INTEGER;
-  for (let i = 0; i < length; ++i) {
-    result = Math.min(result, arrays[i].length);
-  }
-
-  return result;
+function _collectNth(dst, target, i) {
+  return map1I(dst, (x) => x[i], target);
 }
 
 // creation ================
@@ -129,7 +126,7 @@ export function zip(array0, ...arrays) {
 }
 
 export function entries(array0, ...arrays) {
-  const count = reduce1((acc, { length }) => Math.min(acc, length), array0.length, arrays);
+  const count = _lengthMin(array0, arrays);
   return zip(iota(count), array0, ...arrays);
 }
 
@@ -213,7 +210,7 @@ export function map2(proc, array0, array1) {
 }
 
 function _mapN(proc, array0, arrays) {
-  const length = reduce1((acc, { length }) => Math.min(acc, length), array0.length, arrays);
+  const length = _lengthMin(array0, arrays);
   const result = new Array(length);
   return _mapNI(result, proc, array0, arrays);
 }
@@ -246,22 +243,16 @@ function _mapNI(dst, proc, array0, arrays) {
   const acc = new Array(arrays.length);
   const { length } = dst;
   for (let i = 0; i < length; ++i) {
-    dst[i] = proc(array0[i], ...map1I(acc, (x) => x[i], arrays));
+    dst[i] = proc(array0[i], ..._collectNth(acc, arrays, i));
   }
   return dst;
 }
 
-export function flatMap(proc, ...arrays) {
+export function flatMap(proc, array0, ...arrays) {
   switch (arrays.length) {
-    case 1: {
-      return flatMap1(proc, arrays[0]);
-    }
-    case 2: {
-      return flatMap2(proc, arrays[0], arrays[1]);
-    }
-    default: {
-      return _flatMapN(proc, arrays);
-    }
+    case 0: return flatMap1(proc, array0);
+    case 1: return flatMap2(proc, array0, arrays[0]);
+    default: return _flatMapN(proc, array0, arrays);
   }
 }
 
@@ -291,17 +282,13 @@ export function flatMap2(proc, array0, array1) {
   return result;
 }
 
-function _flatMapN(proc, arrays) {
-  const nArrays = arrays.length;
+function _flatMapN(proc, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
 
-  const length = _lengthMin(arrays);
   const result = [];
-  const values = new Array(nArrays);
+  const acc = new Array(arrays.length);
   for (let i = 0; i < length; ++i) {
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    const tmp = proc(...values);
+    const tmp = proc(array0[i], ..._collectNth(acc, arrays, i));
     const n = tmp.length;
     for (let j = 0; j < n; ++j) {
       result.push(tmp[j]);
@@ -310,14 +297,11 @@ function _flatMapN(proc, arrays) {
   return result;
 }
 
-export function mapMulti(proc, ...arrays) {
+export function mapMulti(proc, array0, ...arrays) {
   switch (arrays.length) {
-    case 0:
-      return mapMulti1(proc, arrays[0]);
-    case 1:
-      return mapMulti2(proc, arrays[0], arrays[1]);
-    default:
-      return _mapMultiN(proc, arrays);
+    case 0: return mapMulti1(proc, array0);
+    case 1: return mapMulti2(proc, array0, arrays[0]);
+    default: return _mapMultiN(proc, array0, arrays);
   }
 }
 
@@ -332,8 +316,8 @@ export function mapMulti1(proc, array0) {
   for (let i = 0; i < length; ++i) {
     proc(add, array0[i]);
   }
-  return result;
 
+  return result;
 }
 
 export function mapMulti2(proc, array0, array1) {
@@ -343,47 +327,38 @@ export function mapMulti2(proc, array0, array1) {
     result.push(value);
   };
 
-  const { length } = array0;
+  const length = Math.min(array0.length, array1.length);
   for (let i = 0; i < length; ++i) {
     proc(add, array0[i], array1[i]);
   }
-  return result;
 
+  return result;
 }
 
-export function _mapMultiN(proc, arrays) {
-  const nArrays = arrays.length;
+export function _mapMultiN(proc, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
 
-  const length = _lengthMin(arrays);
   const result = [];
-  const values = new Array(nArrays);
+  const acc = new Array(arrays.length);
 
   const add = (value) => {
     result.push(value);
   };
 
   for (let i = 0; i < length; ++i) {
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    proc(add, ...values);
+    proc(add, array0[i], ..._collectNth(acc, arrays, i));
   }
+
   return result;
 }
 
 // reduction ================
 
-export function reduce(proc, init, ...arrays) {
+export function reduce(proc, init, array0, ...arrays) {
   switch (arrays.length) {
-    case 0: {
-      return reduce1(proc, init, arrays[0]);
-    }
-    case 1: {
-      return reduce2(proc, init, arrays[0], arrays[1]);
-    }
-    default: {
-      return _reduceN(proc, init, arrays);
-    }
+    case 0: return reduce1(proc, init, array0);
+    case 1: return reduce2(proc, init, array0, arrays[0]);
+    default: return _reduceN(proc, init, array0, arrays);
   }
 }
 
@@ -407,79 +382,55 @@ export function reduce2(proc, init, array0, array1) {
   return init;
 }
 
-function _reduceN(proc, init, arrays) {
-  const nArrays = arrays.length;
+function _reduceN(proc, init, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const acc = new Array(arrays.length);
 
-  const length = _lengthMin(arrays);
-  const values = new Array(nArrays);
   for (let i = 0; i < length; ++i) {
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    init = proc(init, ...values);
+    init = proc(init, array0[i], ..._collectNth(acc, arrays, i));
   }
   return init;
 }
 
-export function reduceRight(proc, init, ...arrays) {
+export function reduceRight(proc, init, array0, ...arrays) {
   switch (arrays.length) {
-    case 0: {
-      return reduceRight1(proc, init, arrays[0]);
-    }
-    case 1: {
-      return reduceRight2(proc, init, arrays[0], arrays[1]);
-    }
-    default: {
-      return _reduceRightN(proc, init, arrays);
-    }
+    case 0: return reduceRight1(proc, init, array0);
+    case 1: return reduceRight2(proc, init, array0, arrays[0]);
+    default: return _reduceRightN(proc, init, array0, arrays);
   }
 }
 
 export function reduceRight1(proc, init, array0) {
   const { length } = array0;
-
   for (let i = length - 1; i >= 0; --i) {
     init = proc(init, array0[i]);
   }
-
   return init;
 }
 
 export function reduceRight2(proc, init, array0, array1) {
   const length = Math.min(array0.length, array1.length);
-
   for (let i = length - 1; i >= 0; --i) {
     init = proc(init, array0[i], array1[i]);
   }
-
   return init;
 }
 
-function _reduceRightN(proc, init, arrays) {
-  const nArrays = arrays.length;
+function _reduceRightN(proc, init, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const acc = new Array(arrays.length);
 
-  const length = _lengthMin(arrays);
-  const values = new Array(nArrays);
   for (let i = length - 1; i >= 0; --i) {
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    init = proc(init, ...values);
+    init = proc(init, array0[i], ..._collectNth(acc, arrays, i));
   }
   return init;
 }
 
-export function forEach(proc, ...arrays) {
+export function forEach(proc, array0, ...arrays) {
   switch (arrays.length) {
-    case 0: {
-      return forEach1(proc, arrays[0]);
-    }
-    case 1: {
-      return forEach2(proc, arrays[0], arrays[1]);
-    }
-    default: {
-      return _forEachN(proc, arrays);
-    }
+    case 0: return forEach1(proc, array0);
+    case 1: return forEach2(proc, array0, arrays[0]);
+    default: return _forEachN(proc, array0, arrays);
   }
 }
 
@@ -497,30 +448,20 @@ export function forEach2(proc, array0, array1) {
   }
 }
 
-function _forEachN(proc, arrays) {
-  const nArrays = arrays.length;
+function _forEachN(proc, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const acc = new Array(arrays.length);
 
-  const length = _lengthMin(arrays);
-  const values = new Array(nArrays);
   for (let i = 0; i < length; ++i) {
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    proc(...values);
+    proc(array0[i], ..._collectNth(acc, arrays, i));
   }
 }
 
-export function every(pred, ...arrays) {
+export function every(pred, array0, ...arrays) {
   switch (arrays.length) {
-    case 0: {
-      return every1(pred, arrays[0]);
-    }
-    case 1: {
-      return every2(pred, arrays[0], arrays[1]);
-    }
-    default: {
-      return _everyN(pred, arrays);
-    }
+    case 0: return every1(pred, array0);
+    case 1: return every2(pred, array0, arrays[0]);
+    default: return _everyN(pred, array0, arrays);
   }
 }
 
@@ -548,16 +489,13 @@ export function every2(pred, array0, array1) {
   return result;
 }
 
-function _everyN(pred, arrays) {
-  const length = _lengthMin(arrays);
-  const nArrays = arrays.length;
-  const values = new Array(nArrays);
+function _everyN(pred, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const acc = new Array(arrays.length);
+
   let result = true;
   for (let i = 0; i < length; ++i) {
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    result = pred(...values);
+    result = pred(array0[i], ..._collectNth(acc, arrays, i));
     if (!result) {
       break;
     }
@@ -565,17 +503,11 @@ function _everyN(pred, arrays) {
   return result;
 }
 
-export function some(pred, ...arrays) {
+export function some(pred, array0, ...arrays) {
   switch (arrays.length) {
-    case 0: {
-      return some1(pred, arrays[0]);
-    }
-    case 1: {
-      return some2(pred, arrays[0], arrays[1]);
-    }
-    default: {
-      return _someN(pred, arrays);
-    }
+    case 0: return some1(pred, array0);
+    case 1: return some2(pred, array0, arrays[0]);
+    default: return _someN(pred, array0, arrays);
   }
 }
 
@@ -603,16 +535,13 @@ export function some2(pred, array0, array1) {
   return result;
 }
 
-function _someN(pred, arrays) {
-  const length = _lengthMin(arrays);
-  const nArrays = arrays.length;
-  const values = new Array(nArrays);
+function _someN(pred, array0, arrays) {
+  const length = _lengthMin(array0, arrays);
+  const acc = new Array(arrays.length);
+
   let result = false;
   for (let i = 0; i < length; ++i) {
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
-    result = pred(...values);
+    result = pred(array0[i], ..._collectNth(acc, arrays, i));
     if (result) {
       break;
     }
