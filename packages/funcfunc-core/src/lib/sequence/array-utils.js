@@ -97,49 +97,45 @@ export function dropRight(count, array) {
 
 export function flat(arrays) {
   switch (arrays.length) {
-    case 0: {
-      return arrays;
-    }
-    case 1: {
-      return arrays[0];
-    }
-    default: {
-      let length = 0;
-      const nOuter = arrays.length;
-      for (let i = 0; i < nOuter; ++i) {
-        length += arrays[i].length;
-      }
+    case 0: return arrays;
+    case 1: return arrays[0];
+    default: return _flat(arrays);
+  }
+}
 
-      const result = new Array(length);
-      let jOffset = 0;
-      for (let i = 0; i < nOuter; ++i) {
-        const arrayI = arrays[i];
-        const nInner = arrayI.length;
-        for (let j = 0; j < nInner; ++j) {
-          result[j + jOffset] = arrayI[j];
-        }
-        jOffset += nInner;
-      }
-      return result;
+function _flat(arrays) {
+  const length = reduce1((acc, { length }) => acc + length, 0, arrays);
+  const result = new Array(length);
+
+  let i = 0;
+  const nArrays = arrays.length;
+  for (let j = 0; j < nArrays; ++j) {
+    const innerArray = arrays[j];
+    const nInner = innerArray.length;
+    for (let k = 0; k < nInner; ++k) {
+      result[i++] = innerArray[k];
     }
   }
+
+  return result;
 }
 
 export function concat(...arrays) {
   return flat(arrays);
 }
 
-export function zip(...arrays) {
-  const nArrays = arrays.length;
-  const length = _lengthMin(arrays);
+export function zip(array0, ...arrays) {
+  const length = reduce1((acc, { length }) => Math.min(acc, length), array0.length, arrays);
 
   const result = new Array(length);
+  const ncol = arrays.length + 1;
   for (let i = 0; i < length; ++i) {
-    const acc = new Array(nArrays);
-    for (let j = 0; j < nArrays; ++j) {
-      acc[j] = arrays[j][i];
+    const row = new Array(ncol);
+    row[0] = array0[i];
+    for (let j = ; j < ncol; ++j) {
+      row[j] = arrays
     }
-    result[i] = acc;
+    result[] = 
   }
 
   return result;
@@ -147,7 +143,7 @@ export function zip(...arrays) {
 
 export function entries(...arrays) {
   const nArrays = arrays.length;
-  const length = _lengthMin(arrays);
+  const length = reduce1((acc, { length }) => Math.min(acc, length), Number.POSITIVE_INFINITY, arrays);
 
   const result = new Array(length);
   for (let i = 0; i < length; ++i) {
@@ -184,10 +180,6 @@ export function findTail(pred, array) {
       break;
     }
   }
-
-  if (i === 0) {
-    return array;
-  }
   return Array.prototype.slice.call(array, i);
 }
 
@@ -199,9 +191,6 @@ export function takeWhile(pred, array) {
       break;
     }
   }
-  if (i === length) {
-    return array;
-  }
   return Array.prototype.slice.call(array, 0, i);
 }
 
@@ -212,9 +201,6 @@ export function dropWhile(pred, array) {
     if (!pred(array[i])) {
       break;
     }
-  }
-  if (i === 0) {
-    return array;
   }
   return Array.prototype.slice.call(array, i);
 }
@@ -232,19 +218,11 @@ export function unique(array) {
 
 // mapping ================
 
-export function map(proc, ...arrays) {
-  const nArrays = arrays.length;
-
-  switch (nArrays) {
-    case 1: {
-      return map1(proc, arrays[0]);
-    }
-    case 2: {
-      return map2(proc, arrays[0], arrays[1]);
-    }
-    default: {
-      return _mapN(proc, arrays);
-    }
+export function map(proc, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: return map1(proc, array0);
+    case 1: return map2(proc, array0, arrays[0]);
+    default: return _mapN(proc, array0, arrays);
   }
 }
 
@@ -266,9 +244,9 @@ export function map2(proc, array0, array1) {
   return result;
 }
 
-function _mapN(proc, arrays) {
+function _mapN(proc, array0, arrays) {
   const nArrays = arrays.length;
-  const length = _lengthMin(arrays);
+  const length = reduce1((acc, { length }) => Math.min(acc, length), array0.length, arrays);
 
   const result = new Array(length);
   const values = new Array(nArrays);
