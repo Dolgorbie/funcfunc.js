@@ -125,37 +125,12 @@ export function concat(...arrays) {
 }
 
 export function zip(array0, ...arrays) {
-  const length = reduce1((acc, { length }) => Math.min(acc, length), array0.length, arrays);
-
-  const result = new Array(length);
-  const ncol = arrays.length + 1;
-  for (let i = 0; i < length; ++i) {
-    const row = new Array(ncol);
-    row[0] = array0[i];
-    for (let j = ; j < ncol; ++j) {
-      row[j] = arrays
-    }
-    result[] = 
-  }
-
-  return result;
+  return map(arrayOf, array0, ...arrays);
 }
 
-export function entries(...arrays) {
-  const nArrays = arrays.length;
-  const length = reduce1((acc, { length }) => Math.min(acc, length), Number.POSITIVE_INFINITY, arrays);
-
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    const acc = new Array(nArrays + 1);
-    acc[0] = i;
-    for (let j = 0; j < nArrays; ++j) {
-      acc[j + 1] = arrays[j][i];
-    }
-    result[i] = acc;
-  }
-
-  return result;
+export function entries(array0, ...arrays) {
+  const count = reduce1((acc, { length }) => Math.min(acc, length), array0.length, arrays);
+  return zip(iota(count), array0, ...arrays);
 }
 
 // filtering ================
@@ -227,37 +202,53 @@ export function map(proc, array0, ...arrays) {
 }
 
 export function map1(proc, array0) {
-  const { length } = array0;
-  const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    result[i] = proc(array0[i]);
-  }
-  return result;
+  const result = new Array(array0.length);
+  return map1I(result, proc, array0);
 }
 
 export function map2(proc, array0, array1) {
   const length = Math.min(array0.length, array1.length);
   const result = new Array(length);
-  for (let i = 0; i < length; ++i) {
-    result[i] = proc(array0[i], array1[i]);
-  }
-  return result;
+  return map2I(result, proc, array0, array1);
 }
 
 function _mapN(proc, array0, arrays) {
-  const nArrays = arrays.length;
   const length = reduce1((acc, { length }) => Math.min(acc, length), array0.length, arrays);
-
   const result = new Array(length);
-  const values = new Array(nArrays);
-  for (let i = 0; i < length; ++i) {
-    for (let j = 0; j < nArrays; ++j) {
-      values[j] = arrays[j][i];
-    }
+  return _mapNI(result, proc, array0, arrays);
+}
 
-    result[i] = proc(...values);
+export function mapI(dst, proc, array0, ...arrays) {
+  switch (arrays.length) {
+    case 0: return map1I(dst, proc, array0);
+    case 1: return map1I(dst, proc, array0, arrays[0]);
+    default: return _mapNI(dst, proc, array0, arrays);
   }
-  return result;
+}
+
+export function map1I(dst, proc, array0) {
+  const { length } = dst;
+  for (let i = 0; i < length; ++i) {
+    dst[i] = proc(array0[i]);
+  }
+  return dst;
+}
+
+export function map2I(dst, proc, array0, array1) {
+  const { length } = dst;
+  for (let i = 0; i < length; ++i) {
+    dst[i] = proc(array0[i], array1[i]);
+  }
+  return dst;
+}
+
+function _mapNI(dst, proc, array0, arrays) {
+  const acc = new Array(arrays.length);
+  const { length } = dst;
+  for (let i = 0; i < length; ++i) {
+    dst[i] = proc(array0[i], ...map1I(acc, (x) => x[i], arrays));
+  }
+  return dst;
 }
 
 export function flatMap(proc, ...arrays) {
