@@ -82,14 +82,6 @@ export function newInstance2(clazz, arg0, arg1) {
   return new clazz(arg0, arg1);
 }
 
-export function newInstance3(clazz, arg0, arg1, arg2) {
-  return new clazz(arg0, arg1, arg2);
-}
-
-export function newInstance4(clazz, arg0, arg1, arg2, arg3) {
-  return new clazz(arg0, arg1, arg2, arg3);
-}
-
 export function ref(obj, key) {
   return obj[key];
 }
@@ -98,67 +90,47 @@ export function xref(key, obj) {
   return obj[key];
 }
 
-export function add(x0, ...xs) {
-  return xs.reduce(add2, x0);
-}
-
-export function add2(x0, x1) {
+export function radd(x0, x1) {
   return x0 + x1;
 }
 
-export function sub(x0, ...xs) {
-  return xs.reduce(sub2, x0);
-}
-
-export function sub2(x0, x1) {
+export function rsub(x0, x1) {
   return x0 - x1;
 }
 
-export function mul(x0, ...xs) {
-  return xs.reduce(mul2, x0);
-}
-
-export function mul2(x0, x1) {
+export function rmul(x0, x1) {
   return x0 * x1;
 }
 
-export function div(x0, ...xs) {
-  return xs.reduce(div2, x0);
-}
-
-export function div2(x0, x1) {
+export function rdiv(x0, x1) {
   return x0 / x1;
 }
 
-export function quot(x0, ...xs) {
-  return xs.reduce(quot2, x0);
+export function iadd(x0, x1) {
+  return (x0 + x1) | 0;
 }
 
-export function quot2(x0, x1) {
+export function isub(x0, x1) {
+  return (x0 - x1) | 0;
+}
+
+export function imul(x0, x1) {
+  return (x0 * x1) | 0;
+}
+
+export function iquot(x0, x1) {
   return (x0 / x1) | 0;
 }
 
-export function rem(x0, ...xs) {
-  return xs.reduce(rem2, x0);
-}
-
-export function rem2(x0, x1) {
+export function irem(x0, x1) {
   return x0 % x1;
 }
 
-export function idiv(x0, ...xs) {
-  return xs.reduce(idiv2, x0);
+export function idiv(x0, x1) {
+  return (x0 - imod(x0, x1)) / x1;
 }
 
-export function idiv2(x0, x1) {
-  return (x0 - mod2(x0, x1)) / x1;
-}
-
-export function mod(x0, ...xs) {
-  return xs.reduce(mod2, x0);
-}
-
-export function mod2(x0, x1) {
+export function imod(x0, x1) {
   return ((x0 % x1) + x1) % x1
 }
 

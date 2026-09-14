@@ -78,36 +78,19 @@ export function unfoldRight(gen, seed, tail = []) {
 // splicing ================
 
 export function take(count, array) {
-  count = toUInt(count);
-  if (count >= array.length) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, 0, count);
+  return Array.prototype.slice.call(array, 0, toUInt(count));
 }
 
 export function drop(count, array) {
-  count = toUInt(count);
-  if (count === 0) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, count);
+  return Array.prototype.slice.call(array, toUInt(count));
 }
 
 export function takeRight(count, array) {
-  count = toUInt(count);
-  const { length } = array;
-  if (count >= length) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, length - count);
+  return Array.prototype.slice.call(array, toUInt(array.length - toUInt(count)));
 }
 
 export function dropRight(count, array) {
-  count = toUInt(count);
-  if (count === 0) {
-    return array;
-  }
-  return Array.prototype.slice.call(array, 0, array.length - count);
+  return Array.prototype.slice.call(array, 0, toUInt(array.length - toUInt(count)));
 }
 
 // composition ================

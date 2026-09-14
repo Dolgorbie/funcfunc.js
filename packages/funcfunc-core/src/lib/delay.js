@@ -31,10 +31,10 @@ export function force(delayed) {
 export function delayForce(thunk) {
   return _delayForce(() => {
     const result = thunk();
-    if (isDelayed(result)) {
-      return result;
+    if (!isDelayed(result)) {
+      throw TypeError(`expects delayed, but got: ${result}`);
     }
-    throw TypeError(`expects delayed, but got: ${result}`);
+    return result;
   });
 }
 
