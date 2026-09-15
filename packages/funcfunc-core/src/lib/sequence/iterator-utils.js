@@ -1,4 +1,6 @@
 import { toUInt } from "../asfunc";
+import { refF } from "../core";
+import { arrayOf, map1I } from "./array-utils";
 
 // helpers ================
 
@@ -6,6 +8,10 @@ function _safeReturn(iter) {
   if (typeof iter.return === "function") {
     iter.return();
   }
+}
+
+function _toIters(iters) {
+  return map1I(iters, refF(Symbol.iterator), iters);
 }
 
 // creation ================
@@ -71,19 +77,14 @@ export function* gunfold(gen, seed, tailGen = void 0) {
 
 export function* gtake(count, iter) {
   count = toUInt(count);
-  iter = iter[Symbol.iterator]();
 
-  try {
-    let res;
-    for (let i = 0; i < count; ++i) {
-      res = iter.next()
-      if (res.done) {
-        return;
-      }
-      yield res.value;
+  let i = 0;
+  for (const value of iter) {
+    if (i >= count) {
+      return;
     }
-  } finally {
-    _safeReturn(iter);
+    yield value;
+    i += 1;
   }
 }
 
@@ -120,37 +121,12 @@ export function gconcat(...iters) {
   return gflat(iters);
 }
 
-export function* gzip(iter0, ...iters) {
-  const nIters = iters.length;
-
-  for (let i = 0; i < nIters; ++i) {
-    iters[i] = iters[i][Symbol.iterator]();
-  }
-
-  try {
-    for (const value0 of iter0) {
-      const values = new Array(nIters + 1);
-
-      values[0] = value0;
-      for (let i = 0; i < nIters; ++i) {
-        const res = iters[i].next();
-        if (res.done) {
-          return;
-        }
-        values[i + 1] = res.value;
-      }
-
-      yield values;
-    }
-  } finally {
-    for (const it of iters) {
-      _safeReturn(it);
-    }
-  }
+export function gzip(iter0, ...iters) {
+  return gmap(arrayOf, iter0, ...iters);
 }
 
-export function gentries(...iters) {
-  return gzip(giota(), ...iters);
+export function gentries(iter0, ...iters) {
+  return gzip(giota(), iter0, ...iters);
 }
 
 // filtering ================
@@ -230,15 +206,9 @@ export function* gunique(iter) {
 
 export function gmap(proc, iter0, ...iters) {
   switch (iters.length) {
-    case 0: {
-      return gmap1(proc, iter0);
-    }
-    case 1: {
-      return gmap2(proc, iter0, iters[0]);
-    }
-    default: {
-      return _gmapN(proc, iter0, iters);
-    }
+    case 0: return gmap1(proc, iter0);
+    case 1: return gmap2(proc, iter0, iters[0]);
+    default: return _gmapN(proc, iter0, iters);
   }
 }
 
@@ -265,16 +235,13 @@ export function* gmap2(proc, iter0, iter1) {
 }
 
 function* _gmapN(proc, iter0, iters) {
-  const nIters = iters.length;
+  const { length } = iters;
+  iters = _toIters(iters);
+  const values = new Array(length);
 
-  for (let i = 0; i < nIters; ++i) {
-    iters[i] = iters[i][Symbol.iterator]();
-  }
-
-  const values = new Array(nIters);
   try {
     for (const value0 of iter0) {
-      for (let i = 0; i < nIters; ++i) {
+      for (let i = 0; i < length; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
@@ -292,15 +259,9 @@ function* _gmapN(proc, iter0, iters) {
 
 export function gflatMap(proc, iter0, ...iters) {
   switch (iters.length) {
-    case 0: {
-      return gflatMap1(proc, iter0);
-    }
-    case 1: {
-      return gflatMap2(proc, iter0, iters[0]);
-    }
-    default: {
-      return _gflatMapN(proc, iter0, iters);
-    }
+    case 0: return gflatMap1(proc, iter0);
+    case 1: return gflatMap2(proc, iter0, iters[0]);
+    default: return _gflatMapN(proc, iter0, iters);
   }
 }
 
@@ -327,16 +288,13 @@ export function* gflatMap2(proc, iter0, iter1) {
 }
 
 function* _gflatMapN(proc, iter0, iters) {
-  const nIters = iters.length;
+  const { length } = iters;
+  iters = _toIters(iters);
+  const values = new Array(length);
 
-  for (let i = 0; i < nIters; ++i) {
-    iters[i] = iters[i][Symbol.iterator]();
-  }
-
-  const values = new Array(nIters);
   try {
     for (const value0 of iter0) {
-      for (let i = 0; i < nIters; ++i) {
+      for (let i = 0; i < length; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
@@ -356,15 +314,9 @@ function* _gflatMapN(proc, iter0, iters) {
 
 export function greduce(proc, init, iter0, ...iters) {
   switch (iters.length) {
-    case 0: {
-      return greduce1(proc, init, iter0);
-    }
-    case 1: {
-      return greduce2(proc, init, iter0, iters[0]);
-    }
-    default: {
-      return _greduceN(proc, init, iter0, iters);
-    }
+    case 0: return greduce1(proc, init, iter0);
+    case 1: return greduce2(proc, init, iter0, iters[0]);
+    default: return _greduceN(proc, init, iter0, iters);
   }
 }
 
@@ -393,16 +345,13 @@ export function greduce2(proc, init, iter0, iter1) {
 }
 
 function _greduceN(proc, init, iter0, iters) {
-  const nIters = iters.length;
+  const { length } = iters;
+  iters = _toIters(iters);
+  const values = new Array(length);
 
-  for (let i = 0; i < nIters; ++i) {
-    iters[i] = iters[i][Symbol.iterator]();
-  }
-
-  const values = new Array(nIters);
   try {
     for (const value0 of iter0) {
-      for (let i = 0; i < nIters; ++i) {
+      for (let i = 0; i < length; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return init;
@@ -421,17 +370,14 @@ function _greduceN(proc, init, iter0, iters) {
 
 export function gforEach(proc, iter0, ...iters) {
   switch (iters.length) {
-    case 0: {
+    case 0:
       gforEach1(proc, iter0);
       break;
-    }
-    case 1: {
+    case 1:
       gforEach2(proc, iter0, iters[0]);
       break;
-    }
-    default: {
+    default:
       _gforEachN(proc, iter0, iters);
-    }
   }
 }
 
@@ -458,16 +404,13 @@ export function gforEach2(proc, iter0, iter1) {
 }
 
 function _gforEachN(proc, iter0, iters) {
-  const nIters = iters.length;
+  const { length } = iters;
+  iters = _toIters(iters);
+  const values = new Array(length);
 
-  for (let i = 0; i < nIters; ++i) {
-    iters[i] = iters[i][Symbol.iterator]();
-  }
-
-  const values = new Array(nIters);
   try {
     for (const value0 of iter0) {
-      for (let i = 0; i < nIters; ++i) {
+      for (let i = 0; i < length; ++i) {
         const res = iters[i].next();
         if (res.done) {
           return;
@@ -485,15 +428,9 @@ function _gforEachN(proc, iter0, iters) {
 
 export function gevery(pred, iter0, ...iters) {
   switch (iters.length) {
-    case 0: {
-      return gevery1(pred, iter0);
-    }
-    case 1: {
-      return gevery2(pred, iter0, iters[0]);
-    }
-    default: {
-      return _geveryN(pred, iter0, iters);
-    }
+    case 0: return gevery1(pred, iter0);
+    case 1: return gevery2(pred, iter0, iters[0]);
+    default: return _geveryN(pred, iter0, iters);
   }
 }
 
@@ -530,18 +467,14 @@ export function gevery2(pred, iter0, iter1) {
 }
 
 function _geveryN(pred, iter0, iters) {
-  const nIters = iters.length;
-
-  for (let i = 0; i < nIters; ++i) {
-    iters[i] = iters[i][Symbol.iterator]();
-  }
-
+  const { length } = iters;
+  iters = _toIters(iters);
+  const values = new Array(length);
 
   let result = true;
-  const values = new Array(nIters);
   try {
     Outer: for (const value0 of iter0) {
-      for (let i = 0; i < nIters; ++i) {
+      for (let i = 0; i < length; ++i) {
         const res = iters[i].next();
         if (res.done) {
           break Outer;
@@ -563,15 +496,9 @@ function _geveryN(pred, iter0, iters) {
 
 export function gsome(pred, iter0, ...iters) {
   switch (iters.length) {
-    case 0: {
-      return gsome1(pred, iter0);
-    }
-    case 1: {
-      return gsome2(pred, iter0, iters[0]);
-    }
-    default: {
-      return _gsomeN(pred, iter0, iters);
-    }
+    case 0: return gsome1(pred, iter0);
+    case 1: return gsome2(pred, iter0, iters[0]);
+    default: return _gsomeN(pred, iter0, iters);
   }
 }
 
@@ -608,17 +535,14 @@ export function gsome2(pred, iter0, iter1) {
 }
 
 function _gsomeN(pred, iter0, iters) {
-  const nIters = iters.length;
-
-  for (let i = 0; i < nIters; ++i) {
-    iters[i] = iters[i][Symbol.iterator]();
-  }
+  const { length } = iters;
+  iters = _toIters(iters);
+  const values = new Array(length);
 
   let result = false;
-  const values = new Array(nIters);
   try {
     Outer: for (const value0 of iter0) {
-      for (let i = 0; i < nIters; ++i) {
+      for (let i = 0; i < length; ++i) {
         const res = iters[i].next();
         if (res.done) {
           break Outer;

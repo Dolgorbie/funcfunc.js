@@ -1,13 +1,14 @@
 import { toUInt } from "../asfunc";
+import { refP } from "../core";
 
 // helpers ================
 
 function _lengthMin(array0, arrays) {
-  return reduce1((acc, { length }) => Math.min(acc, length), array0.length, arrays);;
+  return reduce1((acc, { length }) => Math.min(acc, length), array0.length, arrays);
 }
 
 function _collectNth(dst, target, i) {
-  return map1I(dst, (x) => x[i], target);
+  return map1I(dst, refP(i), target);
 }
 
 // creation ================

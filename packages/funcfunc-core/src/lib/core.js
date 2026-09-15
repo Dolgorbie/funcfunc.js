@@ -45,6 +45,10 @@ export function xapply(args, proc) {
   return proc(...args);
 }
 
+export function refP(prop) {
+  return (self) => self[prop];
+}
+
 export function methodF(method) {
   return (self, ...args) => method.call(self, ...args);
 }
