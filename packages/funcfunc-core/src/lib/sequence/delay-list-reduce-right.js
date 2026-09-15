@@ -3,15 +3,9 @@ import { car, cdr, isPair } from "./list";
 
 export function delayReduceRight(proc, delayedInit, list0, ...lists) {
   switch (lists.length) {
-    case 0: {
-      return delayReduceRight1(proc, delayedInit, list0);
-    }
-    case 1: {
-      return delayReduceRight2(proc, delayedInit, list0, lists[0]);
-    }
-    default: {
-      return _delayReduceRightN(proc, delayedInit, list0, lists);
-    }
+    case 0: return delayReduceRight1(proc, delayedInit, list0);
+    case 1: return delayReduceRight2(proc, delayedInit, list0, lists[0]);
+    default: return _delayReduceRightN(proc, delayedInit, list0, lists);
   }
 }
 
