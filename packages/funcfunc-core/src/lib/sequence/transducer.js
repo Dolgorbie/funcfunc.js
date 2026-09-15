@@ -217,12 +217,12 @@ export function transduce(xform, op, init, iter) {
 }
 
 export function toList(xform, iter) {
-  return transduce(xform, _toListOpInstance, nil, iter);
+  return transduce(xform, _ToListOp._singleton, nil, iter);
 }
 
-const _toListOpInstance = new _ToListOp();
-
 class _ToListOp extends OpBase {
+  static _singleton = new _ToListOp();
+
   constructor() {
     super(null);
   }
