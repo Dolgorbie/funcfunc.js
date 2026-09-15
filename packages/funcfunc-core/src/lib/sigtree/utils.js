@@ -1,5 +1,5 @@
 import { ado, sleep } from "../richasync";
-import { atom, effect, swap } from "./sigtree";
+import { atom, effect, swap } from "./core";
 
 export function autoPromiseAtom(promise) {
   const res = atom({
