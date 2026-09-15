@@ -59,7 +59,7 @@ export function dropTS(count) {
 export function flatT() {
   return ({ rf, opend }) => ({
     rf: (acc, value) => {
-      return greduce1((acc, value) => rf(acc, value), acc, value);
+      return greduce1(rf, acc, value);
     },
 
     opend,
