@@ -18,86 +18,63 @@ export function isStopped(error) {
   return error instanceof TransducerStoppedError;
 }
 
-export class OpBase {
-  op = null;
-
-  constructor(op) {
-    this.op = op;
-  }
-
-  rf(acc, value) {
-    return this.op.rf(acc, value);
-  }
-
-  opend(result) {
-    return this.op.opend(result);
-  }
-}
-
 // splicing ================
 
 export function takeTS(count) {
-  return (op) => {
-    return new _TakeOp(op, count);
+  return ({ rf, opend }) => {
+    let i = 0;
+    return {
+      rf: (acc, value) => {
+        if (i >= count) {
+          stop();
+        }
+        i += 1;
+        return rf(acc, value);
+      },
+
+      opend,
+    };
   };
-}
-
-class _TakeOp extends OpBase {
-  _count = 0;
-  _i = 0;
-
-  constructor(op, count) {
-    super(op);
-    this._count = count;
-  }
-
-  rf(acc, value) {
-    if (this._i >= this._count) {
-      stop();
-    }
-    this._i += 1;
-    return this.op.rf(acc, value);
-  }
 }
 
 export function dropTS(count) {
-  return (op) => {
-    return _DropOp(op, count);
+  return ({ rf, opend }) => {
+    let i = 0;
+    return {
+      rf: (acc, value) => {
+        if (i < count) {
+          i += 1;
+          return acc;
+        }
+        return rf(acc, value);
+      },
+
+      opend,
+    };
   };
-}
-
-class _DropOp extends OpBase {
-  _count = 0;
-  _i = 0;
-
-  constructor(op, count) {
-    super(op);
-    this._count = count;
-  }
-
-  rf(acc, value) {
-    if (this._i < this._count) {
-      this._i += 1;
-      return acc;
-    }
-    return this.op.rf(acc, value);
-  }
 }
 
 // composition ================
 
 export function flatT() {
-  return (rf) => (acc, iter) => {
-    return greduce1(rf, acc, iter);
-  };
+  return ({ rf, opend }) => ({
+    rf: (acc, value) => {
+      return greduce1((acc, value) => rf(acc, value), acc, value);
+    },
+
+    opend,
+  });
 }
 
 export function entriesTS() {
-  return (rf) => {
+  return ({ rf, opend }) => {
     let i = 0;
+    return {
+      rf: (acc, value) => {
+        return rf(acc, [i++, value]);
+      },
 
-    return (acc, value) => {
-      return rf(acc, [i++, value]);
+      opend,
     };
   };
 }
@@ -105,67 +82,84 @@ export function entriesTS() {
 // filtering ================
 
 export function filterT(pred) {
-  return (rf) => (acc, value) => {
-    if (pred(value)) {
-      return rf(acc, value);
-    }
-    return acc;
-  };
-}
-
-export function findTailTS(pred) {
-  return (rf) => {
-    let found = false;
-
-    return (acc, value) => {
-      if (found) {
-        return rf(acc, value);
-      }
+  return ({ rf, opend }) => ({
+    rf: (acc, value) => {
       if (pred(value)) {
-        found = true;
         return rf(acc, value);
       }
       return acc;
+    },
+
+    opend,
+  });
+}
+
+export function findTailTS(pred) {
+  return ({ rf, opend }) => {
+    let found = false;
+    return {
+      rf: (acc, value) => {
+        if (found) {
+          return rf(acc, value);
+        }
+        if (pred(value)) {
+          found = true;
+          return rf(acc, value);
+        }
+        return acc;
+      },
+
+      opend,
     };
   };
 }
 
 export function takeWhileT(pred) {
-  return (rf) => (acc, value) => {
-    if (pred(value)) {
-      return rf(acc, value);
-    }
-    return stop();
-  };
+  return ({ rf, opend }) => ({
+    rf: (acc, value) => {
+      if (pred(value)) {
+        return rf(acc, value);
+      }
+      stop();
+    },
+
+    opend,
+  });
 }
 
 export function dropWhileTS(pred) {
-  return (rf) => {
+  return ({ rf, opend }) => {
     let unmatched = false;
-
-    return (acc, value) => {
-      if (unmatched) {
+    return {
+      rf: (acc, value) => {
+        if (unmatched) {
+          return rf(acc, value);
+        }
+        if (pred(value)) {
+          return acc;
+        }
+        unmatched = true;
         return rf(acc, value);
-      }
-      if (pred(value)) {
-        return acc;
-      }
-      unmatched = true;
-      return rf(acc, value);
+      },
+
+      opend,
     };
   };
 }
 
 export function uniqueTS() {
-  return (rf) => {
+  return ({ rf, opend }) => {
     const appeared = new Set();
+    return {
+      rf: (acc, value) => {
+        if (appeared.has(value)) {
+          return acc;
+        }
+        appeared.add(value);
+        return rf(acc, value);
+      },
 
-    return (acc, value) => {
-      if (appeared.has(value)) {
-        return acc;
-      }
-      appeared.add(value);
-      return rf(acc, value);
+      opend,
     };
   };
 }
@@ -173,28 +167,40 @@ export function uniqueTS() {
 // mapping ================
 
 export function mapT(proc) {
-  return (rf) => (acc, value) => {
-    return rf(acc, proc(value));
-  };
+  return ({ rf, opend }) => ({
+    rf: (acc, value) => {
+      return rf(acc, proc(value));
+    },
+
+    opend,
+  });
 }
 
 export function flatMapT(proc) {
-  return (rf) => (acc, value) => {
-    return reduce1(rf, acc, proc(value));
-  }
+  return ({ rf, opend }) => ({
+    rf: (acc, value) => {
+      return reduce1(rf, acc, proc(value));
+    },
+
+    opend,
+  });
 }
 
 export function mapMulti(proc) {
-  return (rf) => (acc, value) => {
-    const tmp = [];
+  return ({ rf, opend }) => ({
+    rf: (acc, value) => {
+      const tmp = [];
 
-    const add = (v) => {
-      tmp.push(v);
-    };
+      const add = (v) => {
+        tmp.push(v);
+      };
 
-    proc(add, value);
-    return reduce1(rf, acc, tmp);
-  }
+      proc(add, value);
+      return reduce1(rf, acc, tmp);
+    },
+
+    opend,
+  });
 }
 
 // reduction ================
@@ -207,7 +213,7 @@ export function transduce(xform, op, init, iter) {
     for (const v of iter) {
       acc = operator.rf(acc, v);
     }
-    stop();
+    return operator.opend(acc);
   } catch (error) {
     if (!isStopped(error)) {
       throw error;
@@ -216,22 +222,30 @@ export function transduce(xform, op, init, iter) {
   }
 }
 
-export function toList(xform, iter) {
-  return transduce(xform, _ToListOp._singleton, nil, iter);
+export function toArray(xform, iter) {
+  return transduce(xform, _toArrayOp, nil, iter);
 }
 
-class _ToListOp extends OpBase {
-  static _singleton = new _ToListOp();
-
-  constructor() {
-    super(null);
-  }
-
-  rf(acc, value) {
+const _toArrayOp = {
+  rf: (acc, value) => {
     return cons(value, acc);
-  }
+  },
 
-  opend(result) {
+  opend: (result) => {
+    return [...result].reverse();
+  }
+};
+
+export function toList(xform, iter) {
+  return transduce(xform, _toListOp, nil, iter);
+}
+
+const _toListOp = {
+  rf: (acc, value) => {
+    return cons(value, acc);
+  },
+
+  opend: (result) => {
     return lreverseI(result);
   }
-}
+};
