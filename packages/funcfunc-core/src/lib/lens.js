@@ -248,13 +248,13 @@ class _IndexLens {
   }
 }
 
-const _arrayEachInstance = new _ArrayEach();
-
 export function arrayEach() {
-  return _arrayEachInstance;
+  return _ArrayEach._singleton;
 }
 
 class _ArrayEach {
+  static _singleton = new _ArrayEach();
+
   view(target) {
     if (isFailed(target)) {
       return target;
