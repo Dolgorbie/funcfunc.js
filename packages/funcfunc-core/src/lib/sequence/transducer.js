@@ -1,7 +1,8 @@
-// core ================
-
 import { reduce1 } from "./array-utils";
 import { greduce1 } from "./iterator-utils";
+import { cons, lreverseI, nil } from "./list";
+
+// core ================
 
 class TransducerStoppedError extends Error {
   constructor(...args) {
@@ -17,34 +18,70 @@ export function isStopped(error) {
   return error instanceof TransducerStoppedError;
 }
 
+export class OpBase {
+  op = null;
+
+  constructor(op) {
+    this.op = op;
+  }
+
+  rf(acc, value) {
+    return this.op.rf(acc, value);
+  }
+
+  opend(result) {
+    return this.op.opend(result);
+  }
+}
+
 // splicing ================
 
 export function takeTS(count) {
-  return (rf) => {
-    let i = 0;
-
-    return (acc, value) => {
-      if (i >= count) {
-        stop();
-      }
-      i += 1;
-      return rf(acc, value);
-    };
+  return (op) => {
+    return new _TakeOp(op, count);
   };
 }
 
-export function dropTS(count) {
-  return (rf) => {
-    let i = 0;
+class _TakeOp extends OpBase {
+  _count = 0;
+  _i = 0;
 
-    return (acc, value) => {
-      if (i < count) {
-        i += 1;
-        return acc;
-      }
-      return rf(acc, value);
-    };
+  constructor(op, count) {
+    super(op);
+    this._count = count;
+  }
+
+  rf(acc, value) {
+    if (this._i >= this._count) {
+      stop();
+    }
+    this._i += 1;
+    return this.op.rf(acc, value);
+  }
+}
+
+export function dropTS(count) {
+  return (op) => {
+    return _DropOp(op, count);
   };
+}
+
+class _DropOp extends OpBase {
+  _count = 0;
+  _i = 0;
+
+  constructor(op, count) {
+    super(op);
+    this._count = count;
+  }
+
+  rf(acc, value) {
+    if (this._i < this._count) {
+      this._i += 1;
+      return acc;
+    }
+    return this.op.rf(acc, value);
+  }
 }
 
 // composition ================
@@ -162,28 +199,39 @@ export function mapMulti(proc) {
 
 // reduction ================
 
-export function transduce(xform, rf, init, iter) {
+export function transduce(xform, op, init, iter) {
+  const operator = xform(op);
   let acc = init;
+
   try {
-    const proc = xform(rf);
     for (const v of iter) {
-      acc = proc(acc, v);
+      acc = operator.rf(acc, v);
     }
     stop();
   } catch (error) {
     if (!isStopped(error)) {
       throw error;
     }
-    return acc;
+    return operator.opend(acc);
   }
 }
 
 export function toList(xform, iter) {
-
+  return transduce(xform, _toListOpInstance, nil, iter);
 }
 
-function _toListXform(rf) {
-  return (acc, value) => {
+const _toListOpInstance = new _ToListOp();
 
+class _ToListOp extends OpBase {
+  constructor() {
+    super(null);
+  }
+
+  rf(acc, value) {
+    return cons(value, acc);
+  }
+
+  opend(result) {
+    return lreverseI(result);
   }
 }
