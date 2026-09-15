@@ -1,4 +1,5 @@
-import { toUInt } from "../asfunc";
+import { toUInt, xref } from "../asfunc";
+import { pa1 } from "../core";
 
 // helpers ================
 
@@ -7,7 +8,7 @@ function _lengthMin(array0, arrays) {
 }
 
 function _collectNth(dst, target, i) {
-  return map1I(dst, (x) => x[i], target);
+  return map1I(dst, pa1(xref, i), target);
 }
 
 // creation ================

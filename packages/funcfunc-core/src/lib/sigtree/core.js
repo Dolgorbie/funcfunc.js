@@ -62,7 +62,19 @@ function _staleAll(effects, children) {
         throw Error("disabled node");
       case _st_fresh: {
         for (const e of target._effectSet) {
-          effects.add(e);
+          switch (e._state) {
+            case _st_disabled:
+              throw Error("disabled node");
+            case _st_fresh:
+              effects.add(e);
+              e._state = _st_stale;
+              break;
+            case _st_stale:
+            case _st_new:
+              break;
+            default:
+              throw Error("unrecognized state");
+          }
         }
         for (const c of target._childSet) {
           nextChildren.add(c);
