@@ -1,3 +1,4 @@
+import { DStackQueue } from "../queue/double-stack-queue";
 import { gmap1 } from "../sequence/iterator-utils";
 import { Chan, isEndOfChan } from "./core";
 
@@ -86,4 +87,78 @@ export function mult(fromChan) {
       return distSet.delete(chan);
     },
   };
+}
+
+
+export function toPort(srcChan, port, portMeta, { signal }) {
+  let capacity = 0;
+  let buffer = new DStackQueue();
+  const portMetaChan = Chan.fromProducer((post, close) => {
+    const postData = ({ data }) => {
+      post({ success: true, data });
+      if (data.type === "close") {
+        close();
+      }
+    };
+
+    const postError = ({ data }) => {
+      post({ success: false, error: data });
+      close();
+    };
+
+    portMeta.addEventListener("message", postData);
+    portMeta.addEventListener("messageerror", postError);
+
+    return () => {
+      portMeta.removeEventListener("message", postData);
+      portMeta.removeEventListener("messageerror", postError);
+    };
+  });
+
+  portMeta.start();
+
+  const run = async () => {
+    while (capacity > 0) {
+      let value;
+
+      if (buffer.size > 0) {
+        value = buffer.pop();
+      } else {
+        value = await srcChan.take();
+        if (isEndOfChan(value)) {
+          return;
+        }
+      }
+
+      await port.post(value);
+      capacity -= 1;
+    }
+  };
+
+  (async () => {
+    for (; ;) {
+      const value = await portMetaChan.take();
+
+      if (isEndOfChan(value)) {
+        break;
+      }
+
+      const { type, payload } = value;
+      switch (type) {
+        case "capacityUpdated": {
+          const oldCap = capacity;
+          capacity = payload;
+          if (oldCap <= 0) {
+            run();
+          }
+          break;
+        }
+        case "sentBack":
+          buffer.push(payload);
+          break;
+        case "closed":
+          return;
+      }
+    }
+  })();
 }
