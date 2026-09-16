@@ -40,6 +40,18 @@ export function swap(node, func, ...args) {
     const effects = new Set(_root._effectSet);
     _staleAll(effects, _root._childSet);
     for (const e of effects) {
+      switch (e._state) {
+        case _st_disabled:
+          throw Error("disabled node");
+        case _st_fresh:
+          e._state = _st_stale;
+          break;
+        case _st_stale:
+        case _st_new:
+          break;
+        default:
+          throw Error("unrecognized state");
+      }
       e._invoke();
     }
   }
@@ -62,19 +74,7 @@ function _staleAll(effects, children) {
         throw Error("disabled node");
       case _st_fresh: {
         for (const e of target._effectSet) {
-          switch (e._state) {
-            case _st_disabled:
-              throw Error("disabled node");
-            case _st_fresh:
-              effects.add(e);
-              e._state = _st_stale;
-              break;
-            case _st_stale:
-            case _st_new:
-              break;
-            default:
-              throw Error("unrecognized state");
-          }
+          effects.add(e);
         }
         for (const c of target._childSet) {
           nextChildren.add(c);
