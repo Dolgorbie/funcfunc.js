@@ -83,3 +83,25 @@ export function sleep(msec, { signal }) {
     }
   });
 }
+
+export function postpone(proc, { args = [], signal }) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+
+    const handleAbort = (event) => {
+      clearTimeout(timeoutId);
+      reject(event.target.reason);
+    };
+
+    const timeoutId = setTimeout(_doOnPostpone, 4, resolve, proc, args, signal, handleAbort);
+    signal?.addEventListener("abort", handleAbort, { once: true });
+  });
+}
+
+function _doOnPostpone(resolve, proc, args, signal, handleAbort) {
+  signal?.removeEventListener("abort", handleAbort);
+  resolve(proc(...args));
+}
