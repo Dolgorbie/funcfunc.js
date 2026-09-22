@@ -1,5 +1,7 @@
+import { filter, map1I } from "./sequence/array-utils";
 
 const _reason = Symbol("reason");
+
 
 export function fail(reason) {
   return { [_reason]: reason }
@@ -124,7 +126,7 @@ export function flmap2(proc, failable0, failable1) {
 }
 
 function _flmapN(proc, failables) {
-  const composed = all(failables);
+  const composed = allSettled(failables);
 
   if (isFailed(composed)) {
     return composed;
@@ -186,26 +188,28 @@ export function orCalc(failable, generate, ...args) {
 }
 
 export function all(failables) {
-  const acc = [];
+  failables = Array.isArray(failables) ? failables : [...failables];
+  const { length } = failables;
 
-  for (const x of failables) {
+  for (let i = 0; i < length; ++i) {
+    const x = failables[i];
     if (isFailed(x)) {
-      acc.push(x);
+      return x;
     }
   }
 
-  const { length } = acc;
+  return failables;
+}
+
+export function allSettled(failables) {
+  failables = Array.isArray(failables) ? failables : [...failables];
+  const failures = filter(isFailed, failables);
+
+  const { length } = failures;
   switch (length) {
-    case 0:
-      return failables;
-    case 1:
-      return acc[0];
-    default: {
-      for (let i = 0; i < length; ++i) {
-        acc[i] = acc[i][_reason];
-      }
-      return fail(acc);
-    }
+    case 0: return failables;
+    case 1: return failures[0];
+    default: return fail(map1I(failures, (x) => x[_reason], failures));
   }
 }
 

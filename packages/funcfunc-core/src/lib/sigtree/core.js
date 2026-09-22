@@ -140,6 +140,12 @@ class _Atom {
     this._value = value;
   }
 
+  /**
+   *
+   * @param {(...xs: any[]) => any} toNext
+   * @param  {...any} args
+   * @returns {{ _root:_Atom, _changed:boolean }}
+   */
   _updateRoot(toNext, ...args) {
     const prev = this._value;
     const next = toNext(prev, ...args);
