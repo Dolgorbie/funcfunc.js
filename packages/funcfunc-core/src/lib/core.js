@@ -207,6 +207,174 @@ function _cmpN(proc0, procs) {
   return res;
 }
 
+export function cps(proc) {
+  return (cont) => (...args) => cont(proc(...args));
+}
+
+export function cps1(proc) {
+  return (cont) => (arg0) => cont(proc(arg0));
+}
+
+export function cps2(proc) {
+  return (cont) => (arg0, arg1) => cont(proc(arg0, arg1));
+}
+
+export function cpsSplice(proc) {
+  return (cont) => (...args) => cont(...proc(...args));
+}
+
+export function cpsSplice1(proc) {
+  return (cont) => (arg0) => cont(...proc(arg0));
+}
+
+export function cpsSplice2(proc) {
+  return (cont) => (arg0, arg1) => cont(...proc(arg0, arg1));
+}
+
+export function biCps(proc) {
+  return (resolve, reject) => (...args) => {
+    try {
+      return resolve(proc(...args));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function biCps1(proc) {
+  return (resolve, reject) => (arg0) => {
+    try {
+      return resolve(proc(arg0));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function biCps2(proc) {
+  return (resolve, reject) => (arg0, arg1) => {
+    try {
+      return resolve(proc(arg0, arg1));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function biCpsSplice(proc) {
+  return (resolve, reject) => (...args) => {
+    try {
+      return resolve(...proc(...args));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function biCpsSplice1(proc) {
+  return (resolve, reject) => (arg0) => {
+    try {
+      return resolve(...proc(arg0));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function biCpsSplice2(proc) {
+  return (resolve, reject) => (arg0, arg1) => {
+    try {
+      return resolve(...proc(arg0, arg1));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function xcps(proc) {
+  return (...args) => (cont) => cont(proc(...args));
+}
+
+export function xcps1(proc) {
+  return (arg0) => (cont) => cont(proc(arg0));
+}
+
+export function xcps2(proc) {
+  return (arg0, arg1) => (cont) => cont(proc(arg0, arg1));
+}
+
+export function xcpsSplice(proc) {
+  return (...args) => (cont) => cont(...proc(...args));
+}
+
+export function xcpsSplice1(proc) {
+  return (arg0) => (cont) => cont(...proc(arg0));
+}
+
+export function xcpsSplice2(proc) {
+  return (arg0, arg1) => (cont) => cont(...proc(arg0, arg1));
+}
+
+export function xbiCps(proc) {
+  return (...args) => (resolve, reject) => {
+    try {
+      return resolve(proc(...args));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function xbiCps1(proc) {
+  return (arg0) => (resolve, reject) => {
+    try {
+      return resolve(proc(arg0));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function xbiCps2(proc) {
+  return (arg0, arg1) => (resolve, reject) => {
+    try {
+      return resolve(proc(arg0, arg1));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function xbiCpsSplice(proc) {
+  return (...args) => (resolve, reject) => {
+    try {
+      return resolve(...proc(...args));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function xbiCpsSplice1(proc) {
+  return (arg0) => (resolve, reject) => {
+    try {
+      return resolve(...proc(arg0));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
+export function xbiCpsSplice2(proc) {
+  return (arg0, arg1) => (resolve, reject) => {
+    try {
+      return resolve(...proc(arg0, arg1));
+    } catch (error) {
+      return reject(error);
+    }
+  }
+}
+
 export function not(pred) {
   return (...args) => !pred(...args);
 }
