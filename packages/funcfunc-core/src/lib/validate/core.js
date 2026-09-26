@@ -1,6 +1,12 @@
+import { isPlainObject as isPlainObjectImpl } from "../asfunc";
 import { fail, isFailed, isSuccess, reasonOf } from "../failable";
 
-export function all(validators) {
+export function validate(validator, target) {
+  return validator(target, { target, path: [], validator });
+}
+
+
+export function vall(validators) {
   return (target, detail) => {
     let tmp = target;
 
@@ -16,7 +22,7 @@ export function all(validators) {
   };
 }
 
-export function allSettled(validators) {
+export function vallSettled(validators) {
   return (target, detail) => {
     let tmp = target;
     const allReasons = [];
@@ -24,7 +30,7 @@ export function allSettled(validators) {
     for (const v of validators) {
       const res = v(tmp, detail);
       if (isFailed(res)) {
-        allReasons.push(...reasonOf(res));
+        allReasons.push(reasonOf(res));
         continue;
       }
       tmp = res;
@@ -33,11 +39,11 @@ export function allSettled(validators) {
     if (allReasons.length === 0) {
       return tmp;
     }
-    return fail(...allReasons);
+    return fail(allReasons);
   };
 }
 
-export function any(validators) {
+export function vany(validators) {
   return (target, detail) => {
     const allReasons = [];
 
@@ -46,17 +52,21 @@ export function any(validators) {
       if (isSuccess(res)) {
         return res;
       }
-      allReasons.push(...reasonOf(res));
+      allReasons.push(reasonOf(res));
     }
 
-    return fail(...allReasons);
+    return fail(allReasons);
   };
 }
 
 export function isTypeof(type) {
-  return (target, detail) => {
-    return typeof target === type ? target : fail(new ValidationError(detail, `expects ${type}, but got ${typeof target}`));
+  const name = `isTypeof-${type}`
+  const tmp = {
+    [name]: (target, detail) => {
+      return typeof target === type ? target : fail(new ValidationError({ ...detail, validator: tmp[name] }, `expects ${type}, but got ${typeof target}`));
+    }
   };
+  return tmp[name];
 }
 
 export const isBoolean = isTypeof("boolean");
@@ -108,24 +118,15 @@ export function isObject() {
   };
 }
 
+export function isPlainObject() {
+  return (target, detail) => {
+    return isPlainObjectImpl(target) ? target : fail(new ValidationError(detail, "expects plain object"));
+  }
+}
+
 export function isArray() {
   return (target, detail) => {
     return Array.isArray(target) ? target : fail(new ValidationError(detail, "expects array"));
-  };
-}
-
-export function isIterOf(validator) {
-  return (target, detail) => {
-    const allReasons = [];
-    let i = 0;
-    for (const e of target) {
-      const res = validator(e, { ...detail, value: e, path: [...detail.path, i] })
-      if (isFailed) {
-        allReasons.push(...reasonOf(res));
-      }
-      i += 1;
-    }
-    return allReasons.length === 0 ? target : fail(...allReasons);
   };
 }
 

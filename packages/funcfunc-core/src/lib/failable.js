@@ -15,18 +15,10 @@ export function nothing() {
 
 export function attempt(proc, ...args) {
   switch (args.length) {
-    case 0: {
-      return attempt0(proc);
-    }
-    case 1: {
-      return attempt1(proc, args[0]);
-    }
-    case 2: {
-      return attempt2(proc, args[0], args[1]);
-    }
-    default: {
-      return _attemptN(proc, ...args);
-    }
+    case 0: return attempt0(proc);
+    case 1: return attempt1(proc, args[0]);
+    case 2: return attempt2(proc, args[0], args[1]);
+    default: return _attemptN(proc, ...args);
   }
 }
 
@@ -92,17 +84,11 @@ export function reasonOf(failure) {
   throw TypeError("expects failure");
 }
 
-export function flmap(proc, ...failables) {
+export function flmap(proc, failable0, ...failables) {
   switch (failables.length) {
-    case 1: {
-      return flmap1(proc, failables[0]);
-    }
-    case 2: {
-      return flmap2(proc, failables[0], failables[1]);
-    }
-    default: {
-      return _flmapN(proc, failables);
-    }
+    case 0: return flmap1(proc, failable0);
+    case 1: return flmap2(proc, failable0, failables[0]);
+    default: return _flmapN(proc, failable0, failables);
   }
 }
 
@@ -125,27 +111,28 @@ export function flmap2(proc, failable0, failable1) {
   return proc(failable0, failable1);
 }
 
-function _flmapN(proc, failables) {
-  const composed = allSettled(failables);
+function _flmapN(proc, failable0, failables) {
+  failables = allSettled(failables);
 
-  if (isFailed(composed)) {
-    return composed;
+  if (isFailed(failable0)) {
+    if (isFailed(failables)) {
+      return fail([failable0[_reason], failables[_reason]]);
+    }
+    return failable0;
   }
 
-  return proc(...failables);
+  if (isFailed(failables)) {
+    return failables;
+  }
+
+  return proc(failable0, ...failables);
 }
 
-export function tryMap(proc, ...failables) {
+export function tryMap(proc, failable0, ...failables) {
   switch (failables.length) {
-    case 0: {
-      return tryMap1(proc, failables[0]);
-    }
-    case 1: {
-      return tryMap2(proc, failables[0], failables[1]);
-    }
-    default: {
-      return _tryMapN(proc, failables);
-    }
+    case 0: return tryMap1(proc, failable0);
+    case 1: return tryMap2(proc, failable0, failables[0]);
+    default: return _tryMapN(proc, failable0, failables);
   }
 }
 
@@ -165,9 +152,9 @@ export function tryMap2(proc, failable0, failable1) {
   }
 }
 
-function _tryMapN(proc, failables) {
+function _tryMapN(proc, failable0, failables) {
   try {
-    return _flmapN(proc, failables);
+    return _flmapN(proc, failable0, failables);
   } catch (error) {
     return fail(error);
   }
@@ -180,9 +167,9 @@ export function orDefault(failable, defaultValue) {
   return failable;
 }
 
-export function orCalc(failable, generate, ...args) {
+export function orCalc(failable, proc, ...args) {
   if (isFailed(failable)) {
-    return generate(...args);
+    return proc(...args);
   }
   return failable;
 }
@@ -205,8 +192,7 @@ export function allSettled(failables) {
   failables = Array.isArray(failables) ? failables : [...failables];
   const failures = filter(isFailed, failables);
 
-  const { length } = failures;
-  switch (length) {
+  switch (failures.length) {
     case 0: return failables;
     case 1: return failures[0];
     default: return fail(map1I(failures, (x) => x[_reason], failures));

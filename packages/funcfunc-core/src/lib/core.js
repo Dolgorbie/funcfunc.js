@@ -207,72 +207,126 @@ function _cmpN(proc0, procs) {
   return res;
 }
 
-export function cps(proc) {
-  return (cont) => (...args) => cont(proc(...args));
-}
-
-export function cps1(proc) {
-  return (cont) => (arg0) => cont(proc(arg0));
-}
-
-export function cps2(proc) {
-  return (cont) => (arg0, arg1) => cont(proc(arg0, arg1));
-}
-
-export function cpsSplice(proc) {
-  return (cont) => (...args) => cont(...proc(...args));
-}
-
-export function cpsSplice1(proc) {
-  return (cont) => (arg0) => cont(...proc(arg0));
-}
-
-export function cpsSplice2(proc) {
-  return (cont) => (arg0, arg1) => cont(...proc(arg0, arg1));
-}
-
-export function biCps(proc) {
-  return (resolve, reject) => (...args) => {
-    try {
-      return resolve(proc(...args));
-    } catch (error) {
-      return reject(error);
-    }
+export function ctiv(proc, ...args) {
+  switch (args.length) {
+    case 0: return ctiv0(proc);
+    case 1: return ctiv1(proc, args[0]);
+    case 2: return ctiv2(proc, args[0], args[1]);
+    default: return _ctivN(proc, args);
   }
 }
 
-export function biCps1(proc) {
-  return (resolve, reject) => (arg0) => {
+export function ctiv0(proc) {
+  return (cont) => cont(proc());
+}
+
+export function ctiv1(proc, arg0) {
+  return (cont) => cont(proc(arg0));
+}
+
+export function ctiv2(proc, arg0, arg1) {
+  return (cont) => cont(proc(arg0, arg1));
+}
+
+function _ctivN(proc, args) {
+  return (cont) => cont(proc(...args));
+}
+
+export function ctivSplice(proc, ...args) {
+  switch (args.length) {
+    case 0: return ctivSplice0(proc);
+    case 1: return ctivSplice1(proc, args[0]);
+    case 2: return ctivSplice2(proc, args[0], args[1]);
+    default: return _ctivSpliceN(proc, args);
+  }
+}
+
+export function ctivSplice0(proc) {
+  return (cont) => cont(...proc());
+}
+
+export function ctivSplice1(proc, arg0) {
+  return (cont) => cont(...proc(arg0));
+}
+
+export function ctivSplice2(proc, arg0, arg1) {
+  return (cont) => cont(...proc(arg0, arg1));
+}
+
+function _ctivSpliceN(proc, args) {
+  return (cont) => cont(...proc(...args));
+}
+
+export function bictiv(proc, ...args) {
+  switch (args.length) {
+    case 0: return bictiv0(proc);
+    case 1: return bictiv1(proc, args[0]);
+    case 2: return bictiv2(proc, args[0], args[1]);
+    default: return _bictivN(proc, args);
+  }
+}
+
+export function bictiv0(proc) {
+  return (resolve, reject) => {
+    try {
+      return resolve(proc());
+    } catch (error) {
+      return reject(error);
+    }
+  };
+}
+
+export function bictiv1(proc, arg0) {
+  return (resolve, reject) => {
     try {
       return resolve(proc(arg0));
     } catch (error) {
       return reject(error);
     }
-  }
+  };
 }
 
-export function biCps2(proc) {
-  return (resolve, reject) => (arg0, arg1) => {
+export function bictiv2(proc, arg0, arg1) {
+  return (resolve, reject) => {
     try {
       return resolve(proc(arg0, arg1));
     } catch (error) {
       return reject(error);
     }
+  };
+}
+
+function _bictivN(proc, args) {
+  return (resolve, reject) => {
+    try {
+      return resolve(proc(...args));
+    } catch (error) {
+      return reject(error);
+    }
+  };
+}
+
+export function bictivSplice(proc, ...args) {
+  switch (args.length) {
+    case 0: return bictivSplice0(proc);
+    case 1: return bictivSplice1(proc, args[0]);
+    case 2: return bictivSplice2(proc, args[0], args[1]);
+    default: return _bictivSpliceN(proc, args);
   }
 }
 
-export function biCpsSplice(proc) {
-  return (resolve, reject) => (...args) => {
+export function bictivSplice0(proc) {
+  return (resolve, reject) => {
     try {
-      return resolve(...proc(...args));
+      return resolve(...proc());
     } catch (error) {
       return reject(error);
     }
   }
 }
 
-export function biCpsSplice1(proc) {
-  return (resolve, reject) => (arg0) => {
+export function bictivSplice1(proc, arg0) {
+  return (resolve, reject) => {
     try {
       return resolve(...proc(arg0));
     } catch (error) {
@@ -281,8 +335,8 @@ export function biCpsSplice1(proc) {
   }
 }
 
-export function biCpsSplice2(proc) {
-  return (resolve, reject) => (arg0, arg1) => {
+export function bictivSplice2(proc, arg0, arg1) {
+  return (resolve, reject) => {
     try {
       return resolve(...proc(arg0, arg1));
     } catch (error) {
@@ -291,84 +345,10 @@ export function biCpsSplice2(proc) {
   }
 }
 
-export function xcps(proc) {
-  return (...args) => (cont) => cont(proc(...args));
-}
-
-export function xcps1(proc) {
-  return (arg0) => (cont) => cont(proc(arg0));
-}
-
-export function xcps2(proc) {
-  return (arg0, arg1) => (cont) => cont(proc(arg0, arg1));
-}
-
-export function xcpsSplice(proc) {
-  return (...args) => (cont) => cont(...proc(...args));
-}
-
-export function xcpsSplice1(proc) {
-  return (arg0) => (cont) => cont(...proc(arg0));
-}
-
-export function xcpsSplice2(proc) {
-  return (arg0, arg1) => (cont) => cont(...proc(arg0, arg1));
-}
-
-export function xbiCps(proc) {
-  return (...args) => (resolve, reject) => {
-    try {
-      return resolve(proc(...args));
-    } catch (error) {
-      return reject(error);
-    }
-  }
-}
-
-export function xbiCps1(proc) {
-  return (arg0) => (resolve, reject) => {
-    try {
-      return resolve(proc(arg0));
-    } catch (error) {
-      return reject(error);
-    }
-  }
-}
-
-export function xbiCps2(proc) {
-  return (arg0, arg1) => (resolve, reject) => {
-    try {
-      return resolve(proc(arg0, arg1));
-    } catch (error) {
-      return reject(error);
-    }
-  }
-}
-
-export function xbiCpsSplice(proc) {
-  return (...args) => (resolve, reject) => {
+function _bictivSpliceN(proc, args) {
+  return (resolve, reject) => {
     try {
       return resolve(...proc(...args));
-    } catch (error) {
-      return reject(error);
-    }
-  }
-}
-
-export function xbiCpsSplice1(proc) {
-  return (arg0) => (resolve, reject) => {
-    try {
-      return resolve(...proc(arg0));
-    } catch (error) {
-      return reject(error);
-    }
-  }
-}
-
-export function xbiCpsSplice2(proc) {
-  return (arg0, arg1) => (resolve, reject) => {
-    try {
-      return resolve(...proc(arg0, arg1));
     } catch (error) {
       return reject(error);
     }
