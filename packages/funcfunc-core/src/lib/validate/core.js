@@ -1,10 +1,16 @@
 import { isPlainObject as isPlainObjectImpl } from "../asfunc";
 import { fail, isFailed, isSuccess, reasonOf } from "../failable";
 
+export class ValidationError extends Error {
+  constructor(detail, ...args) {
+    super(...args);
+    this.detail = detail;
+  }
+}
+
 export function validate(validator, target) {
   return validator(target, { target, path: [], validator });
 }
-
 
 export function vall(validators) {
   return (target, detail) => {
@@ -57,6 +63,16 @@ export function vany(validators) {
 
     return fail(allReasons);
   };
+}
+
+export function vnot(validator, { name, message = "" } = {}) {
+  name = name ?? `not-${validator.name}`;
+  const tmp = {
+    [name]: (target, detail) => {
+      return isFailed(validator(target, detail)) ? target : fail(new ValidationError({ ...detail, validator: tmp[name] }, message));
+    }
+  };
+  return tmp[name];
 }
 
 export function isTypeof(type) {
@@ -130,9 +146,40 @@ export function isArray() {
   };
 }
 
-export class ValidationError extends Error {
-  constructor(detail, ...args) {
-    super(...args);
-    this.detail = detail;
-  }
+export function objectOf({ req = {}, opt = {} } = {}) {
+  const reqKeys = Object.keys(req);
+  const optKeys = Object.keys(opt);
+
+  const validator = (target, detail) => {
+    for (const k of reqKeys) {
+      const detailK = { ...detail, path: [...detail.path, k], validator };
+
+      if (!Object.hasOwn(target, k)) {
+        return fail(new ValidationError(detailK, `expects property: ${k}`));
+      }
+
+      const value = target[k];
+      const res = req[k](value, detailK);
+      if (isFailed(res)) {
+        return res;
+      }
+    }
+
+    for (const k of optKeys) {
+      if (!Object.hasOwn(target, k)) {
+        continue;
+      }
+
+      const detailK = { ...detail, path: [...detail.path, k], validator };
+      const value = target[k];
+      const res = req[k](value, detailK);
+      if (isFailed(res)) {
+        return res;
+      }
+    }
+
+    return target;
+  };
+
+  return validator;
 }
