@@ -172,7 +172,7 @@ export function objectOf({ req = {}, opt = {} } = {}) {
 
       const detailK = { ...detail, path: [...detail.path, k], validator };
       const value = target[k];
-      const res = req[k](value, detailK);
+      const res = opt[k](value, detailK);
       if (isFailed(res)) {
         return res;
       }
