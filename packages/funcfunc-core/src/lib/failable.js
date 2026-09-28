@@ -203,10 +203,10 @@ export function any(failables) {
   const acc = [];
 
   for (const x of failables) {
-    if (isFailed(x)) {
-      acc.push(x[_reason]);
+    if (isSuccess(x)) {
+      return x;
     }
-    return x;
+    acc.push(x[_reason]);
   }
 
   return fail(acc);

@@ -70,7 +70,7 @@ export function sleep(delay, { signal }) {
       reject(event.target.reason);
     };
 
-    const timeoutId = setTimeout(_handleSleepTimeout, delay, resolve, handleAbort);
+    const timeoutId = setTimeout(_handleSleepTimeout, delay, resolve, signal, handleAbort);
 
     signal?.addEventListener("abort", handleAbort, { once: true });
   });
