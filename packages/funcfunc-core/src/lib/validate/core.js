@@ -151,17 +151,20 @@ export function objectOf({ req = {}, opt = {} } = {}) {
   const optKeys = Object.keys(opt);
 
   const validator = (target, detail) => {
+    const failures = [];
+
     for (const k of reqKeys) {
       const detailK = { ...detail, path: [...detail.path, k], validator };
 
       if (!Object.hasOwn(target, k)) {
-        return fail(new ValidationError(detailK, `expects property: ${k}`));
+        failures.push(fail(new ValidationError(detailK, `expects property: ${k}`)));
+        continue;
       }
 
       const value = target[k];
       const res = req[k](value, detailK);
       if (isFailed(res)) {
-        return res;
+        failures.push(res);
       }
     }
 
