@@ -4,7 +4,7 @@ export function omitFalsy(name) {
   return name || [];
 }
 
-export function collectActiveKeys(name) {
+export function collectActiveKeys(name, isActive = Boolean) {
   if (!isPlainObject(name)) {
     return name;
   }
@@ -13,7 +13,7 @@ export function collectActiveKeys(name) {
   const acc = new Array(keys.length);
   let i = 0;
   for (const k of keys) {
-    if (k !== "" && name[k]) {
+    if (isActive(name[k])) {
       acc[i++] = k;
     }
   }
@@ -43,13 +43,13 @@ export function mapVariants(variantDefs) {
 
 function _loopMapVariants(acc, variants, categories, defs) {
   for (const cat of categories) {
-    if (!(cat in defs)) {
+    if (!Object.hasOwn(defs, cat)) {
       continue;
     }
 
     const varStyles = defs[cat];
     const varName = variants[cat];
-    if (!(varName in varStyles)) {
+    if (!Object.hasOwn(varStyles, varName)) {
       console.warn("unrecognized variant", varStyles, varName);
       continue;
     }

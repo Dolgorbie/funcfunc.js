@@ -7,12 +7,14 @@ export function createClassNamesCombinator({ transformers = [], aggregator = def
 }
 
 function _loopNames(acc, transformers, offsetTranses, names) {
-  for (const name of names) {
-    if (Array.isArray(name)) {
-      _loopNames(acc, transformers, offsetTranses, name);
+  const { length } = names;
+  for (let i = 0; i < length; ++i) {
+    const n = names[i];
+    if (Array.isArray(n)) {
+      _loopNames(acc, transformers, offsetTranses, n);
       continue;
     }
-    _loopTranses(acc, transformers, offsetTranses, name);
+    _loopTranses(acc, transformers, offsetTranses, n);
   }
 }
 
