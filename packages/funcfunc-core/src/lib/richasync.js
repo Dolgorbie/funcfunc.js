@@ -3,7 +3,7 @@ import { RingQueue } from "./queue/ring-queue";
 import { forEach1 } from "./sequence/array-utils";
 import { gfilter } from "./sequence/iterator-utils";
 
-export function ado(func, { retry, timeout, signal: exSignal }) {
+export function ado(func, { retry = {}, timeout, signal: exSignal } = {}) {
   const run = (retryCount) => {
     const abortCtrl = new AbortController();
     const { signal: inSignal } = abortCtrl;
@@ -22,7 +22,7 @@ export function ado(func, { retry, timeout, signal: exSignal }) {
 
         return await func({ signal });
       } catch (error) {
-        if (signal.aborted || retryCount === 0 || !retry?.requires?.(error)) {
+        if (signal.aborted || retryCount === 0 || !retry.requires?.(error)) {
           throw error;
         }
         await sleep(retry.interval ?? 4, { signal });
@@ -36,7 +36,7 @@ export function ado(func, { retry, timeout, signal: exSignal }) {
 
   };
 
-  return run(retry?.count ?? 0);
+  return run(retry.count ?? 0);
 }
 
 export async function withAnySignals(signals, proc) {
@@ -58,7 +58,7 @@ export async function withAnySignals(signals, proc) {
   }
 }
 
-export function sleep(delay, { signal }) {
+export function sleep(delay, { signal } = {}) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason);
@@ -81,7 +81,7 @@ function _handleSleepTimeout(resolve, signal, handleAbort) {
   resolve();
 }
 
-export function clocks(interval, { limits, signal }) {
+export function clocks(interval, { limits, signal } = {}) {
   return new _ClocksAsyncIter(interval, limits, signal);
 }
 
@@ -154,7 +154,7 @@ class _ClocksAsyncIter {
   }
 }
 
-export function postpone(proc, { args = [], signal }) {
+export function postpone(proc, { args = [], signal } = {}) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason);

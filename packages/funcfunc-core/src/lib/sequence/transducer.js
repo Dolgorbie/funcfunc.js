@@ -4,41 +4,41 @@ import { cons, lreverseI, nil } from "./list";
 
 // core ================
 
-class TransducerStoppedError extends Error {
+class _TransducerStoppedError extends Error {
   constructor(...args) {
     super(...args);
   }
 }
 
 export function stop() {
-  throw new TransducerStoppedError();
+  throw new _TransducerStoppedError();
 }
 
 export function isStopped(error) {
-  return error instanceof TransducerStoppedError;
+  return error instanceof _TransducerStoppedError;
 }
 
 // splicing ================
 
 export function takeTS(count) {
-  return ({ rf, opend }) => {
+  return ({ rf, stop }) => {
     let i = 0;
     return {
       rf: (acc, value) => {
         if (i >= count) {
-          stop();
+          return stop(acc);
         }
         i += 1;
         return rf(acc, value);
       },
 
-      opend,
+      stop,
     };
   };
 }
 
 export function dropTS(count) {
-  return ({ rf, opend }) => {
+  return ({ rf, stop }) => {
     let i = 0;
     return {
       rf: (acc, value) => {
@@ -49,7 +49,7 @@ export function dropTS(count) {
         return rf(acc, value);
       },
 
-      opend,
+      stop,
     };
   };
 }
@@ -57,24 +57,24 @@ export function dropTS(count) {
 // composition ================
 
 export function flatT() {
-  return ({ rf, opend }) => ({
+  return ({ rf, stop }) => ({
     rf: (acc, value) => {
       return greduce1(rf, acc, value);
     },
 
-    opend,
+    stop,
   });
 }
 
 export function entriesTS() {
-  return ({ rf, opend }) => {
+  return ({ rf, stop }) => {
     let i = 0;
     return {
       rf: (acc, value) => {
         return rf(acc, [i++, value]);
       },
 
-      opend,
+      stop,
     };
   };
 }
@@ -82,7 +82,7 @@ export function entriesTS() {
 // filtering ================
 
 export function filterT(pred) {
-  return ({ rf, opend }) => ({
+  return ({ rf, stop }) => ({
     rf: (acc, value) => {
       if (pred(value)) {
         return rf(acc, value);
@@ -90,12 +90,12 @@ export function filterT(pred) {
       return acc;
     },
 
-    opend,
+    stop,
   });
 }
 
 export function findTailTS(pred) {
-  return ({ rf, opend }) => {
+  return ({ rf, stop }) => {
     let found = false;
     return {
       rf: (acc, value) => {
@@ -109,26 +109,26 @@ export function findTailTS(pred) {
         return acc;
       },
 
-      opend,
+      stop,
     };
   };
 }
 
 export function takeWhileT(pred) {
-  return ({ rf, opend }) => ({
+  return ({ rf, stop }) => ({
     rf: (acc, value) => {
       if (pred(value)) {
         return rf(acc, value);
       }
-      stop();
+      return stop(acc);
     },
 
-    opend,
+    stop,
   });
 }
 
 export function dropWhileTS(pred) {
-  return ({ rf, opend }) => {
+  return ({ rf, stop }) => {
     let unmatched = false;
     return {
       rf: (acc, value) => {
@@ -142,13 +142,13 @@ export function dropWhileTS(pred) {
         return rf(acc, value);
       },
 
-      opend,
+      stop,
     };
   };
 }
 
 export function uniqueTS() {
-  return ({ rf, opend }) => {
+  return ({ rf, stop }) => {
     const appeared = new Set();
     return {
       rf: (acc, value) => {
@@ -159,7 +159,7 @@ export function uniqueTS() {
         return rf(acc, value);
       },
 
-      opend,
+      stop,
     };
   };
 }
@@ -167,27 +167,27 @@ export function uniqueTS() {
 // mapping ================
 
 export function mapT(proc) {
-  return ({ rf, opend }) => ({
+  return ({ rf, stop }) => ({
     rf: (acc, value) => {
       return rf(acc, proc(value));
     },
 
-    opend,
+    stop,
   });
 }
 
 export function flatMapT(proc) {
-  return ({ rf, opend }) => ({
+  return ({ rf, stop }) => ({
     rf: (acc, value) => {
       return reduce1(rf, acc, proc(value));
     },
 
-    opend,
+    stop,
   });
 }
 
 export function mapMulti(proc) {
-  return ({ rf, opend }) => ({
+  return ({ rf, stop }) => ({
     rf: (acc, value) => {
       const tmp = [];
 
@@ -199,26 +199,35 @@ export function mapMulti(proc) {
       return reduce1(rf, acc, tmp);
     },
 
-    opend,
+    stop,
   });
 }
 
 // reduction ================
 
 export function transduce(xform, op, init, iter) {
-  const operator = xform(op);
+  const operator = xform(_finalXform(op));
   let acc = init;
 
   try {
     for (const v of iter) {
       acc = operator.rf(acc, v);
     }
-    return operator.opend(acc);
+    operator.stop(acc);
   } catch (error) {
     if (!isStopped(error)) {
       throw error;
     }
-    return operator.opend(acc);
+    return operator.stop(acc);
+  }
+}
+
+function _finalXform({ rf, stop }) {
+  return {
+    rf,
+    stop: (acc) => {
+      throw new _TransducerStoppedError(stop(acc));
+    }
   }
 }
 
@@ -231,7 +240,7 @@ const _toArrayOp = {
     return cons(value, acc);
   },
 
-  opend: (result) => {
+  stop: (result) => {
     return [...result].reverse();
   }
 };
@@ -245,7 +254,7 @@ const _toListOp = {
     return cons(value, acc);
   },
 
-  opend: (result) => {
+  stop: (result) => {
     return lreverseI(result);
   }
 };
