@@ -229,40 +229,6 @@ function _finalXform({ rf, stop }) {
   };
 }
 
-export function asyncTransduce(xform, op, init, iter) {
-  return new Promise((resolve) => {
-    let stopped = false;
-    function resolveAndStop(result) {
-      stopped = true;
-      resolve(result);
-    }
-
-    const finalXform = _createAsyncFinalXform(resolveAndStop);
-    const operator = xform(finalXform(op));
-    let acc = init;
-
-    for (const v of iter) {
-      if (stopped) {
-        return;
-      }
-      acc = operator.rf(acc, v);
-    }
-    operator.stop(acc);
-  });
-}
-
-function _createAsyncFinalXform(resolve) {
-  return ({ rf, stop }) => {
-    return {
-      rf,
-
-      stop: (acc) => {
-        resolve(stop(acc));
-      }
-    };
-  };
-}
-
 export function toArray(xform, iter) {
   return transduce(xform, _toArrayOp, nil, iter);
 }
