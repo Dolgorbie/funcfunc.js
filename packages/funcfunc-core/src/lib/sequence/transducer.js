@@ -4,16 +4,15 @@ import { cons, lreverseI, nil } from "./list";
 
 // core ================
 
-class _TransducerStoppedError extends Error {
+class _Stopped {
   _result;
   constructor(result) {
-    super();
     this._result = result;
   }
 }
 
 export function isStopped(error) {
-  return error instanceof _TransducerStoppedError;
+  return error instanceof _Stopped;
 }
 
 // splicing ================
@@ -26,8 +25,8 @@ export function takeTS(count) {
         if (i >= count) {
           return stop(acc);
         }
-        i += 1;
-        return rf(acc, value);
+        const result = rf(acc, value);
+        return (++i) >= count ? stop(result) : result;
       },
 
       stop,
@@ -223,10 +222,45 @@ export function transduce(xform, op, init, iter) {
 function _finalXform({ rf, stop }) {
   return {
     rf,
+
     stop: (acc) => {
-      throw new _TransducerStoppedError(stop(acc));
+      throw new _Stopped(stop(acc));
     }
-  }
+  };
+}
+
+export function asyncTransduce(xform, op, init, iter) {
+  return new Promise((resolve) => {
+    let stopped = false;
+    function resolveAndStop(result) {
+      stopped = true;
+      resolve(result);
+    }
+
+    const finalXform = _createAsyncFinalXform(resolveAndStop);
+    const operator = xform(finalXform(op));
+    let acc = init;
+
+    for (const v of iter) {
+      if (stopped) {
+        return;
+      }
+      acc = operator.rf(acc, v);
+    }
+    operator.stop(acc);
+  });
+}
+
+function _createAsyncFinalXform(resolve) {
+  return ({ rf, stop }) => {
+    return {
+      rf,
+
+      stop: (acc) => {
+        resolve(stop(acc));
+      }
+    };
+  };
 }
 
 export function toArray(xform, iter) {
