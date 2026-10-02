@@ -5,13 +5,11 @@ import { cons, lreverseI, nil } from "./list";
 // core ================
 
 class _TransducerStoppedError extends Error {
-  constructor(...args) {
-    super(...args);
+  _result;
+  constructor(result) {
+    super();
+    this._result = result;
   }
-}
-
-export function stop() {
-  throw new _TransducerStoppedError();
 }
 
 export function isStopped(error) {
@@ -218,7 +216,7 @@ export function transduce(xform, op, init, iter) {
     if (!isStopped(error)) {
       throw error;
     }
-    return operator.stop(acc);
+    return error._result;
   }
 }
 
