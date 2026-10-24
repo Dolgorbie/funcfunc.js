@@ -1,16 +1,13 @@
-import { filter, map1I } from "./sequence/array-utils";
-
-const _reason = Symbol("reason");
-
+const _REASON = Symbol("reason");
 
 export function fail(reason) {
-  return { [_reason]: reason }
+  return { [_REASON]: reason }
 }
 
-const _nothingSingleton = { [_reason]: [] };
+const _NOTHING = { [_REASON]: [] };
 
 export function nothing() {
-  return _nothingSingleton;
+  return _NOTHING;
 }
 
 export function attempt(proc, ...args) {
@@ -63,7 +60,7 @@ export async function asyncAttempt(promise) {
 }
 
 export function isFailed(failable) {
-  return failable != null && typeof failable === "object" && _reason in failable;
+  return failable != null && typeof failable === "object" && _REASON in failable;
 }
 
 export function isSuccess(failable) {
@@ -72,14 +69,14 @@ export function isSuccess(failable) {
 
 export function confirm(failable) {
   if (isFailed(failable)) {
-    throw _buildError(failable[_reason]);
+    throw _buildError(failable[_REASON]);
   }
   return failable;
 }
 
 export function reasonOf(failure) {
   if (isFailed(failure)) {
-    return failure[_reason];
+    return failure[_REASON];
   }
   throw TypeError("expects failure");
 }
@@ -99,7 +96,7 @@ export function flmap1(proc, failable0) {
 export function flmap2(proc, failable0, failable1) {
   if (isFailed(failable0)) {
     if (isFailed(failable1)) {
-      return fail([failable0[_reason], failable1[_reason]]);
+      return fail([failable0[_REASON], failable1[_REASON]]);
     }
     return failable0;
   }
@@ -112,17 +109,17 @@ export function flmap2(proc, failable0, failable1) {
 }
 
 function _flmapN(proc, failable0, failables) {
-  failables = allSettled(failables);
-
   if (isFailed(failable0)) {
-    if (isFailed(failables)) {
-      return fail([failable0[_reason], failables[_reason]]);
+    const acc = allSettled(failables);
+    if (isFailed(acc)) {
+      return fail([failable0[_REASON], acc[_REASON]]);
     }
     return failable0;
   }
 
-  if (isFailed(failables)) {
-    return failables;
+  const acc = allSettled(failables);
+  if (isFailed(acc)) {
+    return fail([failable0[_REASON], acc[_REASON]]);
   }
 
   return proc(failable0, ...failables);
@@ -176,10 +173,8 @@ export function orCalc(failable, proc, ...args) {
 
 export function all(failables) {
   failables = Array.isArray(failables) ? failables : [...failables];
-  const { length } = failables;
 
-  for (let i = 0; i < length; ++i) {
-    const x = failables[i];
+  for (const x of failables) {
     if (isFailed(x)) {
       return x;
     }
@@ -190,12 +185,24 @@ export function all(failables) {
 
 export function allSettled(failables) {
   failables = Array.isArray(failables) ? failables : [...failables];
-  const failures = filter(isFailed, failables);
 
-  switch (failures.length) {
+  const acc = [];
+  for (const x of failables) {
+    if (isFailed(x)) {
+      acc.push(x);
+    }
+  }
+
+  switch (acc.length) {
     case 0: return failables;
-    case 1: return failures[0];
-    default: return fail(map1I(failures, (x) => x[_reason], failures));
+    case 1: return acc[0];
+    default: {
+      const { length } = acc;
+      for (let i = 0; i < length; ++i) {
+        acc[i] = acc[i][_REASON];
+      }
+      return fail(acc);
+    }
   }
 }
 
@@ -206,10 +213,20 @@ export function any(failables) {
     if (isSuccess(x)) {
       return x;
     }
-    acc.push(x[_reason]);
+    acc.push(x);
   }
 
-  return fail(acc);
+  const { length } = acc;
+  switch (length) {
+    case 0: return nothing();
+    case 1: return acc[0];
+    default: {
+      for (let i = 0; i < length; ++i) {
+        acc[i] = acc[i][_REASON];
+      }
+      return fail(acc);
+    }
+  }
 }
 
 function _buildError(reason) {

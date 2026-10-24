@@ -1,5 +1,6 @@
 import { isPlainObject as isPlainObjectImpl } from "../asfunc";
-import { fail, isFailed, isSuccess, reasonOf } from "../failable";
+import { fail, isFailed, isSuccess, nothing, reasonOf } from "../failable";
+import { map1I } from "../sequence/array-utils";
 
 export class ValidationError extends Error {
   constructor(detail, ...args) {
@@ -31,48 +32,52 @@ export function vall(validators) {
 export function vallSettled(validators) {
   return (target, detail) => {
     let tmp = target;
-    const allReasons = [];
+    const failures = [];
 
     for (const v of validators) {
       const res = v(tmp, detail);
       if (isFailed(res)) {
-        allReasons.push(reasonOf(res));
+        failures.push(res);
         continue;
       }
       tmp = res;
     }
 
-    if (allReasons.length === 0) {
-      return tmp;
+    switch (failures.length) {
+      case 0: return tmp;
+      case 1: return failures[0];
+      default: return fail(map1I(failures, reasonOf, failures));
     }
-    return fail(allReasons);
   };
 }
 
 export function vany(validators) {
   return (target, detail) => {
-    const allReasons = [];
+    const failures = [];
 
     for (const v of validators) {
       const res = v(target, detail);
       if (isSuccess(res)) {
         return res;
       }
-      allReasons.push(reasonOf(res));
+      failures.push(res);
     }
 
-    return fail(allReasons);
+    const { length } = failures;
+    switch (length) {
+      case 0: return nothing();
+      case 1: return failures[0];
+      default: {
+        return fail(map1I(failures, reasonOf, failures));
+      }
+    }
   };
 }
 
-export function vnot(validator, { name, message = "" } = {}) {
-  name = name ?? `not-${validator.name}`;
-  const tmp = {
-    [name]: (target, detail) => {
-      return isFailed(validator(target, detail)) ? target : fail(new ValidationError({ ...detail, validator: tmp[name] }, message));
-    }
-  };
-  return tmp[name];
+export function vnot(validator) {
+  return (target, detail) => {
+    return isFailed(validator(target, detail)) ? target : fail(new ValidationError({ ...detail, validator: tmp[name] }, message));
+  }
 }
 
 export function isTypeof(type) {
