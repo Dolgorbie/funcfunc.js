@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": [
     "packages/funcfunc-core",
-    "packages/funcfunc-react"
+    "packages/funcfunc-react",
+    "packages/examples/ai-client"
   ]
 }

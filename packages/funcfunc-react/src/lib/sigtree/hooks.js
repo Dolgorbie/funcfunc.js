@@ -1,4 +1,5 @@
 import { view } from "funcfunc/lens";
+import { every2 } from "funcfunc/sequence/array-utils";
 import { atom, derefForce, effect, focus, release, retain, track } from "funcfunc/sigtree";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePath } from "../lens/hooks";
@@ -9,12 +10,18 @@ export function useAtom(init, initFn = void 0) {
 }
 
 export function useSigEffect(handler, depNodes) {
-  const [{ _depNodesLength }] = useState({ _depNodesLength: depNodes.length });
-  if (_depNodesLength !== depNodes.length) {
-    throw Error("expects number of depNodes be constant");
-  }
+  const handlerRef = useRef(handler);
+  handlerRef.current = handler;
 
-  const eff = useMemo(() => effect(handler, ...depNodes), depNodes);
+  const [state, setState] = useState(null);
+
+  let eff;
+  if (state != null && state._depNodes.length === depNodes.length && every2(Object.is, state._depNodes, depNodes)) {
+    eff = state._eff;
+  } else {
+    eff = effect((...args) => handlerRef.current(...args), ...depNodes);
+    setState({ _eff: eff, _depNodes: depNodes });
+  }
 
   useLifeCycle(eff);
 
@@ -22,17 +29,19 @@ export function useSigEffect(handler, depNodes) {
 }
 
 export function useUnsyncedValue(node) {
-  const prevAtomRef = useRef(node);
-  const [{ _value }, setValue] = useState(() => ({ _value: derefForce(node) }));
+  const [state, setState] = useState(null);
 
-  useSigEffect((_value) => setValue({ _value }), [node])
-
-  if (prevAtomRef.current !== node) {
-    prevAtomRef.current = node;
-    return derefForce(node);
+  let value;
+  if (state != null && Object.is(state._node, node)) {
+    value = state._value;
+  } else {
+    value = derefForce(node);
+    setState({ _node: node, _value: value });
   }
 
-  return _value;
+  useSigEffect((value) => setState((prev) => Object.is(value, prev.value) ? prev : ({ _node: prev._node, _value: value })), [node])
+
+  return value;
 }
 
 export function useValue(node) {
