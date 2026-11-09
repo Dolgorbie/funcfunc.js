@@ -13,6 +13,7 @@ const libentries = Object.fromEntries(
 export default defineConfig([
   {
     input: "src/main.js",
+    jsx: "react-jsx",
     output: [
       {
         dir: "dist",
@@ -30,6 +31,7 @@ export default defineConfig([
   },
   {
     input: libentries,
+    jsx: "react-jsx",
     output: [
       {
         dir: "dist/lib",

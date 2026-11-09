@@ -11,7 +11,7 @@ export * as Delegate from "./lib/delegate";
 export * as Failable from "./lib/failable";
 export * as Format from "./lib/format";
 export * as Lens from "./lib/lens";
-export * as Multi from "./lib/multi";
+export * as Multi from "./lib/multi/multi";
 export * as Nullable from "./lib/nullable";
 export * as DoubleStackQueue from "./lib/queue/double-stack-queue";
 export * as RingQueue from "./lib/queue/ring-queue";

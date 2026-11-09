@@ -22,11 +22,11 @@ export function WithTrack({ nodes, handler, children }) {
 }
 
 export function WithFocus({ node, lens, children }) {
-  const node = useFocus(lens, node);
-  return useMemo(() => children ? children(node) : void 0, [children, node]);
+  const focus = useFocus(lens, node);
+  return useMemo(() => children ? children(focus) : void 0, [children, focus]);
 }
 
 export function WithPathFocus({ node, path, children }) {
-  const node = usePathFocus(path, node);
-  return useMemo(() => children ? children(node) : void 0, [children, node]);
+  const focus = usePathFocus(path, node);
+  return useMemo(() => children ? children(focus) : void 0, [children, focus]);
 }

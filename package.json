@@ -1,6 +1,10 @@
 {
   "name": "@funcfunc/parent",
   "private": true,
+  "scripts": {
+    "build": "npm run build -w packages/funcfunc-core & npm run build -w packages/funcfunc-react",
+    "dev": "npm run dev -w packages/examples/ai-client"
+  },
   "workspaces": [
     "packages/funcfunc-core",
     "packages/funcfunc-react",
