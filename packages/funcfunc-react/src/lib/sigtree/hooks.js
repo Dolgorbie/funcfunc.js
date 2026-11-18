@@ -1,6 +1,6 @@
 import { view } from "funcfunc/lens";
 import { every2 } from "funcfunc/sequence/array-utils";
-import { atom, derefForce, effect, focus, release, retain, track } from "funcfunc/sigtree";
+import { atom, derefForce, effect, focus, release, retain, track } from "funcfunc/sigtree/core";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePath } from "../lens/hooks";
 

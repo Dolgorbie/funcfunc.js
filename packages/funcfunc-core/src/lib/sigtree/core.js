@@ -319,7 +319,9 @@ class _Effect {
         if (every2(Object.is, dvs, this._depValues)) {
           break;
         }
-        this._cleanup?.();
+        if (typeof this._cleanup === "function") {
+          this._cleanup();
+        }
         this._depValues = dvs;
         this._cleanup = this._proc(...dvs);
         break;

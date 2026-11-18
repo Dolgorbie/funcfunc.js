@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { atom, deref, release, retain, swap } from "./core";
+import { describe, expect, it, vi } from "vitest";
+import { atom, deref, effect, release, reset, retain, swap } from "./core";
 
 describe("atom", () => {
   it("should deref", () => {
@@ -26,4 +26,23 @@ describe("atom", () => {
   });
 });
 
-describe("")
+describe("effect", () => {
+  it("should be called", () => {
+    const value = { a: "a" };
+    const after = { b: "b" }
+    const root = atom(value);
+
+    const acc = [];
+    const handler = vi.fn((v) => acc.push(v));
+    const eff = effect(handler, root);
+
+    retain(eff);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(acc).toEqual([value]);
+
+    handler.mockClear();
+    reset(root, after);
+    expect(handler).toHaveBeenCalledOnce();
+    expect(acc).toEqual([value, after]);
+  });
+});
