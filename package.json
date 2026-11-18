@@ -3,11 +3,21 @@
   "private": true,
   "scripts": {
     "build": "npm run build -w packages/funcfunc-core & npm run build -w packages/funcfunc-react",
-    "dev": "npm run dev -w packages/examples/ai-client"
+    "dev": "npm run dev -w packages/examples/ai-client",
+    "test-core": "npm run test -w packages/funcfunc-core"
   },
   "workspaces": [
     "packages/funcfunc-core",
     "packages/funcfunc-react",
     "packages/examples/ai-client"
-  ]
+  ],
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@rollup/plugin-multi-entry": "^7.1.0",
+    "@rollup/plugin-terser": "^1.0.0",
+    "eslint": "^10.4.0",
+    "globals": "^17.6.0",
+    "rollup": "^4.60.4",
+    "vitest": "^4.1.7"
+  }
 }

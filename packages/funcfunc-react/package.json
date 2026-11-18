@@ -8,12 +8,12 @@
   "main": "./dist/main.js",
   "exports": {
     ".": {
-      "default": "./dist/main.js",
-      "import": "./dist/main.js"
+      "import": "./dist/main.js",
+      "default": "./dist/main.js"
     },
     "./*": {
-      "default": "./dist/lib/*.js",
-      "import": "./dist/lib/*.js"
+      "import": "./dist/lib/*.js",
+      "default": "./dist/lib/*.js"
     }
   },
   "scripts": {
@@ -22,20 +22,13 @@
     "clean": "rm -rf dist"
   },
   "peerDependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "funcfunc": "^0.0.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.38.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
-    "eslint": "^9.38.0",
-    "eslint-plugin-react": "^7.37.5",
-    "globals": "^17.6.0",
-    "rollup": "^4.52.5",
-    "vitest": "^4.0.6"
-  },
-  "dependencies": {
-    "funcfunc": "^0.0.1"
+    "eslint-plugin-react": "^7.37.5"
   }
 }
