@@ -1,5 +1,5 @@
 import { useAtom } from "funcfunc-react/sigtree/hooks";
-import { INITIAL_MESSAGE_LIST } from "../message-list/data";
+import { INITIAL_MESSAGE_LIST } from "../message-list/domain";
 import { AppDbContext } from "./internal/context";
 
 const INITIAL_DB = {

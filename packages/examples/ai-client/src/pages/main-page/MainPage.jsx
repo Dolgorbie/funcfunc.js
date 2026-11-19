@@ -1,9 +1,7 @@
-import { useAtom, useDirectRef } from "funcfunc-react/sigtree/hooks";
-import { update } from "funcfunc/lens";
-import { deref, reset, swap } from "funcfunc/sigtree/core";
-import { useAppDb } from "../../features/app-db/app-db-hooks";
+import { useDirectRef } from "funcfunc-react/sigtree/hooks";
+import { deref, reset } from "funcfunc/sigtree/core";
 import { MessageList } from "../../features/message-list/MessageList";
-import { messageListLens } from "../../features/message-list/data";
+import { useAddMessageItem } from "../../features/message-list/hooks";
 
 export default function MainPage() {
   return <main>
@@ -14,24 +12,23 @@ export default function MainPage() {
 
 
 function MessageInput() {
-  const db = useAppDb();
-
-  const tmpAtom = useAtom({ value: "" });
-  const inputRef = useDirectRef(tmpAtom, { value: "value" })
-  const buttonRef = useDirectRef(tmpAtom, { disabled: ({ value }) => value === "" });
+  const addMessageItem = useAddMessageItem();
 
   return <form onSubmit={(event) => {
     event.preventDefault();
-
-    const id = Math.floor(Math.random() * 32 ** 5).toString(32);
-
-    swap(db, (prev) => update(messageListLens, prev, (prev) => ({
-      contents: { ...prev.contents, [id]: { text: deref(tmpAtom).value } },
-      ids: [...prev.ids, id]
-    })));
+    addMessageItem(deref(tmpAtom).value);
     reset(tmpAtom, { value: "" })
   }}>
-    <input ref={inputRef} type="text" onChange={({ target: { value } }) => reset(tmpAtom, { value })} />
-    <button ref={buttonRef} type="submit">送信</button>
+    <input
+      ref={useDirectRef(tmpAtom, { value: "value" })}
+      type="text"
+      onChange={({ target: { value } }) => reset(tmpAtom, { value })}
+    />
+    <button
+      ref={useDirectRef(tmpAtom, { disabled: ({ value }) => value === "" })}
+      type="submit"
+    >
+      送信
+    </button>
   </form>
 }

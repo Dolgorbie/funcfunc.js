@@ -1,4 +1,5 @@
 export * as Asfunc from "./lib/asfunc";
+export * as Cache from "./lib/cache";
 export * as Chan from "./lib/chan/core";
 export * as ChanUtils from "./lib/chan/utils";
 export * as ClassnamesAggregators from "./lib/classnames/aggregators";
