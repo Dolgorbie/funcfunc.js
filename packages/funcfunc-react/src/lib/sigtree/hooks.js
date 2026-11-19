@@ -13,15 +13,23 @@ export function useSigEffect(handler, depNodes) {
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
 
-  const [state, setState] = useState(null);
-
-  let eff;
-  if (state != null && state._depNodes.length === depNodes.length && every2(Object.is, state._depNodes, depNodes)) {
-    eff = state._eff;
-  } else {
-    eff = effect((...args) => handlerRef.current(...args), ...depNodes);
-    setState({ _eff: eff, _depNodes: depNodes });
+  const stateRef = useRef(null);
+  if (stateRef.current == null) {
+    stateRef.current = {
+      _eff: effect((...args) => handlerRef.current(...args), ...depNodes),
+      _deps: depNodes,
+    }
   }
+
+  const { current } = stateRef;
+  const { _deps } = current;
+  const eff = _deps.length === depNodes.length && every2(Object.is, _deps, depNodes)
+    ? current._eff
+    : effect((...args) => handlerRef.current(...args), ...depNodes);
+
+  useEffect(() => {
+    stateRef.current = { _eff: eff, _deps: depNodes };
+  }, [eff]);
 
   useLifeCycle(eff);
 
@@ -39,7 +47,7 @@ export function useUnsyncedValue(node) {
     setState({ _node: node, _value: value });
   }
 
-  useSigEffect((value) => setState((prev) => Object.is(value, prev.value) ? prev : ({ _node: prev._node, _value: value })), [node])
+  useSigEffect((value) => setState((prev) => Object.is(value, prev._value) ? prev : ({ _node: prev._node, _value: value })), [node])
 
   return value;
 }

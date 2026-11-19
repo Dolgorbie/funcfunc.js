@@ -1,6 +1,5 @@
-import { useFocus, useValue } from "funcfunc-react/sigtree/hooks";
-import { path } from "funcfunc/lens";
-import { memo, useMemo } from "react";
+import { useFocus, usePathFocus, useValue } from "funcfunc-react/sigtree/hooks";
+import { memo } from "react";
 import { useAppDb } from "../app-db/app-db-hooks";
 import { messageListContentsLens, messageListIdsLens } from "./domain";
 
@@ -16,8 +15,8 @@ export function MessageList() {
 }
 
 const MessageItem = memo(function MessageItem({ id, contentsAtom }) {
-  const contentAtom = useFocus(useMemo(() => path([id, "text"]), [id, contentsAtom]), db);
-  const text = useValue(contentAtom);
+  const textAtom = usePathFocus([id, "text"], contentsAtom);
+  const text = useValue(textAtom);
 
   return <li>{text}</li>
 });
