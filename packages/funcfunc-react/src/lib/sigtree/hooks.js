@@ -111,15 +111,15 @@ export function useDirectRef(node, mappings) {
           case "number":
           case "string":
           case "symbol": {
-            dom[p] = data[getter];
+            replaceAttr(dom, p, data[getter]);
             break;
           }
           case "function": {
-            dom[p] = getter(data);
+            replaceAttr(dom, p, getter(data));
             break;
           }
           case "object": {
-            dom[p] = view(getter, data);
+            replaceAttr(dom, p, view(getter, data));
             break;
           }
           default: {
@@ -134,6 +134,24 @@ export function useDirectRef(node, mappings) {
       release(eff);
     };
   }, [node, _memoMappings]);
+}
+
+function replaceAttr(dom, param, value) {
+  switch (param) {
+    case "children":
+      if (value === false || value == null) {
+        dom.replaceChildren();
+        break;
+      }
+      if (Array.isArray(value)) {
+        dom.replaceChildren(...value);
+        break;
+      }
+      dom.replaceChildren(value);
+      break;
+    default:
+      dom[param] = value;
+  }
 }
 
 export function useLifeCycle(node) {
