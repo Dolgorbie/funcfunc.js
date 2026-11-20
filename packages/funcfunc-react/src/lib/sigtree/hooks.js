@@ -64,17 +64,30 @@ export function useValue(node) {
 }
 
 export function useTrack(handler, depNodes) {
-  const [{ _depNodesLength }] = useState({ _depNodesLength: depNodes.length });
-  if (_depNodesLength !== depNodes.length) {
-    throw Error("expects number of depNodes be constant");
+  const handlerRef = useRef(handler);
+  handlerRef.current = handler;
+
+  const stateRef = useRef(null);
+  if (stateRef.current == null) {
+    stateRef.current = {
+      _node: track((...args) => handlerRef.current(...args), ...depNodes),
+      _deps: depNodes,
+    }
   }
 
-  const memoDepNodes = useMemo(() => depNodes, depNodes)
-  const node = useMemo(() => track(handler, ...memoDepNodes), [handler, memoDepNodes]);
+  const { current } = stateRef;
+  const { _deps } = current;
+  const result = _deps.length === depNodes.length && every2(Object.is, _deps, depNodes)
+    ? current._node
+    : track((...args) => handlerRef.current(...args), ...depNodes);
 
-  useLifeCycle(node);
+  useEffect(() => {
+    stateRef.current = { _node: result, _deps: depNodes };
+  }, [result]);
 
-  return node;
+  useLifeCycle(result);
+
+  return result;
 }
 
 export function useFocus(lns, depNode) {
@@ -96,7 +109,7 @@ export function usePathFocus(depPath, depNode) {
 
 export function useDirectRef(node, mappings) {
   const effRef = useRef();
-  const [{ _memoMappings }] = useState({ _memoMappings: mappings })
+  const [memoMappings] = useState(mappings)
 
   return useCallback((dom) => {
     if (dom == null) {
@@ -107,10 +120,10 @@ export function useDirectRef(node, mappings) {
       return;
     }
 
-    const props = Object.keys(_memoMappings);
+    const props = Object.keys(memoMappings);
     const eff = effRef.current = effect((data) => {
       for (const p of props) {
-        const getter = _memoMappings[p];
+        const getter = memoMappings[p];
         if (getter == null) {
           continue;
         }
@@ -137,11 +150,8 @@ export function useDirectRef(node, mappings) {
       }
     }, node);
 
-    retain(eff);
-    return () => {
-      release(eff);
-    };
-  }, [node, _memoMappings]);
+    return _doLifeCycleEffect(eff);
+  }, [node, memoMappings]);
 }
 
 function replaceAttr(dom, param, value) {

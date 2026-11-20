@@ -1,21 +1,31 @@
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   width: 100%;
   height: 100%;
   line-height: 1.25;
 }
 
-img, video, audio, canvas, svg, input[type="image"] {
+img,
+video,
+audio,
+canvas,
+svg,
+input[type="image"] {
   vertical-align: middle;
   max-width: 100%;
 }
 
-img, video {
+img,
+video {
   height: auto;
 }
 
@@ -25,6 +35,13 @@ iframe {
   border: 0;
 }
 
-input {
+input,
+textarea,
+button {
+  vertical-align: middle;
   font: inherit;
+}
+
+textarea {
+  padding-block: 0.25rem;
 }
