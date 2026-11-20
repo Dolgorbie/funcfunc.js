@@ -1,12 +1,12 @@
-import { useFocus, usePathFocus, useValue } from "funcfunc-react/sigtree/hooks";
+import { useFocus, usePathFocus, useTrack, useValue } from "funcfunc-react/sigtree/hooks";
 import { memo } from "react";
 import { useAppDb } from "../app-db/app-db-hooks";
-import { messageListContentsLens, messageListIdsLens } from "./domain";
+import { messageListContentsLens } from "./domain";
 
 export function MessageList() {
   const db = useAppDb();
   const contentsAtom = useFocus(messageListContentsLens, db);
-  const idsAtom = useFocus(messageListIdsLens, db);
+  const idsAtom = useTrack(({ messageList: { ids } }) => ids, [db])
   const ids = useValue(idsAtom);
 
   return <ul>{

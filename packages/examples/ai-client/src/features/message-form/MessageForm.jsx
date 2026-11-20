@@ -1,5 +1,6 @@
-import { useAtom, useDirectRef } from "funcfunc-react/sigtree/hooks";
+import { useAtom, useDirectRef, usePathFocus } from "funcfunc-react/sigtree/hooks";
 import { deref, reset } from "funcfunc/sigtree/core";
+import { FlexibleTextarea } from "../../components/flexible-textarea/FlexibleTextarea";
 import { useAddMessageItem } from "../message-list/hooks";
 
 export function MessageForm() {
@@ -12,13 +13,7 @@ export function MessageForm() {
     addMessageItem(deref(tmpAtom).value);
     reset(tmpAtom, { value: "" })
   }}>
-    <textarea
-      ref={useDirectRef(tmpAtom, {
-        value: "value",
-        rows: ({ value }) => Math.min((value.match(/\n/g) ?? []).length + 1, 10)
-      })}
-      onChange={({ target: { value } }) => reset(tmpAtom, { value })}
-    />
+    <FlexibleTextarea valueAtom={usePathFocus(["value"], tmpAtom)} />
     <button
       ref={useDirectRef(tmpAtom, { disabled: ({ value }) => value.trim() === "" })}
       type="submit"

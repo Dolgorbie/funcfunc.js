@@ -1,0 +1,21 @@
+.container {
+  position: relative;
+  flex: 1 1 auto;
+}
+
+.dummy {
+  visibility: hidden;
+  min-height: 2rem;
+  border: solid 1px transparent;
+  padding: 0.25rem;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.textarea {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}

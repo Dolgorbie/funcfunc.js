@@ -1,6 +1,6 @@
 import { view } from "funcfunc/lens";
 import { every2 } from "funcfunc/sequence/array-utils";
-import { atom, derefForce, effect, focus, release, retain, track } from "funcfunc/sigtree/core";
+import { atom, deref, derefForce, effect, focus, release, retain, track } from "funcfunc/sigtree/core";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePath } from "../lens/hooks";
 
@@ -53,12 +53,28 @@ export function useUnsyncedValue(node) {
 }
 
 export function useValue(node) {
+  const retainedRef = useRef(false);
+
   const subscribe = useCallback((listen) => {
     const eff = effect(listen, node);
-    return _doLifeCycleEffect(eff);
+
+    retain(eff);
+    retainedRef.current = true;
+
+    return () => {
+      retainedRef.current = false;
+      release(eff);
+    };
+
   }, [node]);
 
-  const getSnapshot = useCallback(() => derefForce(node), [node]);
+  const getSnapshot = useCallback(() => {
+    if (retainedRef.current) {
+      return deref(node);
+    } else {
+      return derefForce(node)
+    }
+  }, [node]);
 
   return useSyncExternalStore(subscribe, getSnapshot);
 }
@@ -150,7 +166,10 @@ export function useDirectRef(node, mappings) {
       }
     }, node);
 
-    return _doLifeCycleEffect(eff);
+    retain(eff);
+    return () => {
+      release(eff);
+    };
   }, [node, memoMappings]);
 }
 
@@ -174,13 +193,9 @@ function replaceAttr(dom, param, value) {
 
 export function useLifeCycle(node) {
   useEffect(() => {
-    return _doLifeCycleEffect(node);
+    retain(node)
+    return () => {
+      release(node);
+    };
   }, [node]);
-}
-
-function _doLifeCycleEffect(node) {
-  retain(node);
-  return () => {
-    release(node);
-  };
 }
