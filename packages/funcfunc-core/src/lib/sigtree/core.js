@@ -47,7 +47,21 @@ export function swap(sig, func, ...args) {
     if (_changed) {
       const errors = [];
       const effects = [..._root._effectSet];
-      _staleAll(effects, [..._root._childSet]);
+      _staleAllChildren(effects, [..._root._childSet]);
+
+      for (const e of effects) {
+        switch (e._state) {
+          case _ST_DISABLED:
+            throw Error("disabled effect");
+          case _ST_FRESH:
+            e._state = _ST_STALE;
+            break;
+          case _ST_STALE:
+            break;
+          default:
+            throw Error("unrecognized state");
+        }
+      }
 
       for (const e of effects) {
         try {
@@ -78,7 +92,7 @@ export function swap(sig, func, ...args) {
   }
 }
 
-function _staleAll(effects, children) {
+function _staleAllChildren(effects, children) {
   if (children.length === 0) {
     return;
   }
@@ -91,17 +105,6 @@ function _staleAll(effects, children) {
         throw Error("disabled signal");
       case _ST_FRESH: {
         for (const e of target._effectSet) {
-          switch (e._state) {
-            case _ST_DISABLED:
-              throw Error("disabled effect");
-            case _ST_FRESH:
-              e._state = _ST_STALE;
-              break;
-            case _ST_STALE:
-              break;
-            default:
-              throw Error("unrecognized state");
-          }
           effects.push(e);
         }
         for (const c of target._childSet) {
@@ -117,7 +120,7 @@ function _staleAll(effects, children) {
     }
   }
 
-  _staleAll(effects, nextChildren);
+  _staleAllChildren(effects, nextChildren);
 }
 
 export function xswap(func, sig, ...args) {
