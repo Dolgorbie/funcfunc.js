@@ -210,6 +210,7 @@ class _Focus {
       case _ST_STALE: {
         const dv = deref(this._depSig);
         if (Object.is(dv, this._depValue)) {
+          this._state = _ST_FRESH;
           break;
         }
         this._depValue = dv;
@@ -272,6 +273,7 @@ class _Track {
       case _ST_STALE: {
         const dvs = map1(deref, this._depSigs);
         if (every2(Object.is, dvs, this._depValues)) {
+          this._state = _ST_FRESH;
           break;
         }
         this._depValues = dvs;
@@ -330,6 +332,7 @@ class _Effect {
         const { _depValues } = this;
         const dvs = map1(deref, this._depSigs);
         if (_depValues != null && every2(Object.is, dvs, _depValues)) {
+          this._state = _ST_FRESH;
           break;
         }
         if (typeof this._cleanup === "function") {
