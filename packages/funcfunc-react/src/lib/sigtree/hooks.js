@@ -1,6 +1,6 @@
 import { view } from "funcfunc/lens";
 import { every2 } from "funcfunc/sequence/array-utils";
-import { atom, deref, derefForce, effect, focus, release, retain, track } from "funcfunc/sigtree/core";
+import { atom, deref, effect, focus, release, retain, track } from "funcfunc/sigtree/core";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePath } from "../lens/hooks";
 
@@ -43,7 +43,7 @@ export function useUnsyncedValue(node) {
   if (state != null && Object.is(state._node, node)) {
     value = state._value;
   } else {
-    value = derefForce(node);
+    value = deref(node);
     setState({ _node: node, _value: value });
   }
 
@@ -72,7 +72,7 @@ export function useValue(node) {
     if (retainedRef.current) {
       return deref(node);
     } else {
-      return derefForce(node)
+      return deref(node)
     }
   }, [node]);
 
