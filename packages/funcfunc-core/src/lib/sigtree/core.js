@@ -204,6 +204,7 @@ class _Focus {
   _update() {
     switch (this._state) {
       case _ST_DISABLED:
+        break;
       case _ST_FRESH:
         break;
       case _ST_STALE: {
@@ -213,13 +214,12 @@ class _Focus {
         }
         this._depValue = dv;
         this._value = this._lens.view(dv);
+        this._state = _ST_FRESH;
         break;
       }
       default:
         throw Error("unrecognized state");
     }
-
-    this._state = _ST_FRESH;
   }
 
   _updateRoot(toNext, ...args) {
@@ -266,6 +266,7 @@ class _Track {
   _update() {
     switch (this._state) {
       case _ST_DISABLED:
+        break;
       case _ST_FRESH:
         break;
       case _ST_STALE: {
@@ -275,13 +276,12 @@ class _Track {
         }
         this._depValues = dvs;
         this._value = this._func(...dvs);
+        this._state = _ST_FRESH;
         break;
       }
       default:
         throw Error("unrecognized state");
     }
-
-    this._state = _ST_FRESH;
   }
 
   _setup() {
@@ -323,6 +323,7 @@ class _Effect {
   _invoke() {
     switch (this._state) {
       case _ST_DISABLED:
+        break;
       case _ST_FRESH:
         break;
       case _ST_STALE: {
@@ -336,13 +337,13 @@ class _Effect {
         }
         this._depValues = dvs;
         this._cleanup = this._proc(...dvs);
+        this._state = _ST_FRESH;
         break;
       }
       default:
         throw Error("unrecognized state");
     }
 
-    this._state = _ST_FRESH;
   }
 
   _setup() {
