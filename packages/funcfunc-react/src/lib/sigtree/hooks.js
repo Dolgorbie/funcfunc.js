@@ -5,30 +5,30 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { usePath } from "../lens/hooks";
 
 export function useAtom(init, initFn = void 0) {
-  const [node] = useState(() => atom(initFn === void 0 ? init : initFn(init)));
-  return node;
+  const [sig] = useState(() => atom(initFn === void 0 ? init : initFn(init)));
+  return sig;
 }
 
-export function useSigEffect(handler, depNodes) {
+export function useSigEffect(handler, depSigs) {
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
 
   const stateRef = useRef(null);
   if (stateRef.current == null) {
     stateRef.current = {
-      _eff: effect((...args) => handlerRef.current(...args), ...depNodes),
-      _deps: depNodes,
+      _eff: effect((...args) => handlerRef.current(...args), ...depSigs),
+      _deps: depSigs,
     }
   }
 
   const { current } = stateRef;
   const { _deps } = current;
-  const eff = _deps.length === depNodes.length && every2(Object.is, _deps, depNodes)
+  const eff = _deps.length === depSigs.length && every2(Object.is, _deps, depSigs)
     ? current._eff
-    : effect((...args) => handlerRef.current(...args), ...depNodes);
+    : effect((...args) => handlerRef.current(...args), ...depSigs);
 
   useEffect(() => {
-    stateRef.current = { _eff: eff, _deps: depNodes };
+    stateRef.current = { _eff: eff, _deps: depSigs };
   }, [eff]);
 
   useLifeCycle(eff);
@@ -36,69 +36,61 @@ export function useSigEffect(handler, depNodes) {
   return eff;
 }
 
-export function useUnsyncedValue(node) {
-  const [state, setState] = useState(null);
+export function useUnsyncedValue(sig) {
+  const [state, setState] = useState(() => ({ _sig: sig, _value: deref(sig) }));
+  const { _sig, _value } = state;
 
-  let value;
-  if (state != null && Object.is(state._node, node)) {
-    value = state._value;
+  let result;
+  if (_sig === sig) {
+    result = _value;
   } else {
-    value = deref(node);
-    setState({ _node: node, _value: value });
+    setState({ _sig: sig, _value: (result = deref(sig)) });
   }
 
-  useSigEffect((value) => setState((prev) => Object.is(value, prev._value) ? prev : ({ _node: prev._node, _value: value })), [node])
+  useSigEffect((nextVal) => {
+    setState((prev) => Object.is(prev._value, nextVal) ? prev : { ...prev, _value: nextVal });
+  }, [_sig]);
 
-  return value;
+  return result;
 }
 
-export function useValue(node) {
-  const retainedRef = useRef(false);
-
+export function useValue(sig) {
   const subscribe = useCallback((listen) => {
-    const eff = effect(listen, node);
-
+    const eff = effect(listen, sig);
     retain(eff);
-    retainedRef.current = true;
-
     return () => {
-      retainedRef.current = false;
       release(eff);
     };
 
-  }, [node]);
+  }, [sig]);
 
   const getSnapshot = useCallback(() => {
-    if (retainedRef.current) {
-      return deref(node);
-    } else {
-      return deref(node)
-    }
-  }, [node]);
+    return deref(sig);
+  }, [sig]);
 
   return useSyncExternalStore(subscribe, getSnapshot);
 }
 
-export function useTrack(handler, depNodes) {
+export function useTrack(handler, depSigs) {
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
 
   const stateRef = useRef(null);
   if (stateRef.current == null) {
     stateRef.current = {
-      _node: track((...args) => handlerRef.current(...args), ...depNodes),
-      _deps: depNodes,
+      _sig: track((...args) => handlerRef.current(...args), ...depSigs),
+      _deps: depSigs,
     }
   }
 
   const { current } = stateRef;
   const { _deps } = current;
-  const result = _deps.length === depNodes.length && every2(Object.is, _deps, depNodes)
-    ? current._node
-    : track((...args) => handlerRef.current(...args), ...depNodes);
+  const result = _deps.length === depSigs.length && every2(Object.is, _deps, depSigs)
+    ? current._sig
+    : track((...args) => handlerRef.current(...args), ...depSigs);
 
   useEffect(() => {
-    stateRef.current = { _node: result, _deps: depNodes };
+    stateRef.current = { _sig: result, _deps: depSigs };
   }, [result]);
 
   useLifeCycle(result);
@@ -106,38 +98,29 @@ export function useTrack(handler, depNodes) {
   return result;
 }
 
-export function useFocus(lns, depNode) {
-  const node = useMemo(() => focus(lns, depNode), [lns, depNode]);
+export function useFocus(lns, depSig) {
+  const sig = useMemo(() => focus(lns, depSig), [lns, depSig]);
 
-  useLifeCycle(node);
+  useLifeCycle(sig);
 
-  return node;
+  return sig;
 }
 
-export function usePathFocus(depPath, depNode) {
+export function usePathFocus(depPath, depSig) {
   const lens = usePath(depPath);
-  const node = useMemo(() => focus(lens, depNode), [lens, depNode]);
+  const sig = useMemo(() => focus(lens, depSig), [lens, depSig]);
 
-  useLifeCycle(node);
+  useLifeCycle(sig);
 
-  return node;
+  return sig;
 }
 
-export function useDirectRef(node, mappings) {
-  const effRef = useRef();
+export function useDirectRef(sig, mappings) {
   const [memoMappings] = useState(mappings)
 
   return useCallback((dom) => {
-    if (dom == null) {
-      if (effRef.current != null) {
-        release(effRef.current);
-        effRef.current = null;
-      }
-      return;
-    }
-
     const props = Object.keys(memoMappings);
-    const eff = effRef.current = effect((data) => {
+    const eff = effect((data) => {
       for (const p of props) {
         const getter = memoMappings[p];
         if (getter == null) {
@@ -164,13 +147,13 @@ export function useDirectRef(node, mappings) {
           }
         }
       }
-    }, node);
+    }, sig);
 
     retain(eff);
     return () => {
       release(eff);
     };
-  }, [node, memoMappings]);
+  }, [sig, memoMappings]);
 }
 
 function replaceAttr(dom, param, value) {
@@ -191,11 +174,11 @@ function replaceAttr(dom, param, value) {
   }
 }
 
-export function useLifeCycle(node) {
+export function useLifeCycle(sig) {
   useEffect(() => {
-    retain(node)
+    retain(sig)
     return () => {
-      release(node);
+      release(sig);
     };
-  }, [node]);
+  }, [sig]);
 }
