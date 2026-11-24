@@ -1,89 +1,116 @@
 import { every2, forEach1, map1 } from "../sequence/array-utils";
 
+const _ST_DISABLED = 0;
+const _ST_FRESH = 1;
+const _ST_STALE = 2;
+
 export function atom(init) {
   return new _Atom(init);
 }
 
-export function focus(lns, node) {
-  return new _Focus(lns, node);
+export function focus(lns, sig) {
+  return new _Focus(lns, sig);
 }
 
-export function track(handler, ...nodes) {
-  return new _Track(handler, nodes);
+export function track(handler, ...sigs) {
+  return new _Track(handler, sigs);
 }
 
-export function effect(handler, ...nodes) {
-  return new _Effect(handler, nodes);
+export function effect(handler, ...sigs) {
+  return new _Effect(handler, sigs);
 }
 
-export function deref(node) {
-  node._update?.();
-  return node._value;
+export function deref(sig) {
+  sig._update?.();
+  return sig._value;
 }
 
-export function derefForce(node) {
-  retain(node);
-  const res = deref(node);
-  release(node);
-  return res;
+export function derefForce(sig) {
+  retain(sig);
+  try {
+    return deref(sig);
+  } finally {
+    release(sig);
+  }
 }
 
-export function swap(node, func, ...args) {
-  if (!("_updateRoot" in node)) {
-    throw TypeError("immutable node");
+export function swap(sig, func, ...args) {
+  if (!("_updateRoot" in sig)) {
+    throw TypeError("immutable signal");
   }
 
-  retain(node);
+  retain(sig);
 
-  const { _root, _changed } = node._updateRoot(func, ...args);
-  if (_changed) {
-    const effects = new Set(_root._effectSet);
-    _staleAll(effects, _root._childSet);
-    for (const e of effects) {
-      switch (e._state) {
-        case _st_disabled:
-          throw Error("disabled node");
-        case _st_fresh:
-          e._state = _st_stale;
-          break;
-        case _st_stale:
-        case _st_new:
-          break;
-        default:
-          throw Error("unrecognized state");
+  try {
+    const { _root, _changed } = sig._updateRoot(func, ...args);
+
+    if (_changed) {
+      const errors = [];
+      const effects = [..._root._effectSet];
+      _staleAll(effects, [..._root._childSet]);
+
+      for (const e of effects) {
+        try {
+          switch (e._state) {
+            case _ST_DISABLED:
+              throw Error("disabled effect");
+            case _ST_FRESH:
+              break;
+            case _ST_STALE:
+              e._invoke();
+              break;
+            default:
+              throw Error("unrecognized state");
+          }
+        } catch (err) {
+          errors.push(err);
+        }
       }
-      e._invoke();
-    }
-  }
-  const res = deref(node);
 
-  release(node);
-  return res;
+      if (errors.length > 0) {
+        throw new AggregateError(errors, "some effects threw errors.");
+      }
+    }
+
+    return deref(sig);
+  } finally {
+    release(sig);
+  }
 }
 
 function _staleAll(effects, children) {
-  if (children.size === 0) {
+  if (children.length === 0) {
     return;
   }
 
-  const nextChildren = new Set();
+  const nextChildren = [];
 
   for (const target of children) {
     switch (target._state) {
-      case _st_disabled:
-        throw Error("disabled node");
-      case _st_fresh: {
+      case _ST_DISABLED:
+        throw Error("disabled signal");
+      case _ST_FRESH: {
         for (const e of target._effectSet) {
-          effects.add(e);
+          switch (e._state) {
+            case _ST_DISABLED:
+              throw Error("disabled effect");
+            case _ST_FRESH:
+              e._state = _ST_STALE;
+              break;
+            case _ST_STALE:
+              break;
+            default:
+              throw Error("unrecognized state");
+          }
+          effects.push(e);
         }
         for (const c of target._childSet) {
-          nextChildren.add(c);
+          nextChildren.push(c);
         }
-        target._state = _st_stale;
+        target._state = _ST_STALE;
         break;
       }
-      case _st_stale:
-      case _st_new:
+      case _ST_STALE:
         break;
       default:
         throw Error("unrecognized state");
@@ -93,42 +120,37 @@ function _staleAll(effects, children) {
   _staleAll(effects, nextChildren);
 }
 
-export function xswap(func, node, ...args) {
-  return swap(node, func, ...args);
+export function xswap(func, sig, ...args) {
+  return swap(sig, func, ...args);
 }
 
-export function reset(node, value) {
-  return swap(node, () => value);
+export function reset(sig, value) {
+  return swap(sig, () => value);
 }
 
-export function retain(node) {
-  if (!("_count" in node)) {
+export function retain(sig) {
+  if (!("_count" in sig)) {
     return;
   }
 
-  if (node._count++ === 0) {
-    node._setup?.();
+  if (sig._count++ === 0) {
+    sig._setup?.();
   }
 }
 
-export function release(node) {
-  if (!("_count" in node)) {
+export function release(sig) {
+  if (!("_count" in sig)) {
     return;
   }
 
-  if (node._count <= 0) {
+  if (sig._count <= 0) {
     throw Error("too many release");
   }
 
-  if (--node._count === 0) {
-    node._tearDown?.();
+  if (--sig._count === 0) {
+    sig._tearDown?.();
   }
 }
-
-const _st_disabled = 0;
-const _st_fresh = 1;
-const _st_stale = 2;
-const _st_new = 3;
 
 class _Atom {
   _effectSet = new Set();
@@ -161,35 +183,31 @@ class _Focus {
   _childSet = new Set();
 
   _lens = null;
-  _depNode = null;
+  _depSig = null;
 
-  _state = _st_disabled;
-  _count = 0;
   _depValue = void 0;
   _value = void 0;
 
-  constructor(lens, node) {
+  _state = _ST_DISABLED;
+  _count = 0;
+
+  constructor(lens, sig) {
     this._lens = lens;
-    this._depNode = node;
+    this._depSig = sig;
+    this._depValue = deref(sig);
+    this._value = lens.view(this._depValue);
   }
 
   _update() {
     switch (this._state) {
-      case _st_disabled:
-        throw Error("disabled node");
-      case _st_fresh:
+      case _ST_DISABLED:
+      case _ST_FRESH:
         break;
-      case _st_stale: {
-        const dv = deref(this._depNode);
+      case _ST_STALE: {
+        const dv = deref(this._depSig);
         if (Object.is(dv, this._depValue)) {
           break;
         }
-        this._depValue = dv;
-        this._value = this._lens.view(dv);
-        break;
-      }
-      case _st_new: {
-        const dv = deref(this._depNode);
         this._depValue = dv;
         this._value = this._lens.view(dv);
         break;
@@ -198,30 +216,27 @@ class _Focus {
         throw Error("unrecognized state");
     }
 
-    this._state = _st_fresh;
+    this._state = _ST_FRESH;
   }
 
   _updateRoot(toNext, ...args) {
-    return this._depNode._updateRoot((prevDepValue) => this._lens.update(prevDepValue, (prev) => toNext(prev, ...args)));
+    return this._depSig._updateRoot((prevDepValue) => this._lens.update(prevDepValue, (prev) => toNext(prev, ...args)));
   }
 
   _setup() {
-    const { _depNode } = this;
-    this._state = _st_new;
+    const { _depSig } = this;
+    this._state = _ST_STALE;
 
-    retain(_depNode);
-    _depNode._childSet.add(this);
+    retain(_depSig);
+    _depSig._childSet.add(this);
   }
 
   _tearDown() {
-    const { _depNode } = this;
-    _depNode._childSet.delete(this);
-    release(_depNode);
+    const { _depSig } = this;
+    _depSig._childSet.delete(this);
+    release(_depSig);
 
-    this._state = _st_disabled;
-    this._count = 0;
-    this._depValue = void 0;
-    this._value = void 0;
+    this._state = _ST_DISABLED;
   }
 }
 
@@ -230,35 +245,31 @@ class _Track {
   _childSet = new Set();
 
   _func = null;
-  _depNodes = null;
+  _depSigs = null;
 
-  _state = _st_disabled;
-  _count = 0;
   _depValues = null;
   _value = void 0;
 
-  constructor(func, nodes) {
+  _state = _ST_DISABLED;
+  _count = 0;
+
+  constructor(func, sigs) {
     this._func = func;
-    this._depNodes = nodes;
+    this._depSigs = sigs;
+    this._depValues = map1(deref, sigs);
+    this._value = func(...this._depValues);
   }
 
   _update() {
     switch (this._state) {
-      case _st_disabled:
-        throw Error("disabled node");
-      case _st_fresh:
+      case _ST_DISABLED:
+      case _ST_FRESH:
         break;
-      case _st_stale: {
-        const dvs = map1(deref, this._depNodes);
+      case _ST_STALE: {
+        const dvs = map1(deref, this._depSigs);
         if (every2(Object.is, dvs, this._depValues)) {
           break;
         }
-        this._depValues = dvs;
-        this._value = this._func(...dvs);
-        break;
-      }
-      case _st_new: {
-        const dvs = map1(deref, this._depNodes);
         this._depValues = dvs;
         this._value = this._func(...dvs);
         break;
@@ -267,56 +278,54 @@ class _Track {
         throw Error("unrecognized state");
     }
 
-    this._state = _st_fresh;
+    this._state = _ST_FRESH;
   }
 
   _setup() {
-    const { _depNodes } = this;
-    this._state = _st_new;
+    const { _depSigs } = this;
+    this._state = _ST_STALE;
 
     forEach1((d) => {
       retain(d);
       d._childSet.add(this);
-    }, _depNodes);
+    }, _depSigs);
   }
 
   _tearDown() {
-    const { _depNodes } = this;
+    const { _depSigs } = this;
     forEach1((d) => {
       d._childSet.delete(this);
       release(d);
-    }, _depNodes);
+    }, _depSigs);
 
-    this._state = _st_disabled;
-    this._count = 0;
-    this._depValues = null;
-    this._value = void 0;
+    this._state = _ST_DISABLED;
   }
 }
 
 class _Effect {
   _proc = null;
-  _depNodes = null;
+  _depSigs = null;
 
-  _state = _st_disabled;
-  _count = 0;
   _depValues = null;
   _cleanup = null;
 
-  constructor(proc, nodes) {
+  _state = _ST_DISABLED;
+  _count = 0;
+
+  constructor(proc, sigs) {
     this._proc = proc;
-    this._depNodes = nodes;
+    this._depSigs = sigs;
   }
 
   _invoke() {
     switch (this._state) {
-      case _st_disabled:
-        throw Error("disabled node");
-      case _st_fresh:
+      case _ST_DISABLED:
+      case _ST_FRESH:
         break;
-      case _st_stale: {
-        const dvs = map1(deref, this._depNodes);
-        if (every2(Object.is, dvs, this._depValues)) {
+      case _ST_STALE: {
+        const { _depValues } = this;
+        const dvs = map1(deref, this._depSigs);
+        if (_depValues != null && every2(Object.is, dvs, _depValues)) {
           break;
         }
         if (typeof this._cleanup === "function") {
@@ -326,44 +335,36 @@ class _Effect {
         this._cleanup = this._proc(...dvs);
         break;
       }
-      case _st_new: {
-        const dvs = map1(deref, this._depNodes);
-        this._depValues = dvs;
-        this._cleanup = this._proc(...dvs);
-        break;
-      }
       default:
         throw Error("unrecognized state");
     }
 
-    this._state = _st_fresh;
+    this._state = _ST_FRESH;
   }
 
   _setup() {
-    const { _depNodes } = this;
+    const { _depSigs } = this;
 
     forEach1((d) => {
       retain(d);
       d._effectSet.add(this);
-    }, _depNodes);
+    }, _depSigs);
 
-    this._state = _st_new;
+    this._state = _ST_STALE;
     this._invoke();
   }
 
   _tearDown() {
-    const { _depNodes } = this;
+    const { _depSigs } = this;
 
     this._cleanup?.();
-    this._state = _st_disabled;
-    this._count = 0;
+    this._state = _ST_DISABLED;
     this._depValues = null;
     this._cleanup = null;
 
     forEach1((d) => {
       d._effectSet.delete(this);
       release(d);
-    }, _depNodes);
-
+    }, _depSigs);
   }
 }
