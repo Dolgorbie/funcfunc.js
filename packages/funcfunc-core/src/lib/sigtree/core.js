@@ -122,7 +122,12 @@ export function retain(sig) {
   }
 
   if (sig._count++ === 0) {
-    sig._setup?.();
+    try {
+      sig._setup?.();
+    } catch (error) {
+      sig._count -= 1;
+      throw error;
+    }
   }
 }
 
@@ -198,8 +203,8 @@ class _Focus {
         if (Object.is(dv, this._depValue)) {
           break;
         }
-        this._depValue = dv;
         this._value = this._lens.view(dv);
+        this._depValue = dv;
         break;
       }
       default:
@@ -264,8 +269,8 @@ class _Track {
         if (every2(Object.is, dvs, this._depValues)) {
           break;
         }
-        this._depValues = dvs;
         this._value = this._func(...dvs);
+        this._depValues = dvs;
         break;
       }
       default:
@@ -324,11 +329,13 @@ class _Effect {
         if (_depValues != null && every2(Object.is, dvs, _depValues)) {
           break;
         }
-        if (typeof this._cleanup === "function") {
-          this._cleanup();
+        const { _cleanup } = this;
+        this._cleanup = null;
+        if (typeof _cleanup === "function") {
+          _cleanup();
         }
-        this._depValues = dvs;
         this._cleanup = this._proc(...dvs);
+        this._depValues = dvs;
         break;
       }
       default:
