@@ -334,8 +334,8 @@ class _Effect {
         if (typeof _cleanup === "function") {
           _cleanup();
         }
-        this._cleanup = this._proc(...dvs);
         this._depValues = dvs;
+        this._cleanup = this._proc(...dvs);
         break;
       }
       default:
