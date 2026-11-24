@@ -347,18 +347,27 @@ class _Effect {
     }, this._depSigs);
 
     this._state = _ST_STALE;
-    this._invoke();
+
+    try {
+      this._invoke();
+    } catch (error) {
+      this._tearDown();
+      throw error;
+    }
   }
 
   _tearDown() {
-    this._cleanup?.();
-    this._state = _ST_DISABLED;
-    this._depValues = null;
-    this._cleanup = null;
+    try {
+      this._cleanup?.();
+    } finally {
+      this._state = _ST_DISABLED;
+      this._depValues = null;
+      this._cleanup = null;
 
-    forEach1((d) => {
-      d._effectSet.delete(this);
-      release(d);
-    }, this._depSigs);
+      forEach1((d) => {
+        d._effectSet.delete(this);
+        release(d);
+      }, this._depSigs);
+    }
   }
 }
