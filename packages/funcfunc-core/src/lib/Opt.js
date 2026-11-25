@@ -1,16 +1,14 @@
 import { isPlainObject } from "./asfunc";
-import { isFailed, nothing } from "./failable";
-import { map1, reduce2, repeat } from "./sequence/array-utils";
+import { fail, isFailed, nothing } from "./failable";
+import { map1, reduce2 } from "./sequence/array-utils";
 import { gmap1 } from "./sequence/iterator-utils";
 
 export class OptBase {
   view(_target) {
-    void _target;
     throw Error("not implemented");
   }
 
-  update(_target, _next) {
-    void _target, _next;
+  put(_target, _next) {
     throw Error("not implemented");
   }
 
@@ -22,8 +20,8 @@ export class OptBase {
     return pathOpt([this, key0, ...keys]);
   }
 
-  merge(others) {
-    return chainOpt([this, mergeOpt(others)]);
+  multi(others) {
+    return chainOpt([this, multiOpt(others)]);
   }
 }
 
@@ -35,7 +33,7 @@ export class BasicOptBase extends OptBase {
     return this._viewImpl(target);
   }
 
-  update(target, next) {
+  put(target, next) {
     if (isFailed(target)) {
       if (isFailed(next)) {
         return target;
@@ -51,26 +49,22 @@ export class BasicOptBase extends OptBase {
     if (isFailed(next)) {
       return this._remove(target);
     }
-    return this._updateImpl(target, next);
+    return this._putImpl(target, next);
   }
 
   _viewImpl(_target) {
-    void _target;
     throw Error("not implemented");
   }
 
-  _updateImpl(_target, _next) {
-    void _target, _next;
+  _putImpl(_target, _next) {
     throw Error("not implemented");
   }
 
   _create(_next) {
-    void _next;
     throw Error("not implemented");
   }
 
   _remove(_target) {
-    void _target;
     throw Error("not implemented");
   }
 }
@@ -83,7 +77,7 @@ class _ObjOpt extends BasicOptBase {
 
   _viewImpl(target) {
     if (!isPlainObject(target)) {
-      throw TypeError("target is not a plain object");
+      return fail(TypeError("target is not a plain object"));
     }
 
     const { _key } = this;
@@ -95,7 +89,10 @@ class _ObjOpt extends BasicOptBase {
     return target[_key];
   }
 
-  _updateImpl(target, next) {
+  _putImpl(target, next) {
+    if (!isPlainObject(target)) {
+      return this._create(next);
+    }
     return { ...target, [this._key]: next };
   }
 
@@ -104,8 +101,11 @@ class _ObjOpt extends BasicOptBase {
   }
 
   _remove(target) {
+    if (!isPlainObject(target)) {
+      return target;
+    }
+
     const { [this._key]: _, ...result } = target;
-    void _
     return result;
   }
 }
@@ -118,55 +118,58 @@ class _ArrOpt extends BasicOptBase {
 
   _viewImpl(target) {
     if (!Array.isArray(target)) {
-      throw TypeError("target is not an array");
+      return fail(TypeError("target is not an array"));
     }
 
     const { length } = target;
     const { _index } = this;
-    if (_index < 0 && _index < -length) {
-      throw RangeError(`length of target requires larger than ${-_index - 1}`);
-    }
-    if (_index >= 0 && _index >= length) {
-      throw RangeError(`length of target requires larger than ${_index}`);
+
+    if (length <= _index) {
+      return fail(RangeError(`length of array requires larger than ${_index + 1}`));
     }
 
-    const i = _index < 0 ? _index + length : _index;
-    if (!Object.hasOwn(target, i)) {
+    if (!Object.hasOwn(target, _index)) {
       return nothing();
     }
 
-    return target[i];
+    return target[_index];
   }
 
-  _updateImpl(target, next) {
-    const { length } = target;
-    const { _index } = this;
-    const i = _index < 0 ? _index + length : _index;
-    const result = target.slice();
-    result[i] = next;
-    return result;
-  }
-
-  _create(next) {
-    const { _index } = this;
-
-    if (_index < 0) {
-      const result = new Array(-_index);
-      result[0] = next;
-      return result;
+  _putImpl(target, next) {
+    if (!Array.isArray(target)) {
+      throw TypeError("target requires an array");
     }
 
-    const result = new Array(_index + 1);
+    const { length } = target;
+    const { _index } = this;
+
+    if (length <= _index) {
+      throw RangeError(`length of array requires larger than ${_index + 1}`);
+    }
+
+    const result = target.slice();
     result[_index] = next;
     return result;
   }
 
+  _create(_next) {
+    throw Error("arrOpt cannot create a new array instance");
+  }
+
   _remove(target) {
+    if (!Array.isArray(target)) {
+      throw TypeError("target requires an array");
+    }
+
     const { length } = target;
     const { _index } = this;
-    const i = _index < 0 ? _index + length : _index;
+
+    if (length <= _index) {
+      throw RangeError(`length of array requires larger than ${_index + 1}`);
+    }
+
     const result = target.slice();
-    delete result[i];
+    delete result[_index];
     return result;
   }
 }
@@ -188,31 +191,22 @@ class _ChainOpt extends OptBase {
     return result;
   }
 
-  update(target, next) {
+  put(target, next) {
     const { _opts } = this;
     const { length } = _opts;
-    const tmp = repeat(length, nothing());
-
-    tmp[0] = target;
-    for (let i = 0; i < length - 1; ++i) {
-      const t = tmp[i];
-      if (isFailed(t)) {
-        break;
-      }
-
-      tmp[i + 1] = _opts[i].view(t);
-    }
-
-    let result = next;
-    for (let i = length - 1; i >= 0; --i) {
-      result = _opts[i].update(tmp[i], result);
-    }
-
-    return result;
+    return _chainPut(_opts, length, next, target, 0);
   }
 }
 
-class _MergeOpt extends OptBase {
+function _chainPut(opts, length, next, target, i) {
+  if (i === length) {
+    return next;
+  }
+  const optI = opts[i];
+  return optI.put(target, _chainPut(opts, length, next, optI.view(target), i + 1));
+}
+
+class _MultiOpt extends OptBase {
   constructor(opts) {
     super();
     this._opts = [...opts];
@@ -226,14 +220,21 @@ class _MergeOpt extends OptBase {
     return map1((opt) => opt.view(target), this._opts);
   }
 
-  update(target, next) {
+  put(target, next) {
     if (isFailed(target)) {
       if (isFailed(next)) {
         return next;
       }
       throw TypeError("next requires an array if target is not a failure");
     }
-    return reduce2((acc, opt, next) => opt.update(acc, next), target, this._opts, next);
+
+    const { _opts } = this;
+
+    if (next.length !== _opts.length) {
+      throw RangeError(`length of next array requires ${_opts.length}`);
+    }
+
+    return reduce2((acc, opt, next) => opt.put(acc, next), target, this._opts, next);
   }
 }
 
@@ -262,8 +263,8 @@ export function pathOpt(keys) {
   }, keys));
 }
 
-export function mergeOpt(opts) {
-  return new _MergeOpt(opts);
+export function multiOpt(opts) {
+  return new _MultiOpt(opts);
 }
 
 export function view(opt, target) {
@@ -274,18 +275,18 @@ export function xview(target, opt) {
   return opt.view(target);
 }
 
-export function update(opt, target, value) {
-  return opt.update(target, value);
+export function put(opt, target, value) {
+  return opt.put(target, value);
 }
 
-export function xupdate(target, opt, value) {
-  return opt.update(target, value);
+export function xput(target, opt, value) {
+  return opt.put(target, value);
 }
 
 export function over(opt, target, func) {
-  return opt.update(target, func(opt.view(target)));
+  return opt.put(target, func(opt.view(target)));
 }
 
 export function xover(target, opt, func) {
-  return opt.update(target, func(opt.view(target)));
+  return opt.put(target, func(opt.view(target)));
 }
