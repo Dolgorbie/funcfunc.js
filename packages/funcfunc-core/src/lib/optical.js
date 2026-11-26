@@ -73,6 +73,18 @@ export class BasicOptBase extends OptBase {
   }
 }
 
+class _IdOpt extends OptBase {
+  static _SINGLETON = new _IdOpt();
+
+  view(target) {
+    return target;
+  }
+
+  put(_target, next) {
+    return next;
+  }
+}
+
 class _ObjOpt extends BasicOptBase {
   constructor(key) {
     super();
@@ -231,7 +243,15 @@ export function isOpt(x) {
 }
 
 export function chainOpt(opts) {
-  return new _ChainOpt(opts);
+  opts = [...opts];
+  switch (opts.length) {
+    case 0:
+      return _IdOpt._SINGLETON;
+    case 1:
+      return opts[0];
+    default:
+      return new _ChainOpt(opts);
+  }
 }
 
 export function pathOpt(keys) {
