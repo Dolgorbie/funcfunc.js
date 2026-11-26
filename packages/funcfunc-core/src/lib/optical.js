@@ -8,8 +8,12 @@ export class OptBase {
     throw Error("not implemented");
   }
 
-  put(_target, _next) {
-    throw Error("not implemented");
+  put(target, next) {
+    return this.over(target, () => next);
+  }
+
+  over(target, func) {
+    return this.put(target, func(this.view(target)));
   }
 
   chain(other0, ...others) {
@@ -176,19 +180,18 @@ class _ChainOpt extends OptBase {
     return result;
   }
 
-  put(target, next) {
+  over(target, func) {
     const { _opts } = this;
     const { length } = _opts;
-    return _chainPut(_opts, length, next, target, 0);
+    return _chainOver(_opts, length, func, target, 0);
   }
 }
 
-function _chainPut(opts, length, next, target, i) {
+function _chainOver(opts, length, func, target, i) {
   if (i === length) {
-    return next;
+    return func(target);
   }
-  const optI = opts[i];
-  return optI.put(target, _chainPut(opts, length, next, optI.view(target), i + 1));
+  return opts[i].over(target, (value) => _chainOver(opts, length, func, value, i + 1));
 }
 
 class _MultiOpt extends OptBase {
@@ -235,6 +238,12 @@ export function pathOpt(keys) {
   return chainOpt(gmap1((k) => {
     switch (typeof k) {
       case "number":
+        if (!Number.isSafeInteger(k)) {
+          throw RangeError("key is not a safe integer");
+        }
+        if (k < 0) {
+          throw RangeError("key is negative integer");
+        }
         return new _ArrOpt(k);
       case "string":
       case "symbol":
@@ -269,9 +278,9 @@ export function xput(target, opt, value) {
 }
 
 export function over(opt, target, func) {
-  return opt.put(target, func(opt.view(target)));
+  return opt.over(target, func);
 }
 
 export function xover(target, opt, func) {
-  return opt.put(target, func(opt.view(target)));
+  return opt.over(target, func);
 }
