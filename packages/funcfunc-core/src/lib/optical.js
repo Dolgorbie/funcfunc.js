@@ -37,8 +37,9 @@ export class BasicOptBase extends OptBase {
     return this._viewImpl(target);
   }
 
-  put(target, next) {
+  over(target, func) {
     if (isFailed(target)) {
+      const next = func(target);
       if (isFailed(next)) {
         return target;
       }
@@ -46,6 +47,7 @@ export class BasicOptBase extends OptBase {
     }
 
     const prev = this._viewImpl(target);
+    const next = func(prev);
     if (Object.is(prev, next)) {
       return target;
     }
