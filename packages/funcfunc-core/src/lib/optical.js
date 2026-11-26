@@ -81,7 +81,6 @@ class _ObjOpt extends BasicOptBase {
     }
 
     const { _key } = this;
-
     if (!Object.hasOwn(target, _key)) {
       return nothing();
     }
@@ -121,13 +120,7 @@ class _ArrOpt extends BasicOptBase {
       return fail(TypeError("target is not an array"));
     }
 
-    const { length } = target;
     const { _index } = this;
-
-    if (length <= _index) {
-      return fail(RangeError(`length of array requires larger than ${_index + 1}`));
-    }
-
     if (!Object.hasOwn(target, _index)) {
       return nothing();
     }
@@ -137,39 +130,31 @@ class _ArrOpt extends BasicOptBase {
 
   _putImpl(target, next) {
     if (!Array.isArray(target)) {
-      throw TypeError("target requires an array");
-    }
-
-    const { length } = target;
-    const { _index } = this;
-
-    if (length <= _index) {
-      throw RangeError(`length of array requires larger than ${_index + 1}`);
+      return this._create(next);
     }
 
     const result = target.slice();
-    result[_index] = next;
+    result[this._index] = next;
     return result;
   }
 
-  _create(_next) {
-    throw Error("arrOpt cannot create a new array instance");
+  _create(next) {
+    const result = [];
+    result[this._index] = next;
+    return result;
   }
 
   _remove(target) {
     if (!Array.isArray(target)) {
-      throw TypeError("target requires an array");
+      return target;
     }
 
-    const { length } = target;
-    const { _index } = this;
-
-    if (length <= _index) {
-      throw RangeError(`length of array requires larger than ${_index + 1}`);
+    if (target.length === this._index + 1) {
+      return target.slice(0, -1);
     }
 
     const result = target.slice();
-    delete result[_index];
+    delete result[this._index];
     return result;
   }
 }
@@ -223,15 +208,15 @@ class _MultiOpt extends OptBase {
   put(target, next) {
     if (isFailed(target)) {
       if (isFailed(next)) {
-        return next;
+        return target;
       }
-      throw TypeError("next requires an array if target is not a failure");
+      throw TypeError("both target and next are failures");
     }
 
     const { _opts } = this;
 
     if (next.length !== _opts.length) {
-      throw RangeError(`length of next array requires ${_opts.length}`);
+      throw RangeError("length of next array and opts are not same number");
     }
 
     return reduce2((acc, opt, next) => opt.put(acc, next), target, this._opts, next);
