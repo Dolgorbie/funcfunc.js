@@ -275,7 +275,7 @@ export function chainOpt(opts) {
       if (!isOpt(opt)) {
         throw TypeError("not an opt");
       }
-      return opt instanceof _ChainOpt ? opt._opts : opt;
+      return opt instanceof _ChainOpt ? opt._opts : [opt];
     }, opts)
   ];
 
