@@ -9,7 +9,6 @@ export * as ClassnamesTransformers from "./lib/classnames/transformers";
 export * as Core from "./lib/core";
 export * as Delay from "./lib/delay";
 export * as Delegate from "./lib/delegate";
-export * as Dotn from "./lib/dotn";
 export * as Failable from "./lib/failable";
 export * as Format from "./lib/format";
 export * as Multi from "./lib/multi/multi";

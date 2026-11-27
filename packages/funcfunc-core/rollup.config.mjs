@@ -4,7 +4,7 @@ import { extname, join, relative, } from "node:path";
 import { defineConfig } from "rollup";
 
 const libbasedir = join(import.meta.dirname, "/src/lib");
-const libfiles = globSync(join(libbasedir, "/**/*.js"));
+const libfiles = globSync(join(libbasedir, "/**/*.js"), { exclude: ["/**/*.test.js"] });
 const libentries = Object.fromEntries(
   libfiles.map((path) => [
     relative(libbasedir, path.substring(0, path.length - extname(path).length)),

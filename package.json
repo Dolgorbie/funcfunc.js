@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "build": "npm run build -w packages/funcfunc-core & npm run build -w packages/funcfunc-react",
+    "clean": "npm run clean -w packages/funcfunc-core & npm run clean -w packages/funcfunc-react",
+    "clean-build": "npm run clean & npm run build",
     "dev": "npm run dev -w packages/examples/ai-client",
     "test-core": "npm run test -w packages/funcfunc-core"
   },

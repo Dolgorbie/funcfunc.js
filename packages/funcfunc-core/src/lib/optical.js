@@ -1,7 +1,7 @@
 import { isPlainObject } from "./asfunc";
 import { fail, isFailed, nothing } from "./failable";
 import { map1, reduce2 } from "./sequence/array-utils";
-import { gmap1 } from "./sequence/iterator-utils";
+import { gflatMap1, gmap1 } from "./sequence/iterator-utils";
 
 export class OptBase {
   view(_target) {
@@ -35,6 +35,25 @@ export class BasicOptBase extends OptBase {
       return target;
     }
     return this._viewImpl(target);
+  }
+
+  put(target, next) {
+    if (isFailed(target)) {
+      if (isFailed(next)) {
+        return target;
+      }
+      return this._create(next);
+    }
+
+    const prev = this._viewImpl(target);
+    if (Object.is(prev, next)) {
+      return target;
+    }
+
+    if (isFailed(next)) {
+      return this._remove(target);
+    }
+    return this._putImpl(target, next);
   }
 
   over(target, func) {
@@ -84,6 +103,10 @@ class _IdOpt extends OptBase {
 
   put(_target, next) {
     return next;
+  }
+
+  over(target, func) {
+    return func(target);
   }
 }
 
@@ -167,12 +190,14 @@ class _ArrOpt extends BasicOptBase {
       return target;
     }
 
-    if (target.length === this._index + 1) {
-      return target.slice(0, -1);
-    }
-
     const result = target.slice();
     delete result[this._index];
+    for (let i = result.length - 1; i >= 0; --i) {
+      if (Object.hasOwn(result, i)) {
+        break;
+      }
+      result.length -= 1;
+    }
     return result;
   }
 }
@@ -180,7 +205,7 @@ class _ArrOpt extends BasicOptBase {
 class _ChainOpt extends OptBase {
   constructor(opts) {
     super();
-    this._opts = [...opts];
+    this._opts = opts;
   }
 
   view(target) {
@@ -245,7 +270,15 @@ export function isOpt(x) {
 }
 
 export function chainOpt(opts) {
-  opts = [...opts];
+  opts = [
+    ...gflatMap1((opt) => {
+      if (!isOpt(opt)) {
+        throw TypeError("not an opt");
+      }
+      return opt instanceof _ChainOpt ? opt._opts : opt;
+    }, opts)
+  ];
+
   switch (opts.length) {
     case 0:
       return _IdOpt._SINGLETON;
